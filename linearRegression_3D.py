@@ -164,10 +164,6 @@ class VectorMapping():
         
         # Condition to set layer size 
         self.vector = vector
-        if(self.vector == "z"):
-            self.datasize = 16384
-        elif(self.vector == "c"):
-            self.datasize = 78848
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -200,14 +196,7 @@ class VectorMapping():
         #     }
         # )
 
-    def get_slices(self):
-
-        # True and False values
-        # True value means it's a region of interest
-        # False value means it's not a region of interest
-        voxel_mask = self.voxel_data_dict['voxel_mask']["1"]
-        voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
-        print(np.count_nonzero(voxel_mask_reshape))
+    def get_slices(self, voxel_mask_reshape):
 
         single_beta = self.nsda.read_betas(subject='subj01', 
                                         session_index=1, 
@@ -218,28 +207,48 @@ class VectorMapping():
         roi_beta = np.where((voxel_mask_reshape), single_beta, 0)
 
         # print("Check")
-        # print(np.count_nonzero(roi_beta))
+        print(np.count_nonzero(roi_beta))
 
         slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(roi_beta))
+        
+        trimmed = roi_beta[slices]
+        print(np.count_nonzero(trimmed))
 
         return slices
 
 
     def load_data_3D(self, only_test=False):
+        
+        # 750 trails per session 
+        # 40 sessions per subject
 
         # initialize some empty tensors to allocate memory
-        y_train = torch.empty((25500, self.datasize))
-        y_test  = torch.empty((750, self.datasize))
+        
+        if(self.vector == "c"):
+            y_train = torch.empty((25500, 77, 1024))
+            y_test  = torch.empty((2550, 77, 1024))
+        elif(self.vector == "z"):
+            y_train = torch.empty((25500, 4, 64, 64))
+            y_test  = torch.empty((2550, 4, 64, 64))
+        
+        
+        # 34 * 750 = 25500
         x_train = torch.empty((25500, 42, 22, 27))
-        x_test  = torch.empty((750, 42, 22, 27))
+        
+        # 3 * 750 = 2250
+        x_test  = torch.empty((2250, 42, 22, 27))
+        
+        voxel_mask = self.voxel_data_dict['voxel_mask']["1"]
+        voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
+        print(np.count_nonzero(voxel_mask_reshape))
 
-        slices = self.get_slices()
+        slices = self.get_slices(voxel_mask_reshape)
 
 
         # Checks if we are only loading the test data so we don't have to load all the training betas
         if(not only_test):
         # train_betas = []
-            for i in range(1,40):
+            for i in range(1,35):
                 # Loads the full collection of beta sessions for subject 1
                 beta = self.nsda.read_betas(subject='subj01', 
                                     session_index=i, 
@@ -248,35 +257,50 @@ class VectorMapping():
                                     data_format='func1pt8mm')
 
 
-                beta = np.moveaxis(beta, -1, 0)
-                beta_trimmed = beta[slices] 
-                # print(np.count_nonzero(roi_beta_trimmed))
-                # print(roi_beta_trimmed.shape)
+                roi_beta = np.where((voxel_mask_reshape), beta, 0)
+
+                beta_trimmed = roi_beta[slices] 
+                # print("HEre")
+                # print(np.count_nonzero(beta_trimmed))
+                # print(beta_trimmed.shape)
+                beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
                 # print(roi_beta_trimmed)
 
                 x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta_trimmed)
-
-        # Loads the test beta and puts it into a tensor
-        test_betas = self.nsda.read_betas(subject='subj01', 
-                                    session_index=40, 
-                                    trial_index=[], # empty list as index means get all for this session
-                                    data_type='betas_fithrf_GLMdenoise_RR',
-                                    data_format='func1pt8mm')
-        test_betas = np.moveaxis(test_betas, -1, 0)
-        test_beta_trimmed = test_betas[slices]
-        x_test = torch.from_numpy(test_beta_trimmed)
+        
+        for i in range(35,38):
+            
+            print(i)
+            # ****** Possible one off error *******
+            
+            # Loads the test betas and puts it into a tensor
+            test_betas = self.nsda.read_betas(subject='subj01', 
+                                        session_index=i, 
+                                        trial_index=[], # empty list as index means get all for this session
+                                        data_type='betas_fithrf_GLMdenoise_RR',
+                                        data_format='func1pt8mm')
+            
+            roi_beta = np.where((voxel_mask_reshape), test_betas, 0)
+            
+            beta_trimmed = roi_beta[slices] 
+                # print("HEre")
+                # print(np.count_nonzero(beta_trimmed))
+                # print(beta_trimmed.shape)
+            beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
+            
+            x_test = torch.from_numpy(beta_trimmed)
 
         # Loading the description object for subejct1
         subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
 
         for i in tqdm(range(0,25500), desc="train loader"):
-            #flexible to both Z and C tensors depending on class configuration
+            # Flexible to both Z and C tensors depending on class configuration
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
-            y_train[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), (1, self.datasize))
+            y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
 
         for i in tqdm(range(0,2250), desc="test loader"):
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
-            y_test[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), (1, self.datasize))
+            y_test[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
 
         return x_train, x_test, y_train, y_test
             
@@ -369,17 +393,16 @@ class VectorMapping():
     
     # Loads the data and puts it into a DataLoader
     def get_data(self):
-        #x, x_test, y, y_test = 
-        self.load_data_3D()
+        x, x_test, y, y_test = self.load_data_3D()
         
-        # # Loads the raw tensors into a Dataset object
-        # trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
-        # testset = torch.utils.data.TensorDataset(x_test, y_test) #.type(torch.LongTensor)
+        # Loads the raw tensors into a Dataset object
+        trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
+        testset = torch.utils.data.TensorDataset(x_test, y_test) #.type(torch.LongTensor)
         
-        # # Loads the Dataset into a DataLoader
-        # trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
-        # testloader = torch.utils.data.DataLoader(testset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
-        # return trainloader, testloader
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
+        return trainloader, testloader
 
     # def train(self, trainLoader, testLoader):
     #     # If a previously trained model exists, load the best loss as the saved best model
