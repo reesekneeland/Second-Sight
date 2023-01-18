@@ -17,7 +17,7 @@ from file_utility import *
 import wandb
 import copy
 from tqdm import tqdm
-from reconstruct import reconstruct
+from encoder import Encoder
 
 
 # Environments:
@@ -604,10 +604,11 @@ def main():
     # print(cosSim(torch.randn_like(out), y0))
     # torch.save(out, "output_" + vector + ".pt")
     # torch.save(y0, "target_" + vector + ".pt")
-    
+    E = Encoder()
     z = torch.load("target_z.pt")
     c = torch.load("target_c.pt")
-    img = reconstruct(z, c, 0.99999999)
+    img = E.reconstruct(z, c, 0.99999999)
+    img2 = E.reconstruct(z, c, 0.9999999)
     print("reconstructed", img)
 
 if __name__ == "__main__":
