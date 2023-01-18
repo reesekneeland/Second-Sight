@@ -17,6 +17,7 @@ from file_utility import *
 import wandb
 import copy
 from tqdm import tqdm
+from reconstruct import reconstruct
 
 
 # Environments:
@@ -191,7 +192,7 @@ class VectorMapping():
         self.batch_size = 1024
         self.num_epochs = 75
         self.num_workers = 16
-        self.log = True
+        self.log = False
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -563,30 +564,35 @@ class VectorMapping():
             self.model.load_state_dict(torch.load("token_space_models/model_c_" + str(m) + ".pt"))
 
     #reassemble an output c vector from the individual component models
-    def predict_c_seperate(self, testLoader):
+    def predict_c_seperate(self, testLoader_arr):
         models = []
-        for i in range(77):
+        for i in tqdm(range(77), desc="loading models"):
             models.append(LinearRegression_c_seperate(self.vector))
             models[i].load_state_dict(torch.load("token_space_models/model_c_" + str(i) + ".pt"))
             models[i].to(self.device)
-        train, test = self.get_data_c_seperate()
-        x, y = next(iter(testLoader))
-        x0 = x[2].to(self.device)
-        y0 = y[2].to(self.device)
+        x0, y0 = [], []
+        for i in tqdm(range(77), desc="loading data"):
+            x, y = next(iter(testLoader_arr[i]))
+            x0.append(x[2].to(self.device))
+            y0.append(y[2].to(self.device))
+        
         out = torch.zeros(1, 77, 1024)
-        for i in range(x.shape[0]):
+        target = torch.zeros(1, 77, 1024)
+        for i in tqdm(range(len(x0)), desc="predicting"):
             out[:,i] = models[i](x0[i])
+            target[:,i] = y0[i]
         torch.save(out, "output_c_seperate_" + self.vector + ".pt")
         torch.save(y0, "target_c_seperate_" + self.vector + ".pt")
         
 
 
 def main():
-    vector = "c"
-    VM = VectorMapping(vector)
-    VM.model.to(VM.device)
-    train, test = VM.get_data_c_seperate()
-    VM.train_c_seperate(train, test)
+    # vector = "c"
+    # VM = VectorMapping(vector)
+    # VM.model.to(VM.device)
+    # train, test = VM.get_data_c_seperate()
+    # VM.predict_c_seperate(test)
+    # VM.train_c_seperate(train, test)
     # VM.model.load_state_dict(torch.load("model_" + vector + ".pt"))
     # VM.model.eval()
     # x, y = next(iter(test))
@@ -598,6 +604,11 @@ def main():
     # print(cosSim(torch.randn_like(out), y0))
     # torch.save(out, "output_" + vector + ".pt")
     # torch.save(y0, "target_" + vector + ".pt")
+    
+    z = torch.load("target_z.pt")
+    c = torch.load("target_c.pt")
+    img = reconstruct(z, c, 0.99999999)
+    print("reconstructed", img)
 
 if __name__ == "__main__":
     main()
