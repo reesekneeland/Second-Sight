@@ -1,5 +1,3 @@
-"""make variations of input image"""
-
 import argparse, os, sys
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import PIL
@@ -19,6 +17,7 @@ from imwatermark import WatermarkEncoder
 
 from stablediffusion.ldm.util import instantiate_from_config
 from stablediffusion.ldm.models.diffusion.ddim import DDIMSampler
+
 class Encoder():
     def __init__(self):
         seed_everything(42)
@@ -54,7 +53,8 @@ class Encoder():
         return model
 
 
-
+    # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
+    # strength parameter controls the weighting between the two tensors
     def reconstruct(self, z, c, strength=0.8):
         init_latent = z.reshape((1,4,64,64)).to(self.device)
         self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
@@ -67,26 +67,21 @@ class Encoder():
         with torch.no_grad():
             with precision_scope("cuda"):
                 with self.model.ema_scope():
-                    all_samples = list()
-                    for n in trange(1, desc="Sampling"):
-                            uc = None
-                            if self.scale != 1.0:
-                                uc = self.model.get_learned_conditioning(1 * [""])
-                            c = c.reshape((1,77,1024)).to(self.device)
-                        
-                            z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc] * 1).to(self.device))
-                            # decode it
-                            samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
-                                                    unconditional_conditioning=uc, )
+                    uc = None
+                    if self.scale != 1.0:
+                        uc = self.model.get_learned_conditioning(1 * [""])
+                    c = c.reshape((1,77,1024)).to(self.device)
+                    z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc] * 1).to(self.device))
+                    samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
+                                            unconditional_conditioning=uc, )
 
-                            x_sample = self.model.decode_first_stage(samples)
-                            x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
+                    x_sample = self.model.decode_first_stage(samples)
+                    x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
 
-                            x_sample = 255. * rearrange(x_sample[0].cpu().numpy(), 'c h w -> h w c')
-                            img = Image.fromarray(x_sample.astype(np.uint8))
-                            img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
-                            self.base_count += 1
-        print(f"Your samples are ready and waiting for you here: \n{self.outpath} \nEnjoy.")
+                    x_sample = 255. * rearrange(x_sample[0].cpu().numpy(), 'c h w -> h w c')
+                    img = Image.fromarray(x_sample.astype(np.uint8))
+                    img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
+                    self.base_count += 1
         return img
 
     if __name__ == "__main__":
