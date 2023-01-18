@@ -134,13 +134,13 @@ class Linear5Layer(torch.nn.Module):
         super(Linear5Layer, self).__init__()
         # Checking if our model is to map the C or the Z vector, and we set output size accordingly
         if(vector == "c"):
-            self.linear1 = nn.Linear(4627, 10000)
+            self.linear1 = nn.Linear(24948, 10000)
             self.linear2 = nn.Linear(10000, 10000)
             self.linear3 = nn.Linear(10000, 10000)
             self.linear4 = nn.Linear(10000, 10000)
             self.linear5 = nn.Linear(10000, 78848)
         elif(vector == "z"):
-            self.linear1 = nn.Linear(4627, 10000)
+            self.linear1 = nn.Linear(24948, 10000)
             self.linear2 = nn.Linear(10000, 10000)
             self.linear3 = nn.Linear(10000, 10000)
             self.linear4 = nn.Linear(10000, 10000)
@@ -185,14 +185,14 @@ class VectorMapping():
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
-        self.model = LinearRegression_c_seperate(self.vector)
+        self.model = Linear5Layer(self.vector)
         
         # Set the parameters for pytorch model training
         self.lr = 0.0000015
         self.batch_size = 1024
         self.num_epochs = 75
         self.num_workers = 16
-        self.log = False
+        self.log = True
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -216,56 +216,96 @@ class VectorMapping():
                 }
             )
 
-    # DEPRECATED
-    # Loads the entire 699,192 size beta scan into memory so we can train on it
-    def load_data_whole(self, only_test=False):
-        # initialize some empty tensors to allocate memory
-        y_train = torch.empty((29250, 16384))
-        y_test = torch.empty((750, 16384))
-        x_train = torch.empty((29250, 699192))
-        x_test = torch.empty((750, 699192))
+    def get_slices(self, voxel_mask_reshape):
+
+        single_beta = self.nsda.read_betas(subject='subj01', 
+                                        session_index=1, 
+                                        trial_index=[0], # Empty list as index means get all for this session
+                                        data_type='betas_fithrf_GLMdenoise_RR',
+                                        data_format='func1pt8mm')
+        roi_beta = np.where((voxel_mask_reshape), single_beta, 0)
+
+        slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(roi_beta))
+        return slices
+
+
+    def load_data_3D(self, only_test=False):
         
-        #Checks if we are only loading the test data so we don't have to load all the training betas
+        # 750 trails per session 
+        # 40 sessions per subject
+        # initialize some empty tensors to allocate memory
+        
+        if(self.vector == "c"):
+            y_train = torch.empty((25500, 77, 1024))
+            y_test  = torch.empty((2550, 77, 1024))
+        elif(self.vector == "z"):
+            y_train = torch.empty((25500, 4, 64, 64))
+            y_test  = torch.empty((2550, 4, 64, 64))
+        
+        
+        # 34 * 750 = 25500
+        x_train = torch.empty((25500, 42, 22, 27))
+        # 3 * 750 = 2250
+        x_test  = torch.empty((2250, 42, 22, 27))
+        
+        #grabbing voxel mask for subject 1
+        voxel_mask = self.voxel_data_dict['voxel_mask']["1"]
+        voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
+
+        slices = self.get_slices(voxel_mask_reshape)
+
+
+        # Checks if we are only loading the test data so we don't have to load all the training betas
         if(not only_test):
-        # train_betas = []
-            for i in range(1,40):
-                #loads the full collection of beta sessions for subject 1
+            # Loads the full collection of beta sessions for subject 1
+            for i in tqdm(range(1,35), desc="Loading Training Voxels"):
                 beta = self.nsda.read_betas(subject='subj01', 
                                     session_index=i, 
-                                    trial_index=[], # empty list as index means get all for this session
+                                    trial_index=[], # Empty list as index means get all 750 scans for this session
                                     data_type='betas_fithrf_GLMdenoise_RR',
                                     data_format='func1pt8mm')
-                beta = np.moveaxis(beta, -1, 0)
-                x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta.reshape(750, 699192))
-                print(i)
 
-        # Loads the test beta and puts it into a tensor
-        test_betas = self.nsda.read_betas(subject='subj01', 
-                                    session_index=40, 
-                                    trial_index=[], # empty list as index means get all for this session
-                                    data_type='betas_fithrf_GLMdenoise_RR',
-                                    data_format='func1pt8mm')
-        test_betas = np.moveaxis(test_betas, -1, 0)
-        x_test = torch.from_numpy(test_betas.reshape(750, 699192))
+                roi_beta = np.where((voxel_mask_reshape), beta, 0)
+                beta_trimmed = roi_beta[slices] 
+                beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
+                x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta_trimmed)
         
-        #loads the description object for the stimulus images for subject1
-        subj1 = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
-        if(not only_test):
-            #iterating through all the scan data in our X dataset
-            for i in range(1,29251):
-                if(i%1000==0):
-                    print(i)
-                #index is a 0-73000 index of the coco images, which is found by finding the line of the dataframe
-                #that matches the scan ID of the current beta
-                index = int(subj1.loc[(subj1['subject1_rep0'] == i) | (subj1['subject1_rep1'] == i) | (subj1['subject1_rep2'] == i)].nsdId)
-                #load the saved Z tensor conversion of the image we found into the Y dataset
-                #DEPRECATED: Doesn't convert between C and Z vectors
-                y_train[i-1] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(index) + ".pt"), (1, 16384))
-        #do the same thing for test data
-        for i in range(1,751):
-            index = int(subj1.loc[(subj1['subject1_rep0'] == 29250 + i) | (subj1['subject1_rep1'] == 29250 + i) | (subj1['subject1_rep2'] == 29250 + i)].nsdId)
-            y_test[i-1] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(index) + ".pt"), (1, 16384))
+        for i in tqdm(range(35,38), desc="Loading Test Voxels"):
+            # Loads the test betas and puts it into a tensor
+            test_betas = self.nsda.read_betas(subject='subj01', 
+                                        session_index=i, 
+                                        trial_index=[], # empty list as index means get all for this session
+                                        data_type='betas_fithrf_GLMdenoise_RR',
+                                        data_format='func1pt8mm')
             
+            roi_beta = np.where((voxel_mask_reshape), test_betas, 0)
+            beta_trimmed = roi_beta[slices] 
+            beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
+            x_test[(i-35)*750:(i-35)*750+750] = torch.from_numpy(beta_trimmed)
+
+        # Loading the description object for subejct1
+        subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
+
+        for i in tqdm(range(0,25500), desc="Loading Training Vectors"):
+            # Flexible to both Z and C tensors depending on class configuration
+            index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
+            y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
+
+        for i in tqdm(range(0,2250), desc="Loading Test Vectors"):
+            index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
+            y_test[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
+
+        if(self.vector == "c"):
+            y_train = y_train.reshape((25500, 78848))
+            y_test  = y_test.reshape((2550, 78848))
+        elif(self.vector == "z"):
+            y_train = y_train.reshape((25500, 16384))
+            y_test  = y_test.reshape((2550, 16384))
+            
+        x_train = x_train.reshape((25500, 24948))
+        x_test  = x_test.reshape((2250, 24948))
+
+
         return x_train, x_test, y_train, y_test
     
     def load_data_roi(self, seperate_c=False):
@@ -304,58 +344,9 @@ class VectorMapping():
 
         return x_train, x_test, y_train, y_test
     
-    def load_data_c_seperate(self):
-        
-        # Open the dictionary of refined voxel information from Ghislain, and pull out the data variable
-        voxel_data = self.voxel_data_dict['voxel_data']
-        
-        datashape= (1, 77, 1024)
-        
-        # Index it to the first subject
-        subj1x = voxel_data["1"]
-        
-        # Import the data into a tensor
-        x_train = torch.tensor(subj1x[:25500])
-        x_test = torch.tensor(subj1x[25500:27750])
-        
-        # Loading the description object for subejct1
-        subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
-        
-        # Do the same annotation extraction process from load_data_whole()
-        y_train = torch.empty((25500, 77, 1024))
-        y_test = torch.empty((2250, 77, 1024))
-        
-        
-        for i in tqdm(range(0,25500), desc="train loader"):
-            #flexible to both Z and C tensors depending on class configuration
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
-            y_train[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), datashape)
-        for i in tqdm(range(0,2250), desc="test loader"):
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
-            y_test[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), datashape)
-
-        return x_train, x_test, y_train, y_test
-    
-    # Loads the data into an array of DataLoaders for each seperate C vector
-    def get_data_c_seperate(self):
-        x, x_test, y, y_test = self.load_data_c_seperate()
-        print(y[:,0,:].shape)
-        # Loads the raw tensors into an array of Dataset objects
-        trainset, testset, trainloader, testloader = [], [], [], []
-        for i in range(0, 77):
-            trainset.append(torch.utils.data.TensorDataset(x, y[:,i,:])) #.type(torch.LongTensor)
-            testset.append(torch.utils.data.TensorDataset(x_test, y_test[:,i,:])) #.type(torch.LongTensor)
-        
-        # Loads the Dataset into an array of DataLoaders
-        for i in range(0, 77):
-            trainloader.append(torch.utils.data.DataLoader(trainset[i], batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True))
-            testloader.append(torch.utils.data.DataLoader(testset[i], batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False))
-        print(len(trainloader))
-        return trainloader, testloader
-    
     # Loads the data and puts it into a DataLoader
     def get_data(self):
-        x, x_test, y, y_test = self.load_data_roi()
+        x, x_test, y, y_test = self.load_data_3D()
         # Loads the raw tensors into a Dataset object
         trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
         testset = torch.utils.data.TensorDataset(x_test, y_test) #.type(torch.LongTensor)
@@ -461,154 +452,29 @@ class VectorMapping():
         
         # Load our best model and returning it
         self.model.load_state_dict(torch.load("model_" + self.vector + ".pt"))
-        
-    def train_c_seperate(self, trainLoader, testLoader):
-        
-        for m in tqdm(range(len(trainLoader)), desc="individual c vector training"):
-            self.model = LinearRegression_c_seperate(self.vector)
-            self.model.to(self.device)
-            # If a previously trained model exists, load the best loss as the saved best model
-            try:
-                best_loss = torch.load("token_space_models/best_loss_c_" + str(m) + ".pt")
-            except:
-                best_loss = -1.0
-            
-            # Set best loss to negative value so it always gets overwritten
-            
-            # Configure the pytorch objects, loss function (criterion)
-            criterion = nn.MSELoss(size_average = False)
-            
-            # Import gradients to wandb to track loss gradients
-            if(self.log):
-                wandb.watch(self.model, criterion, log="all")
-            
-            # Set the optimizer to Stochastic Gradient Descent
-            optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
-            
-            # Set the learning rate scheduler to reduce the learning rate by 30% if the loss plateaus for 3 epochs
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.3, patience=1)
-            
-            # Begin training, iterates through epochs, and through the whole dataset for every epoch
-            for epoch in tqdm(range(self.num_epochs), desc="epochs"):
-                
-                # For each epoch, do a training and a validation stage
-                for phase in ['train', 'val']:
-                    # Entering training stage
-                    if phase == 'train':
-                        self.model.train()
-                        
-                        # Keep track of running loss for this training epoch
-                        running_loss = 0.0
-                        for i, data in enumerate(trainLoader[m]):
-                            
-                            # Load the data out of our dataloader by grabbing the next chunk
-                            x_data, y_data = data
-                            
-                            # Moving the tensors to the GPU
-                            x_data = x_data.to(self.device)
-                            y_data = y_data.to(self.device)
-                            
-                            # Zero gradients in the optimizer
-                            optimizer.zero_grad()
-                            
-                            # Forward pass: Compute predicted y by passing x to the model
-                            with torch.set_grad_enabled(True):
-                                pred_y = self.model(x_data).to(self.device)
-                                # Compute and print loss
-                                loss = criterion(pred_y, y_data)
-                                
-                                # Perform weight updating
-                                loss.backward()
-                                optimizer.step()
-                                    
-                            # Add up the loss for this training round
-                            running_loss += loss.item()
-                        tqdm.write('[%d, %5d] train loss: %.3f' %
-                            (epoch + 1, i + 1, running_loss / 25500))
-                            #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
-                    
-                    # Entering validation stage
-                    else:
-                        # Set model to evaluation mode
-                        self.model.eval()
-                        test_loss = 0.0
-                        for i, data in enumerate(testLoader[m]):
-                            # Loading in the test data
-                            x_data, y_data = data
-                            x_data = x_data.to(self.device)
-                            y_data = y_data.to(self.device)
-                            
-                            # Generating predictions based on the current model
-                            pred_y = self.model(x_data).to(self.device)
-                            
-                            # Compute loss
-                            loss = criterion(pred_y, y_data)
-                            test_loss+=loss.item()
-                            
-                        # Printing and logging loss so we can keep track of progress
-                        tqdm.write('[%d] test loss: %.3f' %
-                                    (epoch + 1, test_loss / 2250))
-                        if(self.log and m==0):
-                            wandb.log({'epoch': epoch+1, 'test_loss': test_loss/2250})
-                        
-                        # Check if we need to drop the learning rate
-                        scheduler.step(test_loss/2250)
-                        
-                # Check if we need to save the model
-                if(best_loss == -1.0 or test_loss < best_loss):
-                    best_loss = test_loss
-                    torch.save(best_loss, "token_space_models/best_loss_c_" + str(m) + ".pt")
-                    torch.save(self.model.state_dict(), "token_space_models/model_c_" + str(m) + ".pt")
-            
-            # Load our best model and returning it
-            self.model.load_state_dict(torch.load("token_space_models/model_c_" + str(m) + ".pt"))
-
-    #reassemble an output c vector from the individual component models
-    def predict_c_seperate(self, testLoader_arr):
-        models = []
-        for i in tqdm(range(77), desc="loading models"):
-            models.append(LinearRegression_c_seperate(self.vector))
-            models[i].load_state_dict(torch.load("token_space_models/model_c_" + str(i) + ".pt"))
-            models[i].to(self.device)
-        x0, y0 = [], []
-        for i in tqdm(range(77), desc="loading data"):
-            x, y = next(iter(testLoader_arr[i]))
-            x0.append(x[2].to(self.device))
-            y0.append(y[2].to(self.device))
-        
-        out = torch.zeros(1, 77, 1024)
-        target = torch.zeros(1, 77, 1024)
-        for i in tqdm(range(len(x0)), desc="predicting"):
-            out[:,i] = models[i](x0[i])
-            target[:,i] = y0[i]
-        torch.save(out, "output_c_seperate_" + self.vector + ".pt")
-        torch.save(y0, "target_c_seperate_" + self.vector + ".pt")
-        
 
 
 def main():
-    # vector = "c"
-    # VM = VectorMapping(vector)
-    # VM.model.to(VM.device)
-    # train, test = VM.get_data_c_seperate()
-    # VM.predict_c_seperate(test)
-    # VM.train_c_seperate(train, test)
+    vector = "c"
+    VM = VectorMapping(vector)
+    VM.model.to(VM.device)
+    train, test = VM.get_data()
+    VM.train(train, test)
     # VM.model.load_state_dict(torch.load("model_" + vector + ".pt"))
     # VM.model.eval()
-    # x, y = next(iter(test))
-    # x0 = x[2].to(VM.device)
-    # y0 = y[2].to(VM.device)
-    # out = VM.model(x0)
-    # cosSim = nn.CosineSimilarity(dim=0)
-    # print(cosSim(out, y0))
-    # print(cosSim(torch.randn_like(out), y0))
-    # torch.save(out, "output_" + vector + ".pt")
-    # torch.save(y0, "target_" + vector + ".pt")
+    x, y = next(iter(test))
+    x0 = x[2].to(VM.device)
+    y0 = y[2].to(VM.device)
+    out = VM.model(x0)
+    cosSim = nn.CosineSimilarity(dim=0)
+    print(cosSim(out, y0))
+    print(cosSim(torch.randn_like(out), y0))
+    torch.save(out, "output_" + vector + ".pt")
+    torch.save(y0, "target_" + vector + ".pt")
     E = Encoder()
     z = torch.load("target_z.pt")
-    c = torch.load("target_c.pt")
-    img = E.reconstruct(z, c, 0.99999999)
-    img2 = E.reconstruct(z, c, 0.9999999)
+    img = E.reconstruct(z, out, 0.99999999)
+    img2 = E.reconstruct(z, y0, 0.9999999)
     print("reconstructed", img)
 
 if __name__ == "__main__":
