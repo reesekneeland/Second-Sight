@@ -20,6 +20,23 @@ from tqdm import tqdm
 from encoder import Encoder
 
 
+# You decode brain data into clip then you encode the clip into an image. 
+
+
+# target_c.pt (Ground Truth)
+#   - Correct c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the correct image)
+
+# target_z.pt (Ground Truth)
+#   - Correct z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the correct image)
+
+
+# output_c.pt (We made)
+#   - Wrong c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the wrong image)
+
+# output_z.pt (We made)
+#   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
+
+
 # Environments:
 # 
 #  Most environments are named the same folder they should be used in. 
@@ -245,6 +262,7 @@ class VectorMapping():
         
         # 34 * 750 = 25500
         x_train = torch.empty((25500, 42, 22, 27))
+        
         # 3 * 750 = 2250
         x_test  = torch.empty((2250, 42, 22, 27))
         
@@ -257,6 +275,7 @@ class VectorMapping():
 
         # Checks if we are only loading the test data so we don't have to load all the training betas
         if(not only_test):
+            
             # Loads the full collection of beta sessions for subject 1
             for i in tqdm(range(1,35), desc="Loading Training Voxels"):
                 beta = self.nsda.read_betas(subject='subj01', 
@@ -271,10 +290,11 @@ class VectorMapping():
                 x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta_trimmed)
         
         for i in tqdm(range(35,38), desc="Loading Test Voxels"):
+            
             # Loads the test betas and puts it into a tensor
             test_betas = self.nsda.read_betas(subject='subj01', 
                                         session_index=i, 
-                                        trial_index=[], # empty list as index means get all for this session
+                                        trial_index=[], # Empty list as index means get all for this session
                                         data_type='betas_fithrf_GLMdenoise_RR',
                                         data_format='func1pt8mm')
             
@@ -287,6 +307,7 @@ class VectorMapping():
         subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
 
         for i in tqdm(range(0,25500), desc="Loading Training Vectors"):
+            
             # Flexible to both Z and C tensors depending on class configuration
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
             y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
@@ -423,6 +444,7 @@ class VectorMapping():
                     self.model.eval()
                     test_loss = 0.0
                     for i, data in enumerate(testLoader):
+                        
                         # Loading in the test data
                         x_data, y_data = data
                         x_data = x_data.to(self.device)
