@@ -54,7 +54,7 @@ class Encoder():
 
 
     # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
-    # strength parameter controls the weighting between the two tensors
+    # Strength parameter controls the weighting between the two tensors
     def reconstruct(self, z, c, strength=0.8):
         init_latent = z.reshape((1,4,64,64)).to(self.device)
         self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
