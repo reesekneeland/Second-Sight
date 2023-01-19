@@ -5,7 +5,7 @@ from nsd_access import NSDAccess
 
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -74,10 +74,10 @@ class Linear2Layer(torch.nn.Module):
         super(Linear2Layer, self).__init__()
         # Checking if our model is to map the C or the Z vector, and we set output size accordingly
         if(vector == "c"):
-            self.linear1 = nn.Linear(4627, 10000)
+            self.linear1 = nn.Linear(24948, 10000)
             self.linear2 = nn.Linear(10000, 78848)
         elif(vector == "z"):
-            self.linear1 = nn.Linear(4627, 10000)
+            self.linear1 = nn.Linear(24948, 10000)
             self.linear2 = nn.Linear(10000, 16384)
     
     def forward(self, x):
@@ -185,11 +185,11 @@ class VectorMapping():
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
-        self.model = Linear5Layer(self.vector)
+        self.model = Linear2Layer(self.vector)
         
         # Set the parameters for pytorch model training
-        self.lr = 0.0000015
-        self.batch_size = 1024
+        self.lr = 0.0000000000001
+        self.batch_size = 750
         self.num_epochs = 75
         self.num_workers = 16
         self.log = True
@@ -203,10 +203,10 @@ class VectorMapping():
                 # track hyperparameters and run metadata
                 config={
                 # "architecture": "Linear Regression",
-                # "architecture": "Linear 2 Layer",
+                "architecture": "Linear 2 Layer",
                 # "architecture": "Linear 3 Layer",
                 # "architecture": "Linear 4 Layer",
-                "architecture": "Linear regression individual c vector",
+                # "architecture": "Linear regression individual c vector",
                 "vector": self.vector,
                 "dataset": "Ghislain reduced ROI of NSD",
                 "epochs": self.num_epochs,
@@ -237,10 +237,10 @@ class VectorMapping():
         
         if(self.vector == "c"):
             y_train = torch.empty((25500, 77, 1024))
-            y_test  = torch.empty((2550, 77, 1024))
+            y_test  = torch.empty((2250, 77, 1024))
         elif(self.vector == "z"):
             y_train = torch.empty((25500, 4, 64, 64))
-            y_test  = torch.empty((2550, 4, 64, 64))
+            y_test  = torch.empty((2250, 4, 64, 64))
         
         
         # 34 * 750 = 25500
@@ -253,7 +253,7 @@ class VectorMapping():
         voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
 
         slices = self.get_slices(voxel_mask_reshape)
-
+        print("slices", slices)
 
         # Checks if we are only loading the test data so we don't have to load all the training betas
         if(not only_test):
@@ -264,7 +264,7 @@ class VectorMapping():
                                     trial_index=[], # Empty list as index means get all 750 scans for this session
                                     data_type='betas_fithrf_GLMdenoise_RR',
                                     data_format='func1pt8mm')
-
+                print("3D BETA STATS", np.max(beta), np.var(beta))
                 roi_beta = np.where((voxel_mask_reshape), beta, 0)
                 beta_trimmed = roi_beta[slices] 
                 beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
@@ -297,22 +297,21 @@ class VectorMapping():
 
         if(self.vector == "c"):
             y_train = y_train.reshape((25500, 78848))
-            y_test  = y_test.reshape((2550, 78848))
+            y_test  = y_test.reshape((2250, 78848))
         elif(self.vector == "z"):
             y_train = y_train.reshape((25500, 16384))
-            y_test  = y_test.reshape((2550, 16384))
+            y_test  = y_test.reshape((2250, 16384))
             
         x_train = x_train.reshape((25500, 24948))
         x_test  = x_test.reshape((2250, 24948))
 
-
+        print("3D STATS", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
     
     def load_data_roi(self, seperate_c=False):
         
         # Open the dictionary of refined voxel information from Ghislain, and pull out the data variable
         voxel_data = self.voxel_data_dict['voxel_data']
-        
         datashape = self.datasize
         if(seperate_c and self.vector == "c"):
             datashape= (1, 77, 1024)
@@ -320,6 +319,7 @@ class VectorMapping():
         # Index it to the first subject
         subj1x = voxel_data["1"]
         
+        print("ROI STATS", np.max(subj1x), np.var(subj1x))
         # Import the data into a tensor
         x_train = torch.tensor(subj1x[:25500])
         x_test = torch.tensor(subj1x[25500:27750])
@@ -342,11 +342,15 @@ class VectorMapping():
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
             y_test[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), datashape)
 
+        print("STATS", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
     
     # Loads the data and puts it into a DataLoader
     def get_data(self):
+        
+        g, gg, ggggg, ggg = self.load_data_roi()
         x, x_test, y, y_test = self.load_data_3D()
+        print("shapes", x.shape, x_test.shape, y.shape, y_test.shape)
         # Loads the raw tensors into a Dataset object
         trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
         testset = torch.utils.data.TensorDataset(x_test, y_test) #.type(torch.LongTensor)
@@ -357,16 +361,18 @@ class VectorMapping():
         return trainloader, testloader
 
     def train(self, trainLoader, testLoader):
+        print("training")
         # If a previously trained model exists, load the best loss as the saved best model
-        try:
-            best_loss = torch.load("best_loss_" + self.vector + ".pt")
-        except:
-            best_loss = -1.0
+        # try:
+        #     best_loss = torch.load("best_loss_" + self.vector + ".pt")
+        # except:
+        best_loss = -1.0
         
         # Set best loss to negative value so it always gets overwritten
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss(size_average = False)
+        # criterion = nn.MSELoss(size_average = False)
+        criterion = nn.L1Loss()
         
         # Import gradients to wandb to track loss gradients
         if(self.log):
@@ -376,7 +382,7 @@ class VectorMapping():
         optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
         
         # Set the learning rate scheduler to reduce the learning rate by 30% if the loss plateaus for 3 epochs
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.3, patience=1)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.2, patience=3)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
@@ -393,7 +399,7 @@ class VectorMapping():
                         
                         # Load the data out of our dataloader by grabbing the next chunk
                         x_data, y_data = data
-                        
+                        print(x_data.shape)
                         # Moving the tensors to the GPU
                         x_data = x_data.to(self.device)
                         y_data = y_data.to(self.device)
@@ -410,11 +416,11 @@ class VectorMapping():
                             # Perform weight updating
                             loss.backward()
                             optimizer.step()
-                                
+                        # tqdm.write('train loss: %.3f' %(loss.item()))
                         # Add up the loss for this training round
                         running_loss += loss.item()
                     tqdm.write('[%d, %5d] train loss: %.3f' %
-                        (epoch + 1, i + 1, running_loss / 25500))
+                        (epoch + 1, i + 1, running_loss / (len(trainLoader)*self.batch_size)))
                         #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
                 
                 # Entering validation stage
@@ -437,9 +443,9 @@ class VectorMapping():
                         
                     # Printing and logging loss so we can keep track of progress
                     tqdm.write('[%d] test loss: %.3f' %
-                                (epoch + 1, test_loss / 2250))
+                                (epoch + 1, test_loss / (len(testLoader)*self.batch_size)))
                     if(self.log):
-                        wandb.log({'epoch': epoch+1, 'test_loss': test_loss/2250})
+                        wandb.log({'epoch': epoch+1, 'test_loss': test_loss/(len(testLoader)*self.batch_size)})
                     
                     # Check if we need to drop the learning rate
                     scheduler.step(test_loss/2250)
@@ -474,7 +480,7 @@ def main():
     E = Encoder()
     z = torch.load("target_z.pt")
     img = E.reconstruct(z, out, 0.99999999)
-    img2 = E.reconstruct(z, y0, 0.9999999)
+    img2 = E.reconstruct(z, y0, 0.99999999)
     print("reconstructed", img)
 
 if __name__ == "__main__":
