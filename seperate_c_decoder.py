@@ -143,6 +143,7 @@ class Linear5Layer(torch.nn.Module):
             self.linear1 = nn.Linear(4627, 10000)
             self.linear2 = nn.Linear(10000, 10000)
             self.linear3 = nn.Linear(10000, 10000)
+            self.linear3 = nn.Linear(10000, 10000)
             self.linear4 = nn.Linear(10000, 10000)
             self.linear5 = nn.Linear(10000, 16384)
     

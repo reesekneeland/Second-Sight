@@ -351,6 +351,7 @@ class VectorMapping():
                 #index is a 0-73000 index of the coco images, which is found by finding the line of the dataframe
                 #that matches the scan ID of the current beta
                 index = int(subj1.loc[(subj1['subject1_rep0'] == i) | (subj1['subject1_rep1'] == i) | (subj1['subject1_rep2'] == i)].nsdId)
+
                 #load the saved Z tensor conversion of the image we found into the Y dataset
                 #DEPRECATED: Doesn't convert between C and Z vectors
                 y_train[i-1] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(index) + ".pt"), (1, 16384))
@@ -385,6 +386,7 @@ class VectorMapping():
             #flexible to both Z and C tensors depending on class configuration
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
             y_train[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), (1, self.datasize))
+        
         for i in tqdm(range(0,2250), desc="test loader"):
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
             y_test[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), (1, self.datasize))

@@ -1,5 +1,7 @@
 /token_space_models
 __pycache__
 *.pt
+*.png
 /wandb
 /reconstructions
+/scalar_space_models
