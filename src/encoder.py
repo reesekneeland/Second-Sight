@@ -14,7 +14,7 @@ from contextlib import nullcontext
 from pytorch_lightning import seed_everything
 from imwatermark import WatermarkEncoder
 
-
+sys.path.append('../')
 from stablediffusion.ldm.util import instantiate_from_config
 from stablediffusion.ldm.models.diffusion.ddim import DDIMSampler
 
