@@ -277,7 +277,7 @@ class VectorMapping():
                 out[index*self.batch_size:index*self.batch_size+self.batch_size, i] = pred_y.flatten()
                 target[index*self.batch_size:index*self.batch_size+self.batch_size, i] = y_data.flatten()
         
-        #pearson correlation
+        # pearson correlation
         r = []
         for i in range(100):
             x_bar = torch.mean(out[:,i])
