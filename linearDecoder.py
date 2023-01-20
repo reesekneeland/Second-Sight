@@ -204,9 +204,9 @@ class VectorMapping():
         self.model = LinearRegression(self.vector)
         
         # Set the parameters for pytorch model training
-        self.lr = 0.1
+        self.lr = 0.2
         self.batch_size = 750
-        self.num_epochs = 75
+        self.num_epochs = 200
         self.num_workers = 16
         self.log = True
         
@@ -233,13 +233,13 @@ class VectorMapping():
             )
 
     def get_slices(self, voxel_mask_reshape):
-
-        single_beta = self.nsda.read_betas(subject='subj01', 
+        print("Calculating slices....")
+        single_trial = self.nsda.read_betas(subject='subj01', 
                                         session_index=1, 
-                                        trial_index=[0], # Empty list as index means get all for this session
+                                        trial_index=[], # Empty list as index means get all for this session
                                         data_type='betas_fithrf_GLMdenoise_RR',
                                         data_format='func1pt8mm')
-        roi_beta = np.where((voxel_mask_reshape), single_beta, 0)
+        roi_beta = np.where((voxel_mask_reshape), single_trial, 0)
 
         slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(roi_beta))
         return slices
@@ -270,7 +270,6 @@ class VectorMapping():
         voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
 
         slices = self.get_slices(voxel_mask_reshape)
-        print("slices", slices)
 
         # Checks if we are only loading the test data so we don't have to load all the training betas
         if(not only_test):
@@ -295,7 +294,6 @@ class VectorMapping():
                                         trial_index=[], # Empty list as index means get all for this session
                                         data_type='betas_fithrf_GLMdenoise_RR',
                                         data_format='func1pt8mm')
-            
             roi_beta = np.where((voxel_mask_reshape), test_betas, 0)
             beta_trimmed = roi_beta[slices] 
             beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
@@ -305,7 +303,6 @@ class VectorMapping():
         subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
 
         for i in tqdm(range(0,25500), desc="Loading Training Vectors"):
-            
             # Flexible to both Z and C tensors depending on class configuration
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
             y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt")
@@ -359,9 +356,11 @@ class VectorMapping():
         
         
         for i in tqdm(range(0,25500), desc="train loader"):
-            #flexible to both Z and C tensors depending on class configuration
+            
+            # Flexible to both Z and C tensors depending on class configuration
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
             y_train[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), datashape)
+        
         for i in tqdm(range(0,2250), desc="test loader"):
             index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
             y_test[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + self.vector + "/" + str(index) + ".pt"), datashape)
@@ -370,9 +369,9 @@ class VectorMapping():
         return x_train, x_test, y_train, y_test
     
     # Loads the data and puts it into a DataLoader
-    def get_data(self):
+    def get_data(self, only_test=False):
         
-        x, x_test, y, y_test = self.load_data_3D()
+        x, x_test, y, y_test = self.load_data_3D(only_test)
         print("shapes", x.shape, x_test.shape, y.shape, y_test.shape)
         # Loads the raw tensors into a Dataset object
         trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
@@ -389,6 +388,7 @@ class VectorMapping():
         #     best_loss = torch.load("best_loss_" + self.vector + ".pt")
         # except:
         best_loss = -1.0
+        loss_counter = 0
         
         # Set best loss to negative value so it always gets overwritten
         
@@ -408,6 +408,7 @@ class VectorMapping():
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
+            
             # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
@@ -472,7 +473,12 @@ class VectorMapping():
                 best_loss = test_loss
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 torch.save(self.model.state_dict(), "model_" + self.vector + ".pt")
-        
+                loss_counter = 0
+            else:
+                loss_counter += 1
+                tqdm.write("loss counter: " + str(loss_counter))
+                if(loss_counter >= 5):
+                    break
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("model_" + self.vector + ".pt"))
 
@@ -483,7 +489,7 @@ def main():
     VM.model.to(VM.device)
     train, test = VM.get_data()
     VM.train(train, test)
-    # VM.model.load_state_dict(torch.load("model_" + vector + ".pt"))
+    VM.model.load_state_dict(torch.load("model_" + vector + ".pt"))
     VM.model.eval()
     x, y = next(iter(test))
     x0 = x[2].to(VM.device)
@@ -492,12 +498,13 @@ def main():
     cosSim = nn.CosineSimilarity(dim=0)
     print(cosSim(out, y0))
     print(cosSim(torch.randn_like(out), y0))
+    
     torch.save(out, "output_" + vector + ".pt")
     torch.save(y0, "target_" + vector + ".pt")
     E = Encoder()
     z = torch.load("target_z.pt")
-    img = E.reconstruct(z, out, 0.99999999)
-    img2 = E.reconstruct(z, y0, 0.99999999)
+    img = E.reconstruct(z, out, 0.999999999)
+    img2 = E.reconstruct(z, y0, 0.999999999)
     print("reconstructed", img)
 
 if __name__ == "__main__":
