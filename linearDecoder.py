@@ -1,11 +1,10 @@
+# Only GPU's in use
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torch.autograd import Variable
 import numpy as np
 from nsd_access import NSDAccess
-
-# Only GPU's in use
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -65,7 +64,7 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(4627, 78848)
+            self.linear = nn.Linear(24948, 78848)
         elif(vector == "z"):
             self.linear = nn.Linear(4627,  16384)
     
@@ -202,10 +201,10 @@ class VectorMapping():
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
-        self.model = Linear2Layer(self.vector)
+        self.model = LinearRegression(self.vector)
         
         # Set the parameters for pytorch model training
-        self.lr = 0.0000000000001
+        self.lr = 0.1
         self.batch_size = 750
         self.num_epochs = 75
         self.num_workers = 16
@@ -283,7 +282,6 @@ class VectorMapping():
                                     trial_index=[], # Empty list as index means get all 750 scans for this session
                                     data_type='betas_fithrf_GLMdenoise_RR',
                                     data_format='func1pt8mm')
-                print("3D BETA STATS", np.max(beta), np.var(beta))
                 roi_beta = np.where((voxel_mask_reshape), beta, 0)
                 beta_trimmed = roi_beta[slices] 
                 beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
@@ -325,8 +323,13 @@ class VectorMapping():
             
         x_train = x_train.reshape((25500, 24948))
         x_test  = x_test.reshape((2250, 24948))
+        print("3D STATS PRENORM", torch.max(x_train), torch.var(x_train))
+        x_train_mean, x_train_std = x_train.mean(), x_train.std()
+        x_test_mean, x_test_std = x_test.mean(), x_test.std()
+        x_train = (x_train - x_train_mean) / x_train_std
+        x_test = (x_test - x_test_mean) / x_test_std
 
-        print("3D STATS", torch.max(x_train), torch.var(x_train))
+        print("3D STATS NORMALIZED", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
     
     def load_data_roi(self, seperate_c=False):
@@ -369,7 +372,6 @@ class VectorMapping():
     # Loads the data and puts it into a DataLoader
     def get_data(self):
         
-        g, gg, ggggg, ggg = self.load_data_roi()
         x, x_test, y, y_test = self.load_data_3D()
         print("shapes", x.shape, x_test.shape, y.shape, y_test.shape)
         # Loads the raw tensors into a Dataset object
@@ -382,7 +384,6 @@ class VectorMapping():
         return trainloader, testloader
 
     def train(self, trainLoader, testLoader):
-        print("training")
         # If a previously trained model exists, load the best loss as the saved best model
         # try:
         #     best_loss = torch.load("best_loss_" + self.vector + ".pt")
@@ -407,70 +408,64 @@ class VectorMapping():
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
-            
             # For each epoch, do a training and a validation stage
-            for phase in ['train', 'val']:
-                # Entering training stage
-                if phase == 'train':
-                    self.model.train()
-                    
-                    # Keep track of running loss for this training epoch
-                    running_loss = 0.0
-                    for i, data in enumerate(trainLoader):
-                        
-                        # Load the data out of our dataloader by grabbing the next chunk
-                        x_data, y_data = data
-                        print(x_data.shape)
-                        # Moving the tensors to the GPU
-                        x_data = x_data.to(self.device)
-                        y_data = y_data.to(self.device)
-                        
-                        # Zero gradients in the optimizer
-                        optimizer.zero_grad()
-                        
-                        # Forward pass: Compute predicted y by passing x to the model
-                        with torch.set_grad_enabled(True):
-                            pred_y = self.model(x_data).to(self.device)
-                            # Compute and print loss
-                            loss = criterion(pred_y, y_data)
-                            
-                            # Perform weight updating
-                            loss.backward()
-                            optimizer.step()
-                        # tqdm.write('train loss: %.3f' %(loss.item()))
-                        # Add up the loss for this training round
-                        running_loss += loss.item()
-                    tqdm.write('[%d, %5d] train loss: %.3f' %
-                        (epoch + 1, i + 1, running_loss / (len(trainLoader)*self.batch_size)))
-                        #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
+            # Entering training stage
+            self.model.train()
+            
+            # Keep track of running loss for this training epoch
+            running_loss = 0.0
+            for i, data in enumerate(trainLoader):
                 
-                # Entering validation stage
-                else:
-                    # Set model to evaluation mode
-                    self.model.eval()
-                    test_loss = 0.0
-                    for i, data in enumerate(testLoader):
-                        
-                        # Loading in the test data
-                        x_data, y_data = data
-                        x_data = x_data.to(self.device)
-                        y_data = y_data.to(self.device)
-                        
-                        # Generating predictions based on the current model
-                        pred_y = self.model(x_data).to(self.device)
-                        
-                        # Compute loss
-                        loss = criterion(pred_y, y_data)
-                        test_loss+=loss.item()
-                        
-                    # Printing and logging loss so we can keep track of progress
-                    tqdm.write('[%d] test loss: %.3f' %
-                                (epoch + 1, test_loss / (len(testLoader)*self.batch_size)))
-                    if(self.log):
-                        wandb.log({'epoch': epoch+1, 'test_loss': test_loss/(len(testLoader)*self.batch_size)})
+                # Load the data out of our dataloader by grabbing the next chunk
+                x_data, y_data = data
+                # Moving the tensors to the GPU
+                x_data = x_data.to(self.device)
+                y_data = y_data.to(self.device)
+                
+                # Zero gradients in the optimizer
+                optimizer.zero_grad()
+                
+                # Forward pass: Compute predicted y by passing x to the model
+                with torch.set_grad_enabled(True):
+                    pred_y = self.model(x_data).to(self.device)
+                    # Compute and print loss
+                    loss = criterion(pred_y, y_data)
                     
-                    # Check if we need to drop the learning rate
-                    scheduler.step(test_loss/2250)
+                    # Perform weight updating
+                    loss.backward()
+                    optimizer.step()
+                # tqdm.write('train loss: %.3f' %(loss.item()))
+                # Add up the loss for this training round
+                running_loss += loss.item()
+            tqdm.write('[%d, %5d] train loss: %.8f' %
+                (epoch + 1, i + 1, running_loss /self.batch_size))
+                #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
+                
+            # Entering validation stage
+            # Set model to evaluation mode
+            self.model.eval()
+            test_loss = 0.0
+            for i, data in enumerate(testLoader):
+                # Loading in the test data
+                x_data, y_data = data
+                x_data = x_data.to(self.device)
+                y_data = y_data.to(self.device)
+                
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+                
+                # Compute loss
+                loss = criterion(pred_y, y_data)
+                test_loss+=loss.item()
+                
+            # Printing and logging loss so we can keep track of progress
+            tqdm.write('[%d] test loss: %.8f' %
+                        (epoch + 1, test_loss / self.batch_size))
+            if(self.log):
+                wandb.log({'epoch': epoch+1, 'test_loss': test_loss/self.batch_size})
+            
+            # Check if we need to drop the learning rate
+            scheduler.step(test_loss/self.batch_size)
                     
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
@@ -478,7 +473,7 @@ class VectorMapping():
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 torch.save(self.model.state_dict(), "model_" + self.vector + ".pt")
         
-        # Load our best model and returning it
+        # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("model_" + self.vector + ".pt"))
 
 
@@ -489,7 +484,7 @@ def main():
     train, test = VM.get_data()
     VM.train(train, test)
     # VM.model.load_state_dict(torch.load("model_" + vector + ".pt"))
-    # VM.model.eval()
+    VM.model.eval()
     x, y = next(iter(test))
     x0 = x[2].to(VM.device)
     y0 = y[2].to(VM.device)
