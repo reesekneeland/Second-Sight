@@ -12,10 +12,14 @@ import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
 import h5py
-from file_utility import *
 import wandb
 import copy
 from tqdm import tqdm
+
+import sys
+sys.path.append("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/src")
+
+from utils import *
 from encoder import Encoder
 
 
@@ -136,7 +140,7 @@ class VectorMapping():
         y_train = torch.empty((25500, 100))
         y_test = torch.empty((2250, 100))
         
-        high_var_scalars = torch.load("top_hundred_variance_clip_vector.pt")
+        high_var_scalars = torch.load("top_hundred_variance_z_vector.pt")
         
         #LOAD IN JORDYNS SAVED 100 SCALAR DATA
         for i in tqdm(range(0,25500), desc="train loader"):
@@ -287,11 +291,7 @@ class VectorMapping():
                 out[index*self.batch_size:index*self.batch_size+self.batch_size, i] = pred_y.flatten()
                 target[index*self.batch_size:index*self.batch_size+self.batch_size, i] = y_data.flatten()
         
-<<<<<<< HEAD:scalar_LR.py
         # pearson correlation
-=======
-        # Pearson correlation
->>>>>>> afa0c1c62fe98d6fa14916b5bfc752b8b7e5beff:scalar_experiments/scalar_LR.py
         r = []
         for i in range(100):
             x_bar = torch.mean(out[:,i])
@@ -306,21 +306,21 @@ class VectorMapping():
         # plt.plot(r)
         
         
-        plt.savefig("pearson_scalar_histogram.png")
+        plt.savefig("pearson_scalar_histogram_z_vector.png")
         
         
         
-        torch.save(out, "output_c_scalar_.pt")
-        torch.save(target, "target_c_scalar.pt")
+        torch.save(out, "output_z_scalar_.pt")
+        torch.save(target, "target_z_scalar.pt")
         
 
 
 def main():
-    vector = "c"
+    vector = "z"
     VM = VectorMapping(vector)
     VM.model.to(VM.device)
     train, test = VM.get_data_c_seperate()
-    # VM.train_c_seperate(train, test)
+    VM.train_c_seperate(train, test)
     VM.predict_c_seperate(test)
 
 if __name__ == "__main__":
