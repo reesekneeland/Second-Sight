@@ -71,17 +71,20 @@ class LinearRegression(torch.nn.Module):
         y_pred = self.linear(x)
         return y_pred
 
-#FOR C VECTOR ONLY
+# Pytorch model class for Convolutional Neural Network
 class CNN(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, vector):
         super(CNN, self).__init__()
         self.conv_layer1 = self._conv_layer_set(1, 32)
         self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.fc1 = nn.Linear(2**3*64, 10000)
-        self.fc2 = nn.Linear(10000, 78848)
+        self.flatten = nn.Flatten(start_dim=1)
+        if(vector == "c"):
+            self.fc1 = nn.Linear(64*9*4*5, 78848)
+        elif(vector == "z"):
+            self.fc1 = nn.Linear(64*9*4*5,  16384)
         # self.relu = nn.LeakyReLU()
-        # self.batch=nn.BatchNorm1d(128)
-        # self.drop=nn.Dropout(p=0.15
+        # self.batch=nn.BatchNorm1d(64*9*4*5)
+        # self.drop=nn.Dropout(p=0.15)
         
             
     def _conv_layer_set(self, in_c, out_c):
@@ -93,26 +96,29 @@ class CNN(torch.nn.Module):
         return conv_layer
     
     def forward(self, x):
+        # print("size1: ", x.shape)
         out = self.conv_layer1(x)
+        # print("size2 out size: ", out.shape)
         out = self.conv_layer2(out)
-        print("flattened out size: ", out.shape())
-        out = out.flatten()
-        print("flattened out size: ", out.shape())
+        # print("flattened out size: ", out.shape)
+        out = self.flatten(out)
+        # print("flattened out size: ", out.shape)
+        # out = self.relu(out)
+        # out = self.batch(out)
         out = self.fc1(out)
-        out = self.fc2(out)
         return out
 
 # Main Class    
 class Decoder():
     def __init__(self, 
-                 vector="c", 
+                 lr,
+                 vector, 
+                 log, 
+                 batch_size,
+                 parallel=True,
                  device="cuda",
-                 lr=0.2,
-                 batch_size=375,
                  num_workers=16,
                  epochs=200,
-                 log=True,
-                 parallel=False,
                  only_test=False
                  ):
 
@@ -155,11 +161,8 @@ class Decoder():
                 
                 # track hyperparameters and run metadata
                 config={
-                "architecture": "Linear Regression",
-                # "architecture": "Linear 2 Layer",
-                # "architecture": "Linear 3 Layer",
-                # "architecture": "Linear 4 Layer",
-                # "architecture": "Linear regression individual c vector",
+                # "architecture": "Linear Regression",
+                "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
                 "dataset": "3D reduced ROI of NSD",
                 "epochs": self.num_epochs,
@@ -172,7 +175,7 @@ class Decoder():
 
     def model_init(self):
         # Initialize the Pytorch model class
-        model = CNN()
+        model = CNN(self.vector)
         # model = LinearRegression(self.vector)
         
         # Configure multi-gpu training
@@ -218,7 +221,7 @@ class Decoder():
             
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            for i, data in enumerate(self.trainLoader):
+            for i, data in enumerate(self.trainloader):
                 
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
@@ -257,7 +260,7 @@ class Decoder():
             # Set model to evaluation mode
             self.model.eval()
             test_loss = 0.0
-            for i, data in enumerate(self.testLoader):
+            for i, data in enumerate(self.testloader):
                 
                 # Loading in the test data
                 x_data, y_data = data
@@ -287,9 +290,9 @@ class Decoder():
                 best_loss = test_loss
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "model_" + self.vector + ".pt")
+                    torch.save(self.model.module.state_dict(), "models/model_" + self.vector + ".pt")
                 else:
-                    torch.save(self.model.state_dict(), "model_" + self.vector + ".pt")
+                    torch.save(self.model.state_dict(), "models/model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -299,29 +302,32 @@ class Decoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("model_" + self.vector + ".pt"))
+            self.model.module.load_state_dict(torch.load("models/model_" + self.vector + ".pt"))
         else:
-            self.model.load_state_dict(torch.load("model_" + self.vector + ".pt"))
+            self.model.load_state_dict(torch.load("models/model_" + self.vector + ".pt"))
 
 
-    def predict(self, model, indices=[0]):
+    def predict(self, indices=[0], model="model_z.pt"):
         self.model = self.model_init()
         os.makedirs("../latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("../models/" + model))
+            self.model.module.load_state_dict(torch.load("models/" + model))
         else:
-            self.model.load_state_dict(torch.load("../models/" + model))
+            self.model.load_state_dict(torch.load("models/" + model))
         self.model.eval()
         outputs, targets = [], []
         x, y = next(iter(self.testloader))
-        for i in len(x):
+        print(x.shape, y.shape)
+        for i in indices:
             
             # Loading in the test data
             x_data = x[i]
             y_data = y[i]
-            x_data = x_data.to(self.device)
-            y_data = y_data.to(self.device)
+            print(x_data.shape, y_data.shape)
+            x_data = x_data[None,:].to(self.device)
+            y_data = y_data[None,:].to(self.device)
+            print(x_data.shape, y_data.shape)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
             outputs.append(pred_y)

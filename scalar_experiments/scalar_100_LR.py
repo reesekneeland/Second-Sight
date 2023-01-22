@@ -1,5 +1,6 @@
 # Only GPU's in use
 import os
+import sys
 # os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torchmetrics.functional import pearson_corrcoef
@@ -13,7 +14,8 @@ import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
 import h5py
-from file_utility import *
+sys.path.append('../src')
+from utils import *
 import wandb
 import copy
 from tqdm import tqdm
@@ -102,7 +104,7 @@ class VectorMapping():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="vector_mapping",
+                project="scalar_100_LR",
                 
                 # track hyperparameters and run metadata
                 config={
@@ -142,7 +144,7 @@ class VectorMapping():
         y_train = torch.empty((25500, 100))
         y_test = torch.empty((2250, 100))
         
-        high_var_scalars = torch.load("top_hundred_variance_clip_vector.pt")
+        high_var_scalars = torch.load("top_hundred_variance_z_vector.pt")
         
         #LOAD IN JORDYNS SAVED 100 SCALAR DATA
         for i in tqdm(range(0,25500), desc="train loader"):
@@ -256,7 +258,7 @@ class VectorMapping():
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "scalar_space_models/model_c_100.pt")
+                torch.save(self.model.state_dict(), "scalar_space_models/model_z_100.pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -265,17 +267,16 @@ class VectorMapping():
                     break
         
         # Load our best model and returning it
-        self.model.load_state_dict(torch.load("scalar_space_models/model_c_100.pt"))
+        self.model.load_state_dict(torch.load("scalar_space_models/model_z_100.pt"))
 
 
     #reassemble an output c vector from the individual component models
     def predict_c_seperate(self, testLoader):
         out = torch.zeros((2250,100))
         target = torch.zeros((2250, 100))
-        model = LinearRegression(self.vector).to(self.device)
-        model.load_state_dict(torch.load("scalar_space_models/model_c_100.pt"))
-        model.eval()
-        model.to(self.device)
+        self.model.load_state_dict(torch.load("scalar_space_models/model_z_100.pt"))
+        self.model.eval()
+        self.model.to(self.device)
 
         for index, data in enumerate(testLoader):
             
@@ -291,10 +292,10 @@ class VectorMapping():
         
         out = out.detach()
         target = target.detach()
-        outPrev = torch.load("output_c_scalar.pt")
-        targetPrev = torch.load("target_c_scalar.pt")
-        print("out check", torch.eq(out, outPrev))
-        print("target check", torch.eq(target, targetPrev))
+        # outPrev = torch.load("output_z_scalar.pt")
+        # targetPrev = torch.load("target_z_scalar.pt")
+        # print("out check", torch.eq(out, outPrev))
+        # print("target check", torch.eq(target, targetPrev))
         # Pearson correlation
         r = []
         for p in range(100):
@@ -310,18 +311,18 @@ class VectorMapping():
         print(np.mean(r))
             
         plt.hist(r, bins=40)
-        plt.savefig("pearson_scalar_100_histogram.png")
+        plt.savefig("pearson_scalar_100_histogram_z.png")
         # plt.plot(r)
         # plt.savefig("pearson_scalar_100_original2.png")
         
         
-        torch.save(out, "output_c_scalar.pt")
-        torch.save(target, "target_c_scalar.pt")
+        torch.save(out, "output_z_scalar.pt")
+        torch.save(target, "target_z_scalar.pt")
         
 
 
 def main():
-    vector = "c"
+    vector = "z"
     VM = VectorMapping(vector)
     train, test = VM.get_data_c_seperate()
     # VM.train_c_seperate(train, test)

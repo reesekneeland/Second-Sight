@@ -15,9 +15,10 @@ import h5py
 import wandb
 import copy
 from tqdm import tqdm
+from torchmetrics.functional import pearson_corrcoef
 
 import sys
-sys.path.append("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/src")
+sys.path.append('../src')
 
 from utils import *
 from encoder import Encoder
@@ -93,17 +94,17 @@ class VectorMapping():
         self.model = LinearRegression(self.vector)
         
         # Set the parameters for pytorch model training
-        self.lr = 0.001
+        self.lr = 0.0015
         self.batch_size = 750
         self.num_epochs = 100
         self.num_workers = 4
-        self.log = False
+        self.log = True
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="vector_mapping",
+                project="scalar_LR",
                 
                 # track hyperparameters and run metadata
                 config={
@@ -111,7 +112,7 @@ class VectorMapping():
                 # "architecture": "Linear 2 Layer",
                 # "architecture": "Linear 3 Layer",
                 # "architecture": "Linear 4 Layer",
-                "architecture": "Linear regression scalar c mapping",
+                "architecture": "Linear regression scalar z mapping",
                 "vector": self.vector,
                 "dataset": "Ghislain reduced ROI of NSD",
                 "epochs": self.num_epochs,
@@ -262,7 +263,7 @@ class VectorMapping():
                 # Check if we need to save the model
                 if(best_loss == -1.0 or test_loss < best_loss):
                     best_loss = test_loss
-                    torch.save(self.model.state_dict(), "scalar_space_models/model_c_" + str(m) + ".pt")
+                    torch.save(self.model.state_dict(), "scalar_space_models/model_z_" + str(m) + ".pt")
                     loss_counter = 0
                 else:
                     loss_counter += 1
@@ -271,16 +272,16 @@ class VectorMapping():
                         break
             
             # Load our best model and returning it
-            self.model.load_state_dict(torch.load("scalar_space_models/model_c_" + str(m) + ".pt"))
+            # self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(m) + ".pt"))
 
     # Reassemble an output c vector from the individual component models
     def predict_c_seperate(self, testLoader_arr):
         out = torch.zeros((2250,100))
         target = torch.zeros((2250, 100))
         for i in tqdm(range(100), desc="testing models"):
-            model = LinearRegression(self.vector).to(self.device)
-            model.load_state_dict(torch.load("scalar_space_models/model_c_" + str(i) + ".pt"))
-            model.to(self.device)
+            self.model = LinearRegression(self.vector)
+            self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(i) + ".pt"))
+            self.model.to(self.device)
             for index, data in enumerate(testLoader_arr[i]):
                 # Loading in the test data
                 x_data, y_data = data
@@ -290,16 +291,20 @@ class VectorMapping():
                 pred_y = self.model(x_data).to(self.device)
                 out[index*self.batch_size:index*self.batch_size+self.batch_size, i] = pred_y.flatten()
                 target[index*self.batch_size:index*self.batch_size+self.batch_size, i] = y_data.flatten()
-        
+        out = out.detach()
+        target = target.detach()
         # pearson correlation
+        # r = []
+        # for i in range(100):
+        #     x_bar = torch.mean(out[:,i])
+        #     y_bar = torch.mean(target[:,i])
+        #     numerator = torch.sum((out[:,i]-x_bar)*(target[:,i]-y_bar))
+        #     denominator = torch.sqrt(torch.sum((out[:,i]-x_bar)**2)*torch.sum((target[:,i]-y_bar)**2))
+        #     pearson = numerator/denominator
+        #     r.append(pearson)
         r = []
-        for i in range(100):
-            x_bar = torch.mean(out[:,i])
-            y_bar = torch.mean(target[:,i])
-            numerator = torch.sum((out[:,i]-x_bar)*(target[:,i]-y_bar))
-            denominator = torch.sqrt(torch.sum((out[:,i]-x_bar)**2)*torch.sum((target[:,i]-y_bar)**2))
-            pearson = numerator.detach().numpy()/denominator.detach().numpy()
-            r.append(pearson)
+        for p in range(100):
+            r.append(pearson_corrcoef(out[:,p], target[:,p]))
         print(np.mean(r))
             
         plt.hist(r, bins=40)
@@ -320,7 +325,7 @@ def main():
     VM = VectorMapping(vector)
     VM.model.to(VM.device)
     train, test = VM.get_data_c_seperate()
-    VM.train_c_seperate(train, test)
+    # VM.train_c_seperate(train, test)
     VM.predict_c_seperate(test)
 
 if __name__ == "__main__":
