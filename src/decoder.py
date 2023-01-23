@@ -71,11 +71,7 @@ class LinearRegression(torch.nn.Module):
         y_pred = self.linear(x)
         return y_pred
 
-<<<<<<< HEAD
 #FOR C VECTOR ONLY *** TEST *** 
-=======
-# Pytorch model class for Convolutional Neural Network
->>>>>>> 735baf77643be759abb4bb9be25a46dfb9223242
 class CNN(torch.nn.Module):
     def __init__(self, vector):
         super(CNN, self).__init__()

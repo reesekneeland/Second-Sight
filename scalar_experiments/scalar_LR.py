@@ -272,26 +272,16 @@ class VectorMapping():
                         break
             
             # Load our best model and returning it
-<<<<<<< HEAD
-            self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(m) + ".pt"))
-=======
             # self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(m) + ".pt"))
->>>>>>> 735baf77643be759abb4bb9be25a46dfb9223242
 
     # Reassemble an output c vector from the individual component models
     def predict_c_seperate(self, testLoader_arr):
         out = torch.zeros((2250,100))
         target = torch.zeros((2250, 100))
         for i in tqdm(range(100), desc="testing models"):
-<<<<<<< HEAD
-            model = LinearRegression(self.vector).to(self.device)
-            model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(i) + ".pt"))
-            model.to(self.device)
-=======
             self.model = LinearRegression(self.vector)
             self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(i) + ".pt"))
             self.model.to(self.device)
->>>>>>> 735baf77643be759abb4bb9be25a46dfb9223242
             for index, data in enumerate(testLoader_arr[i]):
                 # Loading in the test data
                 x_data, y_data = data

@@ -70,20 +70,41 @@ def get_slices(voxel_mask_reshape):
     print("Calculating slices....")
     single_trial = nsda.read_betas(subject='subj01', 
                                     session_index=1, 
-                                    trial_index=[], # Empty list as index means get all for this session
+                                    trial_index=[0], # Empty list as index means get all for this session
                                     data_type='betas_fithrf_GLMdenoise_RR',
                                     data_format='func1pt8mm')
+    
+    print(single_trial.shape)
     roi_beta = np.where((voxel_mask_reshape), single_trial, 0)
+    print(roi_beta.shape)
 
     slices = tuple(slice(idx.min(), idx.max() + 1) for idx in np.nonzero(roi_beta))
     return slices
 
 def load_mask_from_nii(mask_nii_file):
-    return nib.load(mask_nii_file).get_data()
+    return nib.load(mask_nii_file).get_fdata()
 
     
 
-def load_general_mask(only_test=False):
+def load_general_mask(vector, only_test=False):
+    # 750 trails per session 
+    # 40 sessions per subject
+    # initialize some empty tensors to allocate memory
+    
+    
+    if(vector == "c"):
+        y_train = torch.empty((25500, 77, 1024))
+        y_test  = torch.empty((2250, 77, 1024))
+    elif(vector == "z"):
+        y_train = torch.empty((25500, 4, 64, 64))
+        y_test  = torch.empty((2250, 4, 64, 64))
+    
+    
+    # 34 * 750 = 25500
+    x_train = torch.empty((25500, 42, 22, 27))
+    
+    # 3 * 750 = 2250
+    x_test  = torch.empty((2250, 42, 22, 27))
 
     nsd_general = load_mask_from_nii("brainmask_nsdgeneral_1.0.nii")
     # print(nsd_general.shape)
@@ -116,7 +137,7 @@ def load_general_mask(only_test=False):
 
 def main():
 
-    load_general_mask()
+    load_general_mask("z")
 
 if __name__ == "__main__":
 
