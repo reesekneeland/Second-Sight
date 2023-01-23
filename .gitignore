@@ -3,7 +3,4 @@
 *.png
 /wandb
 /reconstructions
-/scalar_space_models
-/models
-/latent_vectors
 /scalar_experiments/wandb

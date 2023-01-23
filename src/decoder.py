@@ -199,8 +199,8 @@ class Decoder():
         # Set best loss to negative value so it always gets overwritten
         
         # Configure the pytorch objects, loss function (criterion)
-        # criterion = nn.MSELoss(size_average = False)
-        criterion = nn.L1Loss()
+        criterion = nn.MSELoss(size_average = False)
+        # criterion = nn.L1Loss()
         
         # Import gradients to wandb to track loss gradients
         if(self.log):

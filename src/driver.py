@@ -19,7 +19,7 @@ from encoder import Encoder
 from decoder import Decoder
 
 def main():
-    D = Decoder(lr=0.4,
+    D = Decoder(lr=0.00001,
                  vector="z", 
                  log=True, 
                  batch_size=375,
