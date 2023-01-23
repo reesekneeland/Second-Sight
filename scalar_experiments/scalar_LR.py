@@ -1,6 +1,6 @@
 # Only GPU's in use
 import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch.autograd import Variable
 import numpy as np
@@ -93,7 +93,7 @@ class VectorMapping():
         self.model = LinearRegression(self.vector)
         
         # Set the parameters for pytorch model training
-        self.lr = 0.001
+        self.lr = 0.0015
         self.batch_size = 750
         self.num_epochs = 100
         self.num_workers = 4
@@ -262,7 +262,7 @@ class VectorMapping():
                 # Check if we need to save the model
                 if(best_loss == -1.0 or test_loss < best_loss):
                     best_loss = test_loss
-                    torch.save(self.model.state_dict(), "scalar_space_models/model_c_" + str(m) + ".pt")
+                    torch.save(self.model.state_dict(), "scalar_space_models/model_z_" + str(m) + ".pt")
                     loss_counter = 0
                 else:
                     loss_counter += 1
@@ -271,7 +271,7 @@ class VectorMapping():
                         break
             
             # Load our best model and returning it
-            self.model.load_state_dict(torch.load("scalar_space_models/model_c_" + str(m) + ".pt"))
+            self.model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(m) + ".pt"))
 
     # Reassemble an output c vector from the individual component models
     def predict_c_seperate(self, testLoader_arr):
@@ -279,7 +279,7 @@ class VectorMapping():
         target = torch.zeros((2250, 100))
         for i in tqdm(range(100), desc="testing models"):
             model = LinearRegression(self.vector).to(self.device)
-            model.load_state_dict(torch.load("scalar_space_models/model_c_" + str(i) + ".pt"))
+            model.load_state_dict(torch.load("scalar_space_models/model_z_" + str(i) + ".pt"))
             model.to(self.device)
             for index, data in enumerate(testLoader_arr[i]):
                 # Loading in the test data

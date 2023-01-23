@@ -71,7 +71,7 @@ class LinearRegression(torch.nn.Module):
         y_pred = self.linear(x)
         return y_pred
 
-#FOR C VECTOR ONLY
+#FOR C VECTOR ONLY *** TEST *** 
 class CNN(torch.nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
@@ -135,16 +135,14 @@ class Decoder():
         # Initialize the Pytorch model class
         self.model = self.model_init()
         
-        
         # Configure multi-gpu training
-        
         if(self.parallel):
             self.model = nn.DataParallel(self.model)
         
         # Send model to Pytorch Device 
         self.model.to(self.device)
         
-       # Initialize the data loaders
+        # Initialize the data loaders
         self.trainloader, self.testloader = get_data(self.vector, self.batch_size, self.num_workers, self.only_test)
         
         # Initializes Weights and Biases to keep track of experiments and training runs
