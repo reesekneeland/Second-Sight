@@ -19,27 +19,26 @@ from encoder import Encoder
 from decoder import Decoder
 
 def main():
-    D = Decoder(vector="c", 
-                 device="cuda",
-                 lr=0.2,
+    D = Decoder(lr=0.00001,
+                 vector="z", 
+                 log=True, 
                  batch_size=375,
+                 parallel=True,
+                 device="cuda",
                  num_workers=16,
-                 epochs=200,
-                 log=True,
-                 parallel=False,
+                 epochs=300,
                  only_test=False
                  )
     D.train()
-    outputs, targets = D.predict([0])
+    outputs, targets = D.predict(indices=[0], model="model_z.pt")
     cosSim = nn.CosineSimilarity(dim=0)
     print(cosSim(outputs[0], targets[0]))
     print(cosSim(torch.randn_like(outputs[0]), targets[0]))
     
     E = Encoder()
-    z = torch.load("target_z.pt")
-    img = E.reconstruct(z, outputs[0], 0.999999999)
-    img2 = E.reconstruct(z, targets[0], 0.999999999)
-    print("reconstructed", img)
+    c = torch.load("latent_vectors/target_c.pt")
+    img = E.reconstruct(outputs[0], c, 0.00000000001)
+    img2 = E.reconstruct(targets[0], c, 0.00000000001)
 
 if __name__ == "__main__":
     main()

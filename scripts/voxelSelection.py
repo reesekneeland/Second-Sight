@@ -1,7 +1,7 @@
 # Only GPU's in use
 import os
 import sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torchmetrics.functional import pearson_corrcoef
 from torch.autograd import Variable
@@ -50,9 +50,9 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(4627, 100)
+            self.linear = nn.Linear(78848, 16000)
         elif(vector == "z"):
-            self.linear = nn.Linear(4627,  100)
+            self.linear = nn.Linear(16384,  16000)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -104,7 +104,7 @@ class VectorMapping():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="scalar_100_LR",
+                project="voxelSelection clip encoder to brain vector",
                 
                 # track hyperparameters and run metadata
                 config={
@@ -112,9 +112,9 @@ class VectorMapping():
                 # "architecture": "Linear 2 Layer",
                 # "architecture": "Linear 3 Layer",
                 # "architecture": "Linear 4 Layer",
-                "architecture": "Linear regression vector of 100 high var c elements mapping",
+                "architecture": "Linear regression",
                 "vector": self.vector,
-                "dataset": "Ghislain reduced ROI of NSD",
+                "dataset": "Entire visual cortex",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -122,41 +122,90 @@ class VectorMapping():
                 }
             )
     
-    def load_data_c_seperate(self):
+    def load_data_masked(vector, only_test=False):
         
-        # Open the dictionary of refined voxel information from Ghislain, and pull out the data variable
-        voxel_data = self.voxel_data_dict['voxel_data']
+        # 750 trails per session 
+        # 40 sessions per subject
+        # initialize some empty tensors to allocate memory
+        
+        
+        if(vector == "c"):
+            y_train = torch.empty((25500, 77, 1024))
+            y_test  = torch.empty((2250, 77, 1024))
+        elif(vector == "z"):
+            y_train = torch.empty((25500, 4, 64, 64))
+            y_test  = torch.empty((2250, 4, 64, 64))
+        
+        
+        # 34 * 750 = 25500
+        x_train = torch.empty((25500, 42, 22, 27))
+        
+        # 3 * 750 = 2250
+        x_test  = torch.empty((2250, 42, 22, 27))
+        
+        #grabbing voxel mask for subject 1
+        voxel_mask = voxel_data_dict['voxel_mask']["1"]
+        voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
 
-        # Index it to the first subject
-        subj1x = voxel_data["1"]
-        
-        # Import the data into a tensor
-        # First 34 session with 750 trails. 34 * 750 = 25550
-        x_train = torch.tensor(subj1x[:25500])
-       
-       # 35 - 38 session with 750 trails 
-        x_test = torch.tensor(subj1x[25500:27750])
-        
-        # Loading the description object for subject1
-        subj1y = self.nsda.stim_descriptions[self.nsda.stim_descriptions['subject1'] != 0]
-        
-        # Do the same annotation extraction process from load_data_whole()
-        y_train = torch.empty((25500, 100))
-        y_test = torch.empty((2250, 100))
-        
-        high_var_scalars = torch.load("top_hundred_variance_z_vector.pt")
-        
-        #LOAD IN JORDYNS SAVED 100 SCALAR DATA
-        for i in tqdm(range(0,25500), desc="train loader"):
-            #flexible to both Z and C tensors depending on class configuration
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
-            y_train[i] = high_var_scalars[index]
+        slices = get_slices(voxel_mask_reshape)
+
+        # Checks if we are only loading the test data so we don't have to load all the training betas
+        if(not only_test):
             
-        for i in tqdm(range(0,2250), desc="test loader"):
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
-            y_test[i] = high_var_scalars[index]
-        print("load_data shapes", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
+            # Loads the full collection of beta sessions for subject 1
+            for i in tqdm(range(1,35), desc="Loading Training Voxels"):
+                beta = nsda.read_betas(subject='subj01', 
+                                    session_index=i, 
+                                    trial_index=[], # Empty list as index means get all 750 scans for this session
+                                    data_type='betas_fithrf_GLMdenoise_RR',
+                                    data_format='func1pt8mm')
+                roi_beta = np.where((voxel_mask_reshape), beta, 0)
+                beta_trimmed = roi_beta[slices] 
+                beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
+                x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta_trimmed)
+        
+        for i in tqdm(range(35,38), desc="Loading Test Voxels"):
+            
+            # Loads the test betas and puts it into a tensor
+            test_betas = nsda.read_betas(subject='subj01', 
+                                        session_index=i, 
+                                        trial_index=[], # Empty list as index means get all for this session
+                                        data_type='betas_fithrf_GLMdenoise_RR',
+                                        data_format='func1pt8mm')
+            roi_beta = np.where((voxel_mask_reshape), test_betas, 0)
+            beta_trimmed = roi_beta[slices] 
+            beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
+            x_test[(i-35)*750:(i-35)*750+750] = torch.from_numpy(beta_trimmed)
 
+        # Loading the description object for subejct1
+        subj1y = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+
+        for i in tqdm(range(0,25500), desc="Loading Training Vectors"):
+            # Flexible to both Z and C tensors depending on class configuration
+            index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
+            y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
+
+        for i in tqdm(range(0,2250), desc="Loading Test Vectors"):
+            index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
+            y_test[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
+
+        if(vector == "c"):
+            y_train = y_train.reshape((25500, 78848))
+            y_test  = y_test.reshape((2250, 78848))
+        elif(vector == "z"):
+            y_train = y_train.reshape((25500, 16384))
+            y_test  = y_test.reshape((2250, 16384))
+            
+        x_train = x_train.reshape((25500, 1, 42, 22, 27))
+        x_test  = x_test.reshape((2250, 1, 42, 22, 27))
+
+        print("3D STATS PRENORM", torch.max(x_train), torch.var(x_train))
+        x_train_mean, x_train_std = x_train.mean(), x_train.std()
+        x_test_mean, x_test_std = x_test.mean(), x_test.std()
+        x_train = (x_train - x_train_mean) / x_train_std
+        x_test = (x_test - x_test_mean) / x_test_std
+
+        print("3D STATS NORMALIZED", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
     
     # Loads the data into an array of DataLoaders for each seperate C vector
