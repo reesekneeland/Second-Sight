@@ -94,7 +94,7 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.1
+        self.lr = 0.0001
         self.batch_size = 750
         self.num_epochs = 100
         self.num_workers = 4
