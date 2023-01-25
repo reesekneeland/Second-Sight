@@ -202,13 +202,13 @@ class VectorMapping():
                 # Add up the loss for this training round
                 running_loss += loss.item()
             tqdm.write('[%d, %5d] train loss: %.8f' %
-                (epoch + 1, i + 1, running_loss /self.batch_size))
+                (epoch + 1, i + 1, running_loss /len(self.trainLoader)))
                     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
 
         # Entering validation stage
         # Set model to evaluation mode
             self.model.eval()
-            test_loss = 0.0
+            running_test_loss = 0.0
             for i, data in enumerate(testLoader):
                 # Loading in the test data
                 x_data, y_data = data
@@ -220,16 +220,17 @@ class VectorMapping():
                 
                 # Compute loss
                 loss = criterion(pred_y, y_data)
-                test_loss+=loss.item()
+                running_test_loss+=loss.item()
                 
+            test_loss = running_test_loss/len(testLoader)
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
-                        (epoch + 1, test_loss /self.batch_size))
+                        (epoch + 1, test_loss))
             if(self.log):
-                wandb.log({'epoch': epoch+1, 'test_loss': test_loss/self.batch_size})
+                wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
             
             # Check if we need to drop the learning rate
-            scheduler.step(test_loss/self.batch_size)
+            scheduler.step(test_loss)
                     
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
