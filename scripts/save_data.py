@@ -56,7 +56,7 @@ for i in tqdm(range(1,38), desc="Loading Voxels"):
         single_scan = ((single_scan - torch.mean(single_scan)) / torch.std(single_scan))
 
         # Discard the unmasked values and keeps the masked values. 
-        whole_region[j + (i-1)*750] = torch.from_numpy(curScan[nsd_mask])
+        whole_region[j + (i-1)*750] = single_scan
         
 # # Normalization
 
