@@ -1,13 +1,8 @@
-/__pycache__
+__pycache__
+src/__pycache__
 *.pt
 *.png
 /wandb
 /reconstructions
-<<<<<<< HEAD
-/scalar_space_models
-/models
-/latent_vectors
-/tensors
-=======
 /scalar_experiments/wandb
->>>>>>> 735baf77643be759abb4bb9be25a46dfb9223242
+/scripts/wandb

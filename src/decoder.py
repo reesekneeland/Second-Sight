@@ -63,15 +63,15 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(24948, 78848)
+            self.linear = nn.Linear(715, 78848)
         elif(vector == "z"):
-            self.linear = nn.Linear(4627,  16384)
+            self.linear = nn.Linear(4147,  16384)
     
     def forward(self, x):
         y_pred = self.linear(x)
         return y_pred
 
-#FOR C VECTOR ONLY *** TEST *** 
+
 class CNN(torch.nn.Module):
     def __init__(self, vector):
         super(CNN, self).__init__()
@@ -111,8 +111,10 @@ class CNN(torch.nn.Module):
 # Main Class    
 class Decoder():
     def __init__(self, 
+                 hashNum,
                  lr,
                  vector, 
+                 threshold,
                  log, 
                  batch_size,
                  parallel=True,
@@ -123,7 +125,9 @@ class Decoder():
                  ):
 
         # Set the parameters for pytorch model training
+        self.hashNum = hashNum
         self.vector = vector
+        self.threshold = threshold
         self.device = torch.device(device)
         self.lr = lr
         self.batch_size = batch_size
@@ -156,13 +160,14 @@ class Decoder():
             wandb.init(
                 # set the wandb project where this run will be logged
                 project="decoder",
-                
                 # track hyperparameters and run metadata
                 config={
-                # "architecture": "Linear Regression",
-                "architecture": "2 Convolutional Layers",
+                "hash": self.hashNum,
+                "threshold": self.threshold,
+                "architecture": "Linear Regression",
+                # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "3D reduced ROI of NSD",
+                "dataset": "custom masked positive pearson correlation with 0.1 threshold",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -173,8 +178,8 @@ class Decoder():
 
     def model_init(self):
         # Initialize the Pytorch model class
-        model = CNN(self.vector)
-        # model = LinearRegression(self.vector)
+        # model = CNN(self.vector)
+        model = LinearRegression(self.vector)
         
         # Configure multi-gpu training
         if(self.parallel):
@@ -288,9 +293,9 @@ class Decoder():
                 best_loss = test_loss
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "models/model_" + self.vector + ".pt")
+                    torch.save(self.model.module.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 else:
-                    torch.save(self.model.state_dict(), "models/model_" + self.vector + ".pt")
+                    torch.save(self.model.state_dict(), "models/" + self.hashNum + "model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -300,14 +305,14 @@ class Decoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("models/model_" + self.vector + ".pt"))
+            self.model.module.load_state_dict(torch.load("models/" + self.hashNum + "model_" + self.vector + ".pt"))
         else:
-            self.model.load_state_dict(torch.load("models/model_" + self.vector + ".pt"))
+            self.model.load_state_dict(torch.load("models/" + self.hashNum + "model_" + self.vector + ".pt"))
 
 
-    def predict(self, indices=[0], model="model_z.pt"):
+    def predict(self, model, indices=[0]):
         self.model = self.model_init()
-        os.makedirs("../latent_vectors/" + model, exist_ok=True)
+        os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):
             self.model.module.load_state_dict(torch.load("models/" + model))

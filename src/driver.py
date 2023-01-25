@@ -19,9 +19,12 @@ from encoder import Encoder
 from decoder import Decoder
 
 def main():
-    D = Decoder(lr=0.00001,
-                 vector="z", 
-                 log=True, 
+    hashNum = update_hash()
+    D = Decoder(hash = hashNum,
+                 lr=0.0000005,
+                 vector="c", 
+                 threshold=0.2,
+                 log=False, 
                  batch_size=375,
                  parallel=True,
                  device="cuda",
@@ -29,16 +32,24 @@ def main():
                  epochs=300,
                  only_test=False
                  )
-    D.train()
-    outputs, targets = D.predict(indices=[0], model="model_z.pt")
+    # D.train()
+    modelId = hashNum + "_model_" + D.vector + ".pt"
+    outputs, targets = D.predict(model=modelId, indices=[1, 2, 3])
     cosSim = nn.CosineSimilarity(dim=0)
     print(cosSim(outputs[0], targets[0]))
     print(cosSim(torch.randn_like(outputs[0]), targets[0]))
     
     E = Encoder()
-    c = torch.load("latent_vectors/target_c.pt")
-    img = E.reconstruct(outputs[0], c, 0.00000000001)
-    img2 = E.reconstruct(targets[0], c, 0.00000000001)
+    z = torch.load("latent_vectors/target_z.pt")
+    img = E.reconstruct(z, outputs[0], 0.9999999999)
+    img2 = E.reconstruct(z, targets[0], 0.9999999999)
+    img = E.reconstruct(z, outputs[1], 0.9999999999)
+    img2 = E.reconstruct(z, targets[1], 0.9999999999)
+    img = E.reconstruct(z, outputs[2], 0.9999999999)
+    img2 = E.reconstruct(z, targets[2], 0.9999999999)
+    # c = torch.load("latent_vectors/target_c.pt")
+    # img = E.reconstruct(outputs[0], c, 0.00000000001)
+    # img2 = E.reconstruct(targets[0], c, 0.00000000001)
 
 if __name__ == "__main__":
     main()
