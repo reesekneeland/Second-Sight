@@ -39,7 +39,7 @@ nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
 for i in tqdm(range(1,38), desc="Loading Voxels"):
     beta = nsda.read_betas(subject='subj01', 
                         session_index=i, 
-                        trial_index=[], # Empty list as index means get all 750 scans for this session
+                        trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
                         data_type='betas_fithrf_GLMdenoise_RR',
                         data_format='func1pt8mm')
 
@@ -50,13 +50,18 @@ for i in tqdm(range(1,38), desc="Loading Voxels"):
 
         # Grab the current beta trail. 
         curScan = beta[:, j]
+        
+        # Normalizing the scan.  
+        single_scan = torch.from_numpy(curScan[nsd_mask])
+        single_scan = ((single_scan - torch.mean(single_scan)) / torch.std(single_scan))
 
         # Discard the unmasked values and keeps the masked values. 
         whole_region[j + (i-1)*750] = torch.from_numpy(curScan[nsd_mask])
-# Normalization
+        
+# # Normalization
 
-whole_region_mean, whole_region_std = whole_region.mean(), whole_region.std()
-whole_region = (whole_region - whole_region_mean) / whole_region_std
+# whole_region_mean, whole_region_std = whole_region.mean(), whole_region.std()
+# whole_region = (whole_region - whole_region_mean) / whole_region_std
 
 torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
 
@@ -78,8 +83,6 @@ for vector in vectors:
         vec_target[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
 
     torch.save(vec_target, prep_path + vector + "/vector_" + str(datashape[1]) + ".pt")
-
-
 
 
 
