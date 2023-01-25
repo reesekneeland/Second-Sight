@@ -47,6 +47,9 @@ def main():
     img2 = E.reconstruct(z, targets[1], 0.9999999999)
     img = E.reconstruct(z, outputs[2], 0.9999999999)
     img2 = E.reconstruct(z, targets[2], 0.9999999999)
+    
+    reconstruction_outputs = [outputs[0], outputs[1], outputs[2], outputs[3]]
+    reconstruction_targets = [targets[0], targets[1], targets[2], targets[3]]
     # c = torch.load("latent_vectors/target_c.pt")
     # img = E.reconstruct(outputs[0], c, 0.00000000001)
     # img2 = E.reconstruct(targets[0], c, 0.00000000001)

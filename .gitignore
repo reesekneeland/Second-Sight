@@ -6,3 +6,4 @@ src/__pycache__
 /reconstructions
 /scalar_experiments/wandb
 /scripts/wandb
+/stablediffusion
