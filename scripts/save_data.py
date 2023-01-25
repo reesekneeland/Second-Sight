@@ -52,12 +52,14 @@ for i in tqdm(range(1,38), desc="Loading Voxels"):
         curScan = beta[:, j]
         
         # Normalizing the scan.  
-        single_scan = curScan[nsd_mask]
-        single_scan = (single_scan - np.min(single_scan))/(np.max(single_scan)-np.min(single_scan))
         single_scan = torch.from_numpy(single_scan)
 
         # Discard the unmasked values and keeps the masked values. 
         whole_region[j + (i-1)*750] = single_scan
+        
+
+# Normalized whole region. 
+whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
 # Save the tensor
 torch.save(whole_region, prep_path + "x/whole_region_11838.pt")

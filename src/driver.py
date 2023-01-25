@@ -32,7 +32,7 @@ def main():
                  epochs=300,
                  only_test=False
                  )
-    # D.train()
+    D.train()
     modelId = hashNum + "_model_" + D.vector + ".pt"
     outputs, targets = D.predict(model=modelId, indices=[1, 2, 3])
     cosSim = nn.CosineSimilarity(dim=0)

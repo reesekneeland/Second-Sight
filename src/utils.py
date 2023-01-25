@@ -17,15 +17,19 @@ from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 
+
         
 def get_hash():
-    with open('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/hash','r') as file:
+    print(pwd)
+    with open(pwd+'/hash','r') as file:
         h = file.read()
     file.close()
     return str(h)
 
 def update_hash():
-    with open('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/hash','r+') as file:
+    print(str(os.getcwd))
+    print ("Current working dir : %s" % os.getcwd())
+    with open(str(os.getcwd) + '/Second-Sight/hash','r+') as file:
         h = int(file.read())
         new_h = f'{h+1:03d}'
         file.seek(0)
@@ -64,3 +68,6 @@ def get_data(vector, threshold=0.2, batch_size=375, num_workers=16, only_test=Fa
 # Second URL: Local files that we are adding to the dataset and need to access as part of the data
 # Object for the NSDAccess package
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
+
+# Get the current directory of the user. 
+pwd = os.getcwd
