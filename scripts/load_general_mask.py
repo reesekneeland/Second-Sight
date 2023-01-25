@@ -70,7 +70,7 @@ def get_slices(voxel_mask_reshape):
     print("Calculating slices....")
     single_trial = nsda.read_betas(subject='subj01', 
                                     session_index=1, 
-                                    trial_index=[0], # Empty list as index means get all for this session
+                                    trial_index=[], # Empty list as index means get all for this session
                                     data_type='betas_fithrf_GLMdenoise_RR',
                                     data_format='func1pt8mm')
     
