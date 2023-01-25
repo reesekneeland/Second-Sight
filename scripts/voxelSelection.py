@@ -19,6 +19,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
+import nibabel as nib
 from encoder import Encoder
 
 
@@ -50,9 +51,9 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(78848, 16000)
+            self.linear = nn.Linear(78848,  11838)
         elif(vector == "z"):
-            self.linear = nn.Linear(16384,  16000)
+            self.linear = nn.Linear(16384,  11838)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -75,18 +76,10 @@ class VectorMapping():
         
         # Pytorch Device 
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-       
-        # Segmented dataset paths and file loader
-        # Specific regions for the voxels of the brain
-        voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
-        voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
-        
-        # Main dictionary that contains the voxel activation data, as well as ROI maps and indices for the actual beta
-        self.voxel_data_dict = embed_dict({k: np.copy(d) for k,d in voxel_data_set.items()})
-        voxel_data_set.close()
         
         # Condition to set layer size 
         self.vector = vector
+        self.hashNum = update_hash()
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -94,9 +87,9 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.0001
+        self.lr = 0.06
         self.batch_size = 750
-        self.num_epochs = 100
+        self.num_epochs = 300
         self.num_workers = 4
         self.log = True
         
@@ -108,6 +101,7 @@ class VectorMapping():
                 
                 # track hyperparameters and run metadata
                 config={
+                "hash": self.hashNum,
                 # "architecture": "Linear Regression",
                 # "architecture": "Linear 2 Layer",
                 # "architecture": "Linear 3 Layer",
@@ -121,107 +115,40 @@ class VectorMapping():
                 "num_workers": self.num_workers
                 }
             )
+
     
-    def load_data_masked(vector, only_test=False):
-        
-        # 750 trails per session 
-        # 40 sessions per subject
-        # initialize some empty tensors to allocate memory
-        
-        
+    def load_data_masked(self, vector, only_test=False):
         if(vector == "c"):
-            y_train = torch.empty((25500, 77, 1024))
-            y_test  = torch.empty((2250, 77, 1024))
+            datasize = 78848
         elif(vector == "z"):
-            y_train = torch.empty((25500, 4, 64, 64))
-            y_test  = torch.empty((2250, 4, 64, 64))
+            datasize = 16384
         
+        # Loads the preprocessed data
+        prep_path = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/"
+        y = torch.load(prep_path + "x/whole_region_11838.pt")
+        x  = torch.load(prep_path + vector + "/vector.pt")
         
-        # 34 * 750 = 25500
-        x_train = torch.empty((25500, 42, 22, 27))
+        x_train = x[:25500]
+        x_test = x[25500:27750]
+        y_train = y[:25500]
+        y_test = y[25500:27750]
         
-        # 3 * 750 = 2250
-        x_test  = torch.empty((2250, 42, 22, 27))
-        
-        #grabbing voxel mask for subject 1
-        voxel_mask = voxel_data_dict['voxel_mask']["1"]
-        voxel_mask_reshape = voxel_mask.reshape((81, 104, 83, 1))
-
-        slices = get_slices(voxel_mask_reshape)
-
-        # Checks if we are only loading the test data so we don't have to load all the training betas
-        if(not only_test):
-            
-            # Loads the full collection of beta sessions for subject 1
-            for i in tqdm(range(1,35), desc="Loading Training Voxels"):
-                beta = nsda.read_betas(subject='subj01', 
-                                    session_index=i, 
-                                    trial_index=[], # Empty list as index means get all 750 scans for this session
-                                    data_type='betas_fithrf_GLMdenoise_RR',
-                                    data_format='func1pt8mm')
-                roi_beta = np.where((voxel_mask_reshape), beta, 0)
-                beta_trimmed = roi_beta[slices] 
-                beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
-                x_train[(i-1)*750:(i-1)*750+750] = torch.from_numpy(beta_trimmed)
-        
-        for i in tqdm(range(35,38), desc="Loading Test Voxels"):
-            
-            # Loads the test betas and puts it into a tensor
-            test_betas = nsda.read_betas(subject='subj01', 
-                                        session_index=i, 
-                                        trial_index=[], # Empty list as index means get all for this session
-                                        data_type='betas_fithrf_GLMdenoise_RR',
-                                        data_format='func1pt8mm')
-            roi_beta = np.where((voxel_mask_reshape), test_betas, 0)
-            beta_trimmed = roi_beta[slices] 
-            beta_trimmed = np.moveaxis(beta_trimmed, -1, 0)
-            x_test[(i-35)*750:(i-35)*750+750] = torch.from_numpy(beta_trimmed)
-
-        # Loading the description object for subejct1
-        subj1y = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-
-        for i in tqdm(range(0,25500), desc="Loading Training Vectors"):
-            # Flexible to both Z and C tensors depending on class configuration
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == i+1) | (subj1y['subject1_rep1'] == i+1) | (subj1y['subject1_rep2'] == i+1)].nsdId)
-            y_train[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
-
-        for i in tqdm(range(0,2250), desc="Loading Test Vectors"):
-            index = int(subj1y.loc[(subj1y['subject1_rep0'] == 25501 + i) | (subj1y['subject1_rep1'] == 25501 + i) | (subj1y['subject1_rep2'] == 25501 + i)].nsdId)
-            y_test[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
-
-        if(vector == "c"):
-            y_train = y_train.reshape((25500, 78848))
-            y_test  = y_test.reshape((2250, 78848))
-        elif(vector == "z"):
-            y_train = y_train.reshape((25500, 16384))
-            y_test  = y_test.reshape((2250, 16384))
-            
-        x_train = x_train.reshape((25500, 1, 42, 22, 27))
-        x_test  = x_test.reshape((2250, 1, 42, 22, 27))
-
-        print("3D STATS PRENORM", torch.max(x_train), torch.var(x_train))
-        x_train_mean, x_train_std = x_train.mean(), x_train.std()
-        x_test_mean, x_test_std = x_test.mean(), x_test.std()
-        x_train = (x_train - x_train_mean) / x_train_std
-        x_test = (x_test - x_test_mean) / x_test_std
-
-        print("3D STATS NORMALIZED", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
     
     # Loads the data into an array of DataLoaders for each seperate C vector
-    def get_data_c_seperate(self):
-        x, x_test, y, y_test = self.load_data_c_seperate()
+    def get_data_masked(self):
+        x, x_test, y, y_test = self.load_data_masked(self.vector)
         # Loads the raw tensors into Dataset objects
         trainset = torch.utils.data.TensorDataset(x, y) #.type(torch.LongTensor)
         testset = torch.utils.data.TensorDataset(x_test, y_test) #.type(torch.LongTensor)
         
         # Loads the Dataset into a DataLoader
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
         testloader = torch.utils.data.DataLoader(testset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
         return trainloader, testloader
     
         
-    def train_c_seperate(self, trainLoader, testLoader):
+    def train(self, trainLoader, testLoader):
 
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
@@ -239,8 +166,8 @@ class VectorMapping():
         # Set the optimizer to Stochastic Gradient Descent
         optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
         
-        # Set the learning rate scheduler to reduce the learning rate by 30% if the loss plateaus for 3 epochs
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.2, patience=1)
+        # Set the learning rate scheduler to reduce the learning rate if the loss plateaus for 3 epochs
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.4, patience=3)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
@@ -307,23 +234,23 @@ class VectorMapping():
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "scalar_space_models/model_z_100.pt")
+                torch.save(self.model.state_dict(), "../models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 3):
+                if(loss_counter >= 8):
                     break
         
         # Load our best model and returning it
-        self.model.load_state_dict(torch.load("scalar_space_models/model_z_100.pt"))
+        self.model.load_state_dict(torch.load("../models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
 
 
     #reassemble an output c vector from the individual component models
-    def predict_c_seperate(self, testLoader):
-        out = torch.zeros((2250,100))
-        target = torch.zeros((2250, 100))
-        self.model.load_state_dict(torch.load("scalar_space_models/model_z_100.pt"))
+    def predict(self, testLoader, hashNum):
+        out = torch.zeros((2250,11838))
+        target = torch.zeros((2250, 11838))
+        self.model.load_state_dict(torch.load("../models/" + hashNum + "_" + self.vector + "2voxels.pt"))
         self.model.eval()
         self.model.to(self.device)
 
@@ -333,7 +260,6 @@ class VectorMapping():
             x_data, y_data = data
             x_data = x_data.to(self.device)
             y_data = y_data.to(self.device)
-            
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
             out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
@@ -345,37 +271,34 @@ class VectorMapping():
         # targetPrev = torch.load("target_z_scalar.pt")
         # print("out check", torch.eq(out, outPrev))
         # print("target check", torch.eq(target, targetPrev))
+        
+    
         # Pearson correlation
         r = []
-        for p in range(100):
-            x_bar = torch.mean(out[:,p])
-            y_bar = torch.mean(target[:,p])
-            numerator = torch.sum((out[:,p]-x_bar)*(target[:,p]-y_bar))
-            denominator = torch.sqrt(torch.sum((out[:,p]-x_bar)**2)*torch.sum((target[:,p]-y_bar)**2))
-            pearson = numerator/denominator
-            r.append(pearson)
-        # r = []
-        # for p in range(100):
-        #     r.append(pearson_corrcoef(out[:,p], target[:,p]))
+        for p in range(out.shape[1]):
+            r.append(pearson_corrcoef(out[:,p], target[:,p]))
+        r = np.array(r)
         print(np.mean(r))
+        mask = np.array(len(r) * [True])
+        for threshold in [0.0, 0.05, 0.1, 0.2]:
+            threshmask = np.where(np.array(r) > threshold, mask, False)
+            np.save("masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
             
         plt.hist(r, bins=40)
-        plt.savefig("pearson_scalar_100_histogram_z.png")
-        # plt.plot(r)
-        # plt.savefig("pearson_scalar_100_original2.png")
+        plt.savefig(hashNum + "_" + self.vector + "2voxels_pearson_histogram.png")
         
         
-        torch.save(out, "output_z_scalar.pt")
-        torch.save(target, "target_z_scalar.pt")
+        # torch.save(out, "output_z_scalar.pt")
+        # torch.save(target, "target_z_scalar.pt")
         
 
 
 def main():
-    vector = "z"
+    vector = "c"
     VM = VectorMapping(vector)
-    train, test = VM.get_data_c_seperate()
-    # VM.train_c_seperate(train, test)
-    VM.predict_c_seperate(test)
+    train, test = VM.get_data_masked()
+    VM.train(train, test)
+    VM.predict(test, VM.hashNum)
 
 if __name__ == "__main__":
     main()
