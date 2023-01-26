@@ -14,7 +14,7 @@ import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
 import h5py
-sys.path.append('../src')
+os.chdir("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/src/")
 from utils import *
 import wandb
 import copy
@@ -87,7 +87,7 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.06
+        self.lr = 0.15
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -117,14 +117,10 @@ class VectorMapping():
             )
 
     
-    def load_data_masked(self, vector, only_test=False):
-        if(vector == "c"):
-            datasize = 78848
-        elif(vector == "z"):
-            datasize = 16384
+    def load_data_masked(self, vector):
         
         # Loads the preprocessed data
-        prep_path = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/"
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
         y = torch.load(prep_path + "x/whole_region_11838.pt")
         x  = torch.load(prep_path + vector + "/vector.pt")
         
@@ -235,7 +231,7 @@ class VectorMapping():
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
+                torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -244,14 +240,14 @@ class VectorMapping():
                     break
         
         # Load our best model and returning it
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
 
 
     #reassemble an output c vector from the individual component models
     def predict(self, testLoader, hashNum):
         out = torch.zeros((2250,11838))
         target = torch.zeros((2250, 11838))
-        self.model.load_state_dict(torch.load(hashNum + "_" + self.vector + "2voxels.pt"))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + hashNum + "_" + self.vector + "2voxels.pt"))
         self.model.eval()
         self.model.to(self.device)
 
@@ -283,10 +279,10 @@ class VectorMapping():
         mask = np.array(len(r) * [True])
         for threshold in [0.0, 0.05, 0.1, 0.2]:
             threshmask = np.where(np.array(r) > threshold, mask, False)
-            np.save("masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
+            np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
             
         plt.hist(r, bins=40)
-        plt.savefig(hashNum + "_" + self.vector + "2voxels_pearson_histogram.png")
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram.png")
         
         
         # torch.save(out, "output_z_scalar.pt")
@@ -298,7 +294,7 @@ def main():
     vector = "c"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
-    VM.train(train, test)
+    # VM.train(train, test)
     VM.predict(test, VM.hashNum)
 
 if __name__ == "__main__":

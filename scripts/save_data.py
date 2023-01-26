@@ -22,12 +22,12 @@ import nibabel as nib
 
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 # output filepath
-prep_path = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/"
+prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
 thresholds = ["0.0", "0.05", "0.1", "0.2"]
 vectors = ["z", "c"]
 whole_region = torch.zeros((27750, 11838))
 # whole_region = torch.load(prep_path + "x/whole_region_11838.pt")
-nsd_general = nib.load("masks/brainmask_nsdgeneral_1.0.nii").get_data()
+nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
 # print(nsd_general.shape)
 
 nsd_general_mask = np.nan_to_num(nsd_general)
@@ -61,7 +61,7 @@ for i in tqdm(range(1,38), desc="Loading Voxels"):
 # Normalized whole region. 
 whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
-# Save the tensor
+#Save the tensor
 torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
 
 for vector in vectors:
@@ -79,7 +79,7 @@ for vector in vectors:
         
         # Flexible to both Z and C tensors depending on class configuration
         index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
-        vec_target[i] = torch.reshape(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
+        vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
 
     torch.save(vec_target, prep_path + vector + "/vector_" + str(datashape[1]) + ".pt")
 
@@ -87,7 +87,7 @@ for vector in vectors:
 
 for threshold in thresholds:
     for vector in vectors:
-        mask = np.load("masks/" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
+        mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
         new_len = np.count_nonzero(mask)
         target = torch.zeros((27750, new_len))
         for i in range(27750):

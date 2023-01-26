@@ -58,20 +58,7 @@ from encoder import Encoder
 #    - For the (deprecated) SelfSupervisedReconstr folder which is the self-supervised learning paper
 
 
-# Pytorch model class for Linear regression layer Neural Network
-class LinearRegression(torch.nn.Module):
-    def __init__(self, vector):
-        super(LinearRegression, self).__init__()
-        if(vector == "c"):
-            self.linear = nn.Linear(715, 78848)
-        elif(vector == "z"):
-            self.linear = nn.Linear(4147,  16384)
-    
-    def forward(self, x):
-        y_pred = self.linear(x)
-        return y_pred
-
-
+# CNN Class, very rough still
 class CNN(torch.nn.Module):
     def __init__(self, vector):
         super(CNN, self).__init__()
@@ -107,7 +94,20 @@ class CNN(torch.nn.Module):
         # out = self.batch(out)
         out = self.fc1(out)
         return out
-
+    
+# Pytorch model class for Linear regression layer Neural Network
+class LinearRegression(torch.nn.Module):
+    def __init__(self, vector):
+        super(LinearRegression, self).__init__()
+        if(vector == "c"):
+            self.linear = nn.Linear(715, 78848)
+        elif(vector == "z"):
+            self.linear = nn.Linear(1344,  16384)
+    
+    def forward(self, x):
+        y_pred = self.linear(x)
+        return y_pred
+    
 # Main Class    
 class Decoder():
     def __init__(self, 
@@ -120,8 +120,7 @@ class Decoder():
                  parallel=True,
                  device="cuda",
                  num_workers=16,
-                 epochs=200,
-                 only_test=False
+                 epochs=200
                  ):
 
         # Set the parameters for pytorch model training
@@ -134,16 +133,10 @@ class Decoder():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.only_test = only_test
         self.parallel = parallel
-        
-        if(self.vector == "z"):
-            self.datasize = (1, 16384)
-        elif(self.vector == "c"):
-            self.datasize = (1, 78848)
 
         # Initialize the Pytorch model class
-        self.model = self.model_init()
+        self.model = LinearRegression(self.vector)
         
         # Configure multi-gpu training
         if(self.parallel):
@@ -153,7 +146,10 @@ class Decoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = get_data(self.vector, self.batch_size, self.num_workers, self.only_test)
+        self.trainloader, self.testloader = get_data(vector=self.vector, 
+                                                     threshold=self.threshold, 
+                                                     batch_size=self.batch_size, 
+                                                     num_workers=self.num_workers)
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -174,36 +170,15 @@ class Decoder():
                 "num_workers": self.num_workers
                 }
             )
-
-
-    def model_init(self):
-        # Initialize the Pytorch model class
-        # model = CNN(self.vector)
-        model = LinearRegression(self.vector)
-        
-        # Configure multi-gpu training
-        if(self.parallel):
-            model = nn.DataParallel(model)
-        
-        # Send model to Pytorch Device 
-        model.to(self.device)
-        return model
     
 
     def train(self):
-        # If a previously trained model exists, load the best loss as the saved best model
-        # try:
-        #     best_loss = torch.load("best_loss_" + self.vector + ".pt")
-        # except:
-        self.model = self.model_init()
+        # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
         
-        # Set best loss to negative value so it always gets overwritten
-        
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(size_average = False)
-        # criterion = nn.L1Loss()
         
         # Import gradients to wandb to track loss gradients
         if(self.log):
@@ -212,7 +187,7 @@ class Decoder():
         # Set the optimizer to Stochastic Gradient Descent
         optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
         
-        # Set the learning rate scheduler to reduce the learning rate by 30% if the loss plateaus for 3 epochs
+        # Set the learning rate scheduler to reduce the learning rate by 80% if the loss plateaus for 3 epochs
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.2, patience=3)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
@@ -229,7 +204,7 @@ class Decoder():
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
                 # x_data = Brain Data
-                # y_data = Clip Data
+                # y_data = Clip/Z vector Data
                 x_data, y_data = data
                 
                 # Moving the tensors to the GPU
@@ -295,9 +270,9 @@ class Decoder():
                 best_loss = test_loss
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 else:
-                    torch.save(self.model.state_dict(), "models/" + self.hashNum + "model_" + self.vector + ".pt")
+                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -307,36 +282,31 @@ class Decoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("models/" + self.hashNum + "model_" + self.vector + ".pt"))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         else:
-            self.model.load_state_dict(torch.load("models/" + self.hashNum + "model_" + self.vector + ".pt"))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
 
 
     def predict(self, model, indices=[0]):
-        self.model = self.model_init()
         os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("models/" + model))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model))
         else:
-            self.model.load_state_dict(torch.load("models/" + model))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model))
         self.model.eval()
         outputs, targets = [], []
         x, y = next(iter(self.testloader))
-        print(x.shape, y.shape)
         for i in indices:
-            
             # Loading in the test data
             x_data = x[i]
             y_data = y[i]
-            print(x_data.shape, y_data.shape)
             x_data = x_data[None,:].to(self.device)
             y_data = y_data[None,:].to(self.device)
-            print(x_data.shape, y_data.shape)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
             outputs.append(pred_y)
             targets.append(y_data)
-            torch.save(pred_y, "../latent_vectors/" + model + "/" + "output_" + self.vector + ".pt")
-            torch.save(y_data, "../latent_vectors/" + model + "/" + "target_" + self.vector + ".pt")
+            torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "output_" + str(i) + "_" + self.vector + ".pt")
+            torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "target_" + str(i) + "_" + self.vector + ".pt")
         return outputs, targets
