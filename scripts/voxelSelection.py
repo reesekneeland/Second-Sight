@@ -202,7 +202,7 @@ class VectorMapping():
                 # Add up the loss for this training round
                 running_loss += loss.item()
             tqdm.write('[%d, %5d] train loss: %.8f' %
-                (epoch + 1, i + 1, running_loss /len(self.trainLoader)))
+                (epoch + 1, i + 1, running_loss /len(trainLoader)))
                     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
 
         # Entering validation stage
@@ -235,7 +235,7 @@ class VectorMapping():
             # Check if we need to save the model
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "../models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
+                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -244,14 +244,14 @@ class VectorMapping():
                     break
         
         # Load our best model and returning it
-        self.model.load_state_dict(torch.load("../models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
 
 
     #reassemble an output c vector from the individual component models
     def predict(self, testLoader, hashNum):
         out = torch.zeros((2250,11838))
         target = torch.zeros((2250, 11838))
-        self.model.load_state_dict(torch.load("../models/" + hashNum + "_" + self.vector + "2voxels.pt"))
+        self.model.load_state_dict(torch.load(hashNum + "_" + self.vector + "2voxels.pt"))
         self.model.eval()
         self.model.to(self.device)
 

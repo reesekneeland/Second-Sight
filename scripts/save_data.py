@@ -52,10 +52,10 @@ for i in tqdm(range(1,38), desc="Loading Voxels"):
         curScan = beta[:, j]
         
         # Normalizing the scan.  
-        single_scan = torch.from_numpy(single_scan)
+        single_scan = torch.from_numpy(curScan)
 
         # Discard the unmasked values and keeps the masked values. 
-        whole_region[j + (i-1)*750] = single_scan
+        whole_region[j + (i-1)*750] = single_scan[nsd_mask]
         
 
 # Normalized whole region. 
@@ -87,7 +87,7 @@ for vector in vectors:
 
 for threshold in thresholds:
     for vector in vectors:
-        mask = np.load(vector + "2voxels_pearson_thresh" + threshold + ".npy")
+        mask = np.load("masks/" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
         new_len = np.count_nonzero(mask)
         target = torch.zeros((27750, new_len))
         for i in range(27750):

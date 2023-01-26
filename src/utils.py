@@ -20,7 +20,7 @@ from tqdm import tqdm
 
         
 def get_hash():
-    with open(pwd+'/hash','r') as file:
+    with open('hash','r') as file:
         h = file.read()
     file.close()
     return str(h)
@@ -28,7 +28,7 @@ def get_hash():
 def update_hash():
     print(str(os.getcwd()))
     print ("Current working dir : %s" % os.getcwd())
-    with open(pwd + '/hash','r+') as file:
+    with open('hash','r+') as file:
         h = int(file.read())
         new_h = f'{h+1:03d}'
         file.seek(0)
@@ -69,4 +69,5 @@ def get_data(vector, threshold=0.2, batch_size=375, num_workers=16, only_test=Fa
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 
 # Get the current directory of the user. 
-pwd = str(os.getcwd())
+pwd = os.getcwd
+os.chdir("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight")
