@@ -153,7 +153,7 @@ class Decoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = get_data(self.vector, self.batch_size, self.num_workers, self.only_test)
+        self.trainloader, self.testloader = get_data(self.vector, self.threshold, self.batch_size, self.num_workers, self.only_test)
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):

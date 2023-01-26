@@ -20,7 +20,8 @@ from decoder import Decoder
 
 def main():
     hashNum = update_hash()
-    D = Decoder(hash = hashNum,
+    print(hashNum)
+    D = Decoder(hashNum = hashNum,
                  lr=0.0000005,
                  vector="c", 
                  threshold=0.2,
