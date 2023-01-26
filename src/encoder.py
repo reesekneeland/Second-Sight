@@ -87,33 +87,10 @@ class Encoder():
     # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
     # Strength parameter controls the weighting between the two tensors
     def reconstructNImages(self, z, c, strength=0.8):
-        init_latent = z.reshape((1,4,64,64)).to(self.device)
-        self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
-
-        assert 0. <= strength <= 1., 'can only work with strength in [0.0, 1.0]'
-        t_enc = int(strength * 50)
-        print(f"target t_enc is {t_enc} steps")
-
-        precision_scope = autocast
-        with torch.no_grad():
-            with precision_scope("cuda"):
-                with self.model.ema_scope():
-                    uc = None
-                    if self.scale != 1.0:
-                        uc = self.model.get_learned_conditioning(1 * [""])
-                    c = c.reshape((1,77,1024)).to(self.device)
-                    z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc] * 1).to(self.device))
-                    samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
-                                            unconditional_conditioning=uc, )
-
-                    x_sample = self.model.decode_first_stage(samples)
-                    x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
-
-                    x_sample = 255. * rearrange(x_sample[0].cpu().numpy(), 'c h w -> h w c')
-                    img = Image.fromarray(x_sample.astype(np.uint8))
-                    img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
-                    self.base_count += 1
-        return img
+        self.reconstruct()
+        self.reconstruct()
+        self.reconstruct()
+        self.reconstruct()
 
     if __name__ == "__main__":
         z = torch.load(sys.argv[1])

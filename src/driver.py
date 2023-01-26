@@ -21,7 +21,7 @@ from decoder import Decoder
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     hashNum = update_hash()
-    D = Decoder(hashNum = "022",
+    D = Decoder(hashNum = hashNum,
                  lr=0.00001,
                  vector="c", 
                  threshold=0.2,
