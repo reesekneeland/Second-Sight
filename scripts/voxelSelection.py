@@ -14,7 +14,10 @@ import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
 import h5py
-os.chdir("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/src/")
+#os.chdir("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/src/")
+# os.chdir("../src/")
+# print(str(os.getcwd()))
+sys.path.append('../src')
 from utils import *
 import wandb
 import copy
@@ -79,7 +82,9 @@ class VectorMapping():
         
         # Condition to set layer size 
         self.vector = vector
-        self.hashNum = update_hash()
+        
+        #self.hashNum = update_hash()
+        self.hashNum = "011"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -281,8 +286,9 @@ class VectorMapping():
             threshmask = np.where(np.array(r) > threshold, mask, False)
             np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
             
+        #r = np.log(r)
         plt.hist(r, bins=40)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram.png")
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
         # torch.save(out, "output_z_scalar.pt")
@@ -295,6 +301,8 @@ def main():
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     # VM.train(train, test)
+    
+    # 011
     VM.predict(test, VM.hashNum)
 
 if __name__ == "__main__":
