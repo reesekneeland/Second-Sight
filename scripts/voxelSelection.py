@@ -14,9 +14,6 @@ import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
 import h5py
-#os.chdir("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/src/")
-# os.chdir("../src/")
-# print(str(os.getcwd()))
 sys.path.append('../src')
 from utils import *
 import wandb
@@ -85,6 +82,7 @@ class VectorMapping():
         
         #self.hashNum = update_hash()
         self.hashNum = "011"
+        #self.hashNum = "096"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -92,7 +90,8 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.15
+        # 11.8 for z
+        self.lr = 11.0
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -281,13 +280,22 @@ class VectorMapping():
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
         print(np.mean(r))
+        threshold = round((min(r) * -1), 6)
+        print(threshold)
         mask = np.array(len(r) * [True])
-        for threshold in [0.0, 0.05, 0.1, 0.2]:
-            threshmask = np.where(np.array(r) > threshold, mask, False)
-            np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
+        # for threshold in [0.0, 0.05, 0.1, 0.2]:
+        #     threshmask = np.where(np.array(r) > threshold, mask, False)
+        #     print(threshmask.shape)
+        #     np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
+        
+        threshmask = np.where(np.array(r) > threshold, mask, False)
+        print(threshmask.shape)
+        np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
             
+        #print(r)
         #r = np.log(r)
-        plt.hist(r, bins=40)
+        plt.hist(r, bins=40, log=True)
+        #plt.yscale('log')
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
@@ -300,9 +308,8 @@ def main():
     vector = "c"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
-    # VM.train(train, test)
+    #VM.train(train, test)
     
-    # 011
     VM.predict(test, VM.hashNum)
 
 if __name__ == "__main__":
