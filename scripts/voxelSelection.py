@@ -82,7 +82,7 @@ class VectorMapping():
         
         #self.hashNum = update_hash()
         self.hashNum = "011"
-        #self.hashNum = "096"
+        # self.hashNum = "096"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -289,7 +289,7 @@ class VectorMapping():
         #     np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
         
         threshmask = np.where(np.array(r) > threshold, mask, False)
-        print(threshmask.shape)
+        print(threshmask.sum())
         np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
             
         #print(r)

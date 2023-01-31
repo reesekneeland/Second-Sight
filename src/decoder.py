@@ -100,9 +100,17 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(715, 78848)
+            
+            # For threshold 0.08
+            self.linear = nn.Linear(1729, 78848)
+            
+            #self.linear = nn.Linear(715, 78848)
         elif(vector == "z"):
-            self.linear = nn.Linear(1344,  16384)
+            
+            # For threshold 0.07
+            self.linear = nn.Linear(5051,  16384)
+            
+            #self.linear = nn.Linear(1344,  16384)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -163,7 +171,7 @@ class Decoder():
                 "architecture": "Linear Regression",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "custom masked positive pearson correlation with 0.1 threshold",
+                "dataset": "custom masked positive pearson correlation with 0.7 for z threshold",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,

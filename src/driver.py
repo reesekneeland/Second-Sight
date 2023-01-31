@@ -21,20 +21,23 @@ from decoder import Decoder
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
+    
+    train_decoder()
 
     
-    reconstructNImages(z_model_hash="044",
-                         c_model_hash="022",
-                         idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # reconstructNImages(z_model_hash="044",
+    #                      c_model_hash="022",
+    #                      idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
     hashNum = update_hash()
+    #hashNum = "096"
     D = Decoder(hashNum = hashNum,
-                 lr=0.00001,
-                 vector="c", 
-                 threshold=0.2,
-                 log=False, 
+                 lr=0.000003,
+                 vector="z", 
+                 threshold=0.07,
+                 log=True, 
                  batch_size=750,
                  parallel=False,
                  device="cuda",
