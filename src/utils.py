@@ -45,7 +45,7 @@ def get_data(vector, threshold=0.2, batch_size=375, num_workers=16):
     x_test = x[25500:27750]
     y_train = y[:25500]
     y_test = y[25500:27750]
-    print("shapes", x.shape, x_test.shape, y.shape, y_test.shape)
+    print("shapes", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
     
     # Loads the raw tensors into a Dataset object
     

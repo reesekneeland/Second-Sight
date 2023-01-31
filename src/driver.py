@@ -36,6 +36,7 @@ def main():
 
 def train_decoder():
     hashNum = update_hash()
+    #hashNum = "096"
     D = Decoder(hashNum = hashNum,
                  lr=0.0000025,
                  vector="c_img", 
