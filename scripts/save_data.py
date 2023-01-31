@@ -23,8 +23,12 @@ import nibabel as nib
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 # output filepath
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-thresholds = ["0.0", "0.05", "0.1", "0.2"]
-vectors = ["z", "c"]
+thresholds = {"z": "0.07", "c": "0.06734", "c_prompt": "0.08"}
+hashes = {"z": "141", "c": "126", "c_prompt": "148"}
+c_threshold = "0.6734"
+z_threshold = "0.07"
+c_prompt_threshold = "0.08"
+vectors = ["z", "c", "c_prompt"]
 whole_region = torch.zeros((27750, 11838))
 # whole_region = torch.load(prep_path + "x/whole_region_11838.pt")
 nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
@@ -69,6 +73,9 @@ for vector in vectors:
         vec_target = torch.zeros((27750, 16384))
         datashape = (1, 16384)
     elif(vector == "c"):
+        vec_target = torch.zeros((27750, 1536))
+        datashape = (1, 1536)
+    elif(vector == "c_prompt"):
         vec_target = torch.zeros((27750, 78848))
         datashape = (1, 78848)
 
@@ -85,13 +92,12 @@ for vector in vectors:
 
 
 
-for threshold in thresholds:
-    for vector in vectors:
-        mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
-        new_len = np.count_nonzero(mask)
-        target = torch.zeros((27750, new_len))
-        for i in range(27750):
-            # Indexing into the sample and then using y_mask to grab the correct samples of a correlation of 0.1 or higher. 
-            target[i] = whole_region[i][torch.from_numpy(mask)]
-        torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + threshold + ".pt")
+for vector in vectors:
+    mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" hashes[vector] + "_" + vector + "2voxels_pearson_thresh" + thresholds[vector] + ".npy")
+    new_len = np.count_nonzero(mask)
+    target = torch.zeros((27750, new_len))
+    for i in range(27750):
+        # Indexing into the sample and then using y_mask to grab the correct samples of a correlation of 0.1 or higher. 
+        target[i] = whole_region[i][torch.from_numpy(mask)]
+    torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + thresholds[vector] + ".pt")
 

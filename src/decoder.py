@@ -15,7 +15,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-from encoder import Encoder
+# from encoder import Encoder
 
 
 # You decode brain data into clip then you encode the clip into an image. 
@@ -100,10 +100,13 @@ class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
         if(vector == "c"):
-            self.linear = nn.Linear(715, 78848)
+            # self.linear = nn.Linear(715, 78848)
+            self.linear = nn.Linear(1729, 78848)
         elif(vector == "z"):
-            self.linear = nn.Linear(1344,  16384)
-    
+            # self.linear = nn.Linear(1344,  16384)
+            self.linear = nn.Linear(5051,  16384)
+        elif(vector == "c_img"):
+            self.linear = nn.Linear(7372, 1536)
     def forward(self, x):
         y_pred = self.linear(x)
         return y_pred
@@ -163,7 +166,7 @@ class Decoder():
                 "architecture": "Linear Regression",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "custom masked positive pearson correlation with 0.1 threshold",
+                "dataset": "custom masked positive pearson correlation on c_img data",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -291,9 +294,9 @@ class Decoder():
         os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model,map_location='cuda'))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model,map_location='cuda'))
         self.model.eval()
         outputs, targets = [], []
         x, y = next(iter(self.testloader))

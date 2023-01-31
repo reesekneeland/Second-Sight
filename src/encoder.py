@@ -32,7 +32,7 @@ class Encoder():
 
         os.makedirs("reconstructions/samples", exist_ok=True)
         self.outpath = "reconstructions/samples"
-        self.base_count = len(os.listdir(self.outpath))
+        self.base_count = len(os.listdir(self.outpath))+3
         
     def load_model_from_config(self, config, ckpt, verbose=False):
         print(f"Loading model from {ckpt}")
