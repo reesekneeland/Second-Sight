@@ -11,3 +11,5 @@ hash
 /scalar_experiments/wandb
 /scripts/wandb
 /stablediffusion
+/latent_vectors
+/models

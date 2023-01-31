@@ -16,8 +16,8 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
+from encoder import Encoder
 from decoder import Decoder
-from diffusers import StableDiffusionImageEncodingPipeline
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
@@ -28,26 +28,18 @@ def main():
     # E = Encoder()
     # E.reconstruct(z, c, 0.999999999999)
     reconstructNImages(z_model_hash="141",
-                         c_model_hash="126",
-                         c_thresh = 0.06734,
+                         c_model_hash="148",
+                         c_thresh = 0.08,
                          z_thresh = 0.07,
                          idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
     hashNum = update_hash()
-    #hashNum = "096"
     D = Decoder(hashNum = hashNum,
-<<<<<<< HEAD
-                 lr=0.00001,
-                 vector="c", 
-                 threshold=0.08,
-=======
                  lr=0.0000025,
-                 vector="c", #c, z, c_prompt
-                 threshold=0.06734, #0.06734 for c #126, 0.07 for z #141
-                 inpSize=7372, #7372 for c with thresh 0.06734, 5051 for z with thresh 0.07
->>>>>>> 42fe8b34aa8f61dc727df5dbf4d2d72b9db10407
+                 vector="c_prompt", 
+                 threshold=0.08,
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -76,7 +68,7 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
                  parallel=False
                  )
     Dc = Decoder(hashNum = c_model_hash,
-                 vector="c_img", 
+                 vector="c_prompt", 
                  threshold=c_thresh,
                  log=False, 
                  device="cuda",
@@ -99,10 +91,11 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
     # Generating predicted and target vectors
     outputs_c, targets_c = Dc.predict(model=c_modelId, indices=idx)
     outputs_z, targets_z = Dz.predict(model=z_modelId, indices=idx)
-    strength_c = 1
-    strength_z = 0
-    E = StableDiffusionImageEncodingPipeline.from_pretrained("lambdalabs/sd-image-variations-diffusers",revision="v2.0")
-    E = E.to("cuda")
+    strength_c = 0.999999999999
+    strength_z = 0.000000000001
+    
+    E = Encoder()
+    
     
     for i in range(len(idx)):
         print(i)
@@ -185,7 +178,7 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
         plt.title("Reconstructed Output Z")
         
         
-        plt.savefig('reconstructions/' + str(i) + '_reconstruction.png')
+        plt.savefig('reconstructions/' + str(i) + '_reconstruction_c_prompt.png')
     
 if __name__ == "__main__":
     main()

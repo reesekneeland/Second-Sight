@@ -23,52 +23,56 @@ import nibabel as nib
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 # output filepath
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-thresholds = ["0.0", "0.05", "0.1", "0.2"]
-vectors = ["z", "c"]
-whole_region = torch.zeros((27750, 11838))
-# whole_region = torch.load(prep_path + "x/whole_region_11838.pt")
-nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
-# print(nsd_general.shape)
+thresholds = {"z": "0.07", "c": "0.06734", "c_prompt": "0.08"}
+hashes = {"z": "096", "c": "113", "c_prompt": "011"}
+vectors = ["z", "c", "c_prompt"]
+# whole_region = torch.zeros((27750, 11838))
+whole_region = torch.load(prep_path + "x/whole_region_11838.pt")
+# nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
+# # print(nsd_general.shape)
 
-nsd_general_mask = np.nan_to_num(nsd_general)
-nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
+# nsd_general_mask = np.nan_to_num(nsd_general)
+# nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
 
-# if(not only_test):
+# # if(not only_test):
     
-#     # Loads the full collection of beta sessions for subject 1
-for i in tqdm(range(1,38), desc="Loading Voxels"):
-    beta = nsda.read_betas(subject='subj01', 
-                        session_index=i, 
-                        trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
-                        data_type='betas_fithrf_GLMdenoise_RR',
-                        data_format='func1pt8mm')
+# #     # Loads the full collection of beta sessions for subject 1
+# for i in tqdm(range(1,38), desc="Loading Voxels"):
+#     beta = nsda.read_betas(subject='subj01', 
+#                         session_index=i, 
+#                         trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
+#                         data_type='betas_fithrf_GLMdenoise_RR',
+#                         data_format='func1pt8mm')
 
-    # Reshape the beta trails to be flattened. 
-    beta = beta.reshape((699192, 750))
+#     # Reshape the beta trails to be flattened. 
+#     beta = beta.reshape((699192, 750))
 
-    for j in range(750):
+#     for j in range(750):
 
-        # Grab the current beta trail. 
-        curScan = beta[:, j]
+#         # Grab the current beta trail. 
+#         curScan = beta[:, j]
         
-        # Normalizing the scan.  
-        single_scan = torch.from_numpy(curScan)
+#         # Normalizing the scan.  
+#         single_scan = torch.from_numpy(curScan)
 
-        # Discard the unmasked values and keeps the masked values. 
-        whole_region[j + (i-1)*750] = single_scan[nsd_mask]
+#         # Discard the unmasked values and keeps the masked values. 
+#         whole_region[j + (i-1)*750] = single_scan[nsd_mask]
         
 
-# Normalized whole region. 
-whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
+# # Normalized whole region. 
+# whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
-#Save the tensor
-torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
+# #Save the tensor
+# torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
 
 for vector in vectors:
     if(vector == "z"):
         vec_target = torch.zeros((27750, 16384))
         datashape = (1, 16384)
     elif(vector == "c"):
+        vec_target = torch.zeros((27750, 1536))
+        datashape = (1, 1536)
+    elif(vector == "c_prompt"):
         vec_target = torch.zeros((27750, 78848))
         datashape = (1, 78848)
 
@@ -81,17 +85,16 @@ for vector in vectors:
         index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
         vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
 
-    torch.save(vec_target, prep_path + vector + "/vector_" + str(datashape[1]) + ".pt")
+    torch.save(vec_target, prep_path + vector + "/vector.pt")
 
 
 
-for threshold in thresholds:
-    for vector in vectors:
-        mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
-        new_len = np.count_nonzero(mask)
-        target = torch.zeros((27750, new_len))
-        for i in range(27750):
-            # Indexing into the sample and then using y_mask to grab the correct samples of a correlation of 0.1 or higher. 
-            target[i] = whole_region[i][torch.from_numpy(mask)]
-        torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + threshold + ".pt")
+for vector in vectors:
+    mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + hashes[vector] + "_" + vector + "2voxels_pearson_thresh" + thresholds[vector] + ".npy")
+    new_len = np.count_nonzero(mask)
+    target = torch.zeros((27750, new_len))
+    for i in range(27750):
+        # Indexing into the sample and then using y_mask to grab the correct samples of a correlation of 0.1 or higher. 
+        target[i] = whole_region[i][torch.from_numpy(mask)]
+    torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + thresholds[vector] + ".pt")
 
