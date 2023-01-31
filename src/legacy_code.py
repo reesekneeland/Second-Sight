@@ -83,3 +83,40 @@ def load_data_3D(vector, only_test=False):
 
         print("3D STATS NORMALIZED", torch.max(x_train), torch.var(x_train))
         return x_train, x_test, y_train, y_test
+    
+# CNN Class, very rough still
+class CNN(torch.nn.Module):
+    def __init__(self, vector):
+        super(CNN, self).__init__()
+        self.conv_layer1 = self._conv_layer_set(1, 32)
+        self.conv_layer2 = self._conv_layer_set(32, 64)
+        self.flatten = nn.Flatten(start_dim=1)
+        if(vector == "c"):
+            self.fc1 = nn.Linear(64*9*4*5, 78848)
+        elif(vector == "z"):
+            self.fc1 = nn.Linear(64*9*4*5,  16384)
+        # self.relu = nn.LeakyReLU()
+        # self.batch=nn.BatchNorm1d(64*9*4*5)
+        # self.drop=nn.Dropout(p=0.15)
+        
+            
+    def _conv_layer_set(self, in_c, out_c):
+        conv_layer = nn.Sequential(
+        nn.Conv3d(in_c, out_c, kernel_size=(3, 3, 3), padding=0),
+        nn.LeakyReLU(),
+        nn.MaxPool3d((2, 2, 2)),
+        )
+        return conv_layer
+    
+    def forward(self, x):
+        # print("size1: ", x.shape)
+        out = self.conv_layer1(x)
+        # print("size2 out size: ", out.shape)
+        out = self.conv_layer2(out)
+        # print("flattened out size: ", out.shape)
+        out = self.flatten(out)
+        # print("flattened out size: ", out.shape)
+        # out = self.relu(out)
+        # out = self.batch(out)
+        out = self.fc1(out)
+        return out

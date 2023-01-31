@@ -20,7 +20,6 @@ import wandb
 import copy
 from tqdm import tqdm
 import nibabel as nib
-from encoder import Encoder
 
 
 # Environments:

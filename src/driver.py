@@ -39,8 +39,9 @@ def train_decoder():
     #hashNum = "096"
     D = Decoder(hashNum = hashNum,
                  lr=0.0000025,
-                 vector="c_img", 
-                 threshold=0.06734,
+                 vector="c", #c, z, c_prompt
+                 threshold=0.06734, #0.06734 for c #126, 0.07 for z #141
+                 inpSize=7372, #7372 for c with thresh 0.06734, 5051 for z with thresh 0.07
                  log=True, 
                  batch_size=750,
                  parallel=False,

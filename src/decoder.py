@@ -58,55 +58,18 @@ from tqdm import tqdm
 #    - For the (deprecated) SelfSupervisedReconstr folder which is the self-supervised learning paper
 
 
-# CNN Class, very rough still
-class CNN(torch.nn.Module):
-    def __init__(self, vector):
-        super(CNN, self).__init__()
-        self.conv_layer1 = self._conv_layer_set(1, 32)
-        self.conv_layer2 = self._conv_layer_set(32, 64)
-        self.flatten = nn.Flatten(start_dim=1)
-        if(vector == "c"):
-            self.fc1 = nn.Linear(64*9*4*5, 78848)
-        elif(vector == "z"):
-            self.fc1 = nn.Linear(64*9*4*5,  16384)
-        # self.relu = nn.LeakyReLU()
-        # self.batch=nn.BatchNorm1d(64*9*4*5)
-        # self.drop=nn.Dropout(p=0.15)
-        
-            
-    def _conv_layer_set(self, in_c, out_c):
-        conv_layer = nn.Sequential(
-        nn.Conv3d(in_c, out_c, kernel_size=(3, 3, 3), padding=0),
-        nn.LeakyReLU(),
-        nn.MaxPool3d((2, 2, 2)),
-        )
-        return conv_layer
-    
-    def forward(self, x):
-        # print("size1: ", x.shape)
-        out = self.conv_layer1(x)
-        # print("size2 out size: ", out.shape)
-        out = self.conv_layer2(out)
-        # print("flattened out size: ", out.shape)
-        out = self.flatten(out)
-        # print("flattened out size: ", out.shape)
-        # out = self.relu(out)
-        # out = self.batch(out)
-        out = self.fc1(out)
-        return out
     
 # Pytorch model class for Linear regression layer Neural Network
 class LinearRegression(torch.nn.Module):
-    def __init__(self, vector):
+    def __init__(self, vector, inpSize):
         super(LinearRegression, self).__init__()
-        if(vector == "c"):
-            # self.linear = nn.Linear(715, 78848)
-            self.linear = nn.Linear(1729, 78848)
+        if(vector == "c_prompt"):
+            outSize = 78848
         elif(vector == "z"):
-            # self.linear = nn.Linear(1344,  16384)
-            self.linear = nn.Linear(5051,  16384)
-        elif(vector == "c_img"):
-            self.linear = nn.Linear(7372, 1536)
+            outSize = 16384
+        elif(vector == "c"):
+            outSize = 1536
+        self.linear = nn.Linear(inpSize, outSize)
     def forward(self, x):
         y_pred = self.linear(x)
         return y_pred
@@ -118,7 +81,8 @@ class Decoder():
                  vector, 
                  log, 
                  lr=0.00001,
-                 threshold=0.2,
+                 threshold=0.06734,
+                 inpSize = 7372,
                  batch_size=750,
                  parallel=True,
                  device="cuda",
