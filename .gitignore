@@ -5,6 +5,9 @@ src/__pycache__
 hash
 /wandb
 /reconstructions
+/models
+/masks
+/latent_vectors
 /scalar_experiments/wandb
 /scripts/wandb
 /stablediffusion
