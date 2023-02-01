@@ -12,5 +12,3 @@ hash
 /scripts/wandb
 /stablediffusion
 /latent_vectors
-/models
-/masks
