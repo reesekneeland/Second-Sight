@@ -101,9 +101,10 @@ class Decoder():
         self.num_workers = num_workers
         self.log = log
         self.parallel = parallel
+        self.inpSize = inpSize
 
         # Initialize the Pytorch model class
-        self.model = LinearRegression(self.vector)
+        self.model = LinearRegression(self.vector, self.inpSize)
         
         # Configure multi-gpu training
         if(self.parallel):
