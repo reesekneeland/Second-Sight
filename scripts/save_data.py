@@ -27,42 +27,50 @@ thresholds = {"z": "0.07", "c": "0.06734", "c_prompt": "0.08"}
 hashes = {"z": "096", "c": "113", "c_prompt": "011"}
 vectors = ["z", "c", "c_prompt"]
 whole_region = torch.zeros((27750, 11838))
-# whole_region = torch.load(prep_path + "x/whole_region_11838.pt")
-nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
+whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+# nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
 # print(nsd_general.shape)
 
-nsd_general_mask = np.nan_to_num(nsd_general)
-nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
+# nsd_general_mask = np.nan_to_num(nsd_general)
+# nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
 
-# if(not only_test):
+# # if(not only_test):
     
-#     # Loads the full collection of beta sessions for subject 1
-for i in tqdm(range(1,38), desc="Loading Voxels"):
-    beta = nsda.read_betas(subject='subj01', 
-                        session_index=i, 
-                        trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
-                        data_type='betas_fithrf_GLMdenoise_RR',
-                        data_format='func1pt8mm')
+# # Loads the full collection of beta sessions for subject 1
+# for i in tqdm(range(1,38), desc="Loading Voxels"):
+#     beta = nsda.read_betas(subject='subj01', 
+#                         session_index=i, 
+#                         trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
+#                         data_type='betas_fithrf_GLMdenoise_RR',
+#                         data_format='func1pt8mm')
 
-    # Reshape the beta trails to be flattened. 
-    beta = beta.reshape((699192, 750))
+#     # Reshape the beta trails to be flattened. 
+#     beta = beta.reshape((699192, 750))
 
-    for j in range(750):
+#     for j in range(750):
 
-        # Grab the current beta trail. 
-        curScan = beta[:, j]
+#         # Grab the current beta trail. 
+#         curScan = beta[:, j]
         
-        # Normalizing the scan.  
-        single_scan = torch.from_numpy(curScan)
+#         # Normalizing the scan.  
+#         single_scan = torch.from_numpy(curScan)
 
-        # Discard the unmasked values and keeps the masked values. 
-        whole_region[j + (i-1)*750] = single_scan[nsd_mask]
+#         # Discard the unmasked values and keeps the masked values. 
+#         whole_region[j + (i-1)*750] = single_scan[nsd_mask]
         
+
+# Other normalization method
+#print(whole_region.shape)
+# whole_region_mean, whole_region_std = whole_region.mean(), whole_region.std()
+# for i in range(len(whole_region)):
+    
+#         whole_region_mean, whole_region_std = whole_region[i].mean(), whole_region[i].std()
+#         whole_region[i] = (whole_region[i] - whole_region_mean) / whole_region_std
 
 # Normalized whole region. 
-whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
+# whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
-#Save the tensor
+# Save the tensor
 torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
 
 for vector in vectors:

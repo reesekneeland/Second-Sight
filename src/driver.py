@@ -19,9 +19,25 @@ from tqdm import tqdm
 from decoder import Decoder
 from diffusers import StableDiffusionImageEncodingPipeline
 
+
+# Good models: 
+#
+# 141_model_z.pt 
+#      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
+#
+# 148_model_c.pt 
+#      - Model of 1729 voxels out of 11383 with a learning rate of 0.00001 and a threshold of 0.08
+#
+# 126_model_c_img.pt
+#      - Model of 7372 voxels out of 11383 with a learning rate of 0.0000025 and a threshold of 0.06734
+# 
+# 155_model_z_normalization_test.pt (Normalization Test)
+#      - Model of 5051 voxels out of 11383 with a learning rate of 0.0000001 and a threshold of 0.06734
+#
+
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # train_decoder()
+    train_decoder()
 
     # z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
     # c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/image_c_features2.pt")
@@ -38,10 +54,10 @@ def train_decoder():
     hashNum = update_hash()
     #hashNum = "096"
     D = Decoder(hashNum = hashNum,
-                 lr=0.0000025,
-                 vector="c", #c, z, c_prompt
-                 threshold=0.06734, #0.06734 for c #126, 0.07 for z #141
-                 inpSize=7372, #7372 for c with thresh 0.06734, 5051 for z with thresh 0.07
+                 lr=0.0000001,
+                 vector="z", #c, z, c_prompt
+                 threshold=0.07, #0.06734 for c #126, 0.07 for z #141
+                 inpSize=5051, #7372 for c with thresh 0.06734, 5051 for z with thresh 0.07
                  log=True, 
                  batch_size=750,
                  parallel=False,

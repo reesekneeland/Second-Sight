@@ -40,7 +40,7 @@ def get_data(vector, threshold=0.2, batch_size=375, num_workers=16):
         
     prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
     y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
-    x  = torch.load(prep_path + "x/" + vector + "_2voxels_pearson_thresh" + str(threshold) + ".pt").requires_grad_(False)
+    x  = torch.load(prep_path + "x/" + vector + "_2voxels_pearson_thresh" + str(threshold) + "_normalization_test.pt").requires_grad_(False)
     x_train = x[:25500]
     x_test = x[25500:27750]
     y_train = y[:25500]
