@@ -23,8 +23,24 @@ import nibabel as nib
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 # output filepath
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-thresholds = {"z": "0.07", "c": "0.06734", "c_prompt": "0.08"}
-hashes = {"z": "096", "c": "113", "c_prompt": "011"}
+# c
+# Hash = 182
+# Mean = 0.016873473
+# Threshold = 0.105578
+# Number of voxels = 527
+
+# z
+# Hash = 184
+# Mean = 0.0857764
+# Threshold = 0.07364
+# Number of voxels = 5764
+
+# c_prompt
+# Hash = 188
+# Threshold
+# Number of voxels = 
+thresholds = {"z": "0.07364", "c": "0.105578", "c_prompt": "0.070519"}
+hashes = {"z": "184", "c": "182", "c_prompt": "188"}
 vectors = ["z", "c", "c_prompt"]
 whole_region = torch.zeros((27750, 11838))
 whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
@@ -62,38 +78,44 @@ whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
 # Other normalization method
 #print(whole_region.shape)
 # whole_region_mean, whole_region_std = whole_region.mean(), whole_region.std()
-# for i in range(len(whole_region)):
+for i in range(11838):
     
-#         whole_region_mean, whole_region_std = whole_region[i].mean(), whole_region[i].std()
-#         whole_region[i] = (whole_region[i] - whole_region_mean) / whole_region_std
+        whole_region_mean, whole_region_std = whole_region[:, i].mean(), whole_region[:, i].std()
+        whole_region[:, i] = (whole_region[:, i] - whole_region_mean) / whole_region_std
 
 # Normalized whole region. 
 # whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
 # Save the tensor
-torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
+torch.save(whole_region, prep_path + "x/whole_region_11838_normalization_test.pt")
 
-for vector in vectors:
-    if(vector == "z"):
-        vec_target = torch.zeros((27750, 16384))
-        datashape = (1, 16384)
-    elif(vector == "c"):
-        vec_target = torch.zeros((27750, 1536))
-        datashape = (1, 1536)
-    elif(vector == "c_prompt"):
-        vec_target = torch.zeros((27750, 78848))
-        datashape = (1, 78848)
+# for vector in vectors:
+#     if(vector == "z"):
+#         vec_target = torch.zeros((27750, 16384))
+#         datashape = (1, 16384)
+#     elif(vector == "c"):
+#         vec_target = torch.zeros((27750, 1536))
+#         datashape = (1, 1536)
+#     elif(vector == "c_prompt"):
+#         vec_target = torch.zeros((27750, 78848))
+#         datashape = (1, 78848)
 
-    # Loading the description object for subejct1
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+#     # Loading the description object for subejct1
+#     subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
 
-    for i in tqdm(range(0,27750), desc="vector loader"):
+#     for i in tqdm(range(0,27750), desc="vector loader"):
         
-        # Flexible to both Z and C tensors depending on class configuration
-        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
-        vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
+#         if(vector == "c_prompt"):
+#             # Flexible to both Z and C tensors depending on class configuration
+#             index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
+#             vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "_unnormalized/" + str(index) + ".pt"), datashape)
+            
+#         else:
+#             # Flexible to both Z and C tensors depending on class configuration
+#             index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
+#             vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
 
-    torch.save(vec_target, prep_path + vector + "/vector.pt")
+#     torch.save(vec_target, prep_path + vector + "/vector.pt")
 
 
 

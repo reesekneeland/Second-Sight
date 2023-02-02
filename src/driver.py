@@ -22,6 +22,17 @@ from diffusers import StableDiffusionImageEncodingPipeline
 
 # Good models: 
 #
+#
+#  Masked voxels:
+#    096_z2voxels.pt
+#       - Model of 5051 voxels out of 11838 with a threshold of 0.07     (Used for training the driver)
+#    
+#    173_c_prompt2voxels.pt 
+#       - Model of 7569 voxels out of 11838 with a threshold of 0.070519 (Used for training the driver)
+#
+#    174_c2voxels.pt 
+#       - Model of 8483 voxels out of 11838 with a threshold of 0.063672 (Used for training the driver)
+#
 # 141_model_z.pt 
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
 #
@@ -34,6 +45,10 @@ from diffusers import StableDiffusionImageEncodingPipeline
 # 155_model_z_normalization_test.pt (Normalization Test)
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.0000001 and a threshold of 0.06734
 #
+# 
+#
+#
+# 
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
@@ -52,12 +67,12 @@ def main():
 
 def train_decoder():
     hashNum = update_hash()
-    #hashNum = "096"
+    #hashNum = "179"
     D = Decoder(hashNum = hashNum,
-                 lr=0.0000001,
-                 vector="z", #c, z, c_prompt
-                 threshold=0.07, #0.06734 for c #126, 0.07 for z #141
-                 inpSize=5051, #7372 for c with thresh 0.06734, 5051 for z with thresh 0.07
+                 lr=0.00000001,
+                 vector="c", #c, z, c_prompt
+                 threshold=0.063672, #0.063672 for c #174, 0.07 for z #141
+                 inpSize=8483, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -66,7 +81,7 @@ def train_decoder():
                  epochs=300
                  )
     D.train()
-    modelId = D.hashNum + "_model_" + D.vector + ".pt"
+    modelId = D.hashNum + "_model_" + D.vector + "_normalization_test.pt"
     outputs_c, targets_c = D.predict(model=modelId, indices=[1, 2, 3])
     # Test
     # modelId_z = "044" + "_model_" + "z" + ".pt"

@@ -256,6 +256,7 @@ class Decoder():
 
 
     def predict(self, model, indices=[0]):
+        print(model)
         os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):

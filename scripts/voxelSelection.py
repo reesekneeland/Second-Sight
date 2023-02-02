@@ -21,6 +21,25 @@ import copy
 from tqdm import tqdm
 import nibabel as nib
 
+# c
+# Hash            = 182
+# Mean            = 0.016873473
+# Threshold       = 0.105578
+# Number of voxels = 527
+
+# z
+# Hash             = 184
+# Mean             = 0.0857764
+# Threshold        = 0.07364
+# Number of voxels = 5764
+
+# c_prompt
+# Hash             = 189
+# Mean             = 
+# Threshold        = 
+# Number of voxels = 
+
+
 
 # Environments:
 # 
@@ -49,11 +68,11 @@ import nibabel as nib
 class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
-        if(vector == "c"):
+        if(vector == "c_prompt"):
             self.linear = nn.Linear(78848,  11838)
         elif(vector == "z"):
             self.linear = nn.Linear(16384,  11838)
-        elif(vector == "c_img"):
+        elif(vector == "c"):
             self.linear = nn.Linear(1536,  11838)
     
     def forward(self, x):
@@ -92,7 +111,7 @@ class VectorMapping():
         
         # Set the parameters for pytorch model training
         # 11.8 for z
-        self.lr = 50.0
+        self.lr = 0.0005
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -126,7 +145,7 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt").requires_grad_(False)
         x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]
@@ -306,10 +325,10 @@ class VectorMapping():
 
 
 def main():
-    vector = "c_img"
+    vector = "c_prompt"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
-    # VM.train(train, test)
+    VM.train(train, test)
     
     VM.predict(test, VM.hashNum)
 
