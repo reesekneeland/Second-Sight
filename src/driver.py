@@ -54,15 +54,15 @@ def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     train_decoder()
 
-    # # z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
-    # # c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/image_c_features2.pt")
-    # # E = Encoder()
-    # # E.reconstruct(z, c, 0.999999999999)
-    # reconstructNImages(z_model_hash="141",
-    #                      c_model_hash="126",
-    #                      c_thresh = 0.06734,
-    #                      z_thresh = 0.07,
-    #                      idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
+    # c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/image_c_features2.pt")
+    # E = Encoder()
+    # E.reconstruct(z, c, 0.999999999999)
+    reconstructNImages(z_model_hash="141",
+                         c_model_hash="126",
+                         c_thresh = 0.06734,
+                         z_thresh = 0.07,
+                         idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])#, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
@@ -96,13 +96,15 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
     Dz = Decoder(hashNum = z_model_hash,
                  vector="z", 
                  threshold=z_thresh,
+                 inpSize = 5051,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     Dc = Decoder(hashNum = c_model_hash,
-                 vector="c_img", 
+                 vector="c", 
                  threshold=c_thresh,
+                 inpSize = 7372,
                  log=False, 
                  device="cuda",
                  parallel=False
@@ -210,7 +212,7 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
         plt.title("Reconstructed Output Z")
         
         
-        plt.savefig('reconstructions/' + str(i) + '_reconstruction.png')
+        plt.savefig('reconstructions/' + str(i) + '_reconstruction_test.png')
     
 if __name__ == "__main__":
     main()

@@ -100,9 +100,9 @@ class VectorMapping():
         # Condition to set layer size 
         self.vector = vector
         
-        self.hashNum = update_hash()
+        # self.hashNum = update_hash()
         # self.hashNum = "011"
-        #self.hashNum = "096"
+        self.hashNum = "096"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -115,7 +115,7 @@ class VectorMapping():
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
-        self.log = True
+        self.log = False
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -314,9 +314,9 @@ class VectorMapping():
             
         #print(r)
         #r = np.log(r)
-        plt.hist(r, bins=40, log=True)
-        #plt.yscale('log')
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
+        # plt.hist(r, bins=40, log=True)
+        # #plt.yscale('log')
+        # plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
         # torch.save(out, "output_z_scalar.pt")
@@ -325,7 +325,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "c_prompt"
+    vector = "z"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     VM.train(train, test)
