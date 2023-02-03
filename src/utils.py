@@ -136,11 +136,16 @@ def process_data(vector):
         datashape = (1, 3840)
 
     # Loading the description object for subejct1
+    
     subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
 
     for i in tqdm(range(0,27750), desc="vector loader"):
         
         # Flexible to both Z and C tensors depending on class configuration
+        
+        # TODO: index the column of this table that is apart of the 1000 test set. 
+        # Do a check here. Do this in get_data
+        # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
         index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
         vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
 
