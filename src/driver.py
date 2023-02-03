@@ -46,9 +46,6 @@ from diffusers import StableDiffusionImageEncodingPipeline
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.0000001 and a threshold of 0.06734
 #
 # 
-#
-#
-# 
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
@@ -81,7 +78,7 @@ def train_decoder():
                  epochs=300
                  )
     D.train()
-    modelId = D.hashNum + "_model_" + D.vector + "_normalization_test.pt"
+    modelId = D.hashNum + "_model_" + D.vector + ".pt"
     outputs_c, targets_c = D.predict(model=modelId, indices=[1, 2, 3])
     # Test
     # modelId_z = "044" + "_model_" + "z" + ".pt"
