@@ -3,6 +3,7 @@ import os
 import sys
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
+from torch.optim import Adam
 from torchmetrics.functional import pearson_corrcoef
 from torch.autograd import Variable
 import numpy as np
@@ -28,16 +29,16 @@ import nibabel as nib
 # Number of voxels = 527
 
 # z
-# Hash             = 184
-# Mean             = 0.0857764
-# Threshold        = 0.07364
-# Number of voxels = 5764
+# Hash             = 206
+# Mean             = 0.08684097
+# Threshold        = 0.063478
+# Number of voxels = 6378
 
-# c_prompt
-# Hash             = 189
-# Mean             = 
-# Threshold        = 
-# Number of voxels = 
+# c_combined
+# Hash             = 211
+# Mean             = 0.13590029
+# Threshold        = 0.058954
+# Number of voxels = 8144
 
 
 
@@ -74,6 +75,8 @@ class LinearRegression(torch.nn.Module):
             self.linear = nn.Linear(16384,  11838)
         elif(vector == "c"):
             self.linear = nn.Linear(1536,  11838)
+        elif(vector == "c_combined"):
+            self.linear = nn.Linear(3840,  11838)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -95,14 +98,14 @@ class VectorMapping():
         self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
         
         # Pytorch Device 
-        self.device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         
         # Condition to set layer size 
         self.vector = vector
         
-        # self.hashNum = update_hash()
+        self.hashNum = update_hash()
         # self.hashNum = "011"
-        self.hashNum = "096"
+        # self.hashNum = "096"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -112,12 +115,11 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        # 11.8 for z
-        self.lr = 0.0005
+        self.lr = 0.1
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
-        self.log = False
+        self.log = True
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -185,11 +187,8 @@ class VectorMapping():
         if(self.log):
             wandb.watch(self.model, criterion, log="all")
         
-        # Set the optimizer to Stochastic Gradient Descent
-        optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
-        
-        # Set the learning rate scheduler to reduce the learning rate if the loss plateaus for 3 epochs
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.4, patience=3)
+        # Set the optimizer to Adam
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
@@ -213,7 +212,9 @@ class VectorMapping():
                 
                 # Forward pass: Compute predicted y by passing x to the model
                 with torch.set_grad_enabled(True):
+                    
                     pred_y = self.model(x_data).to(self.device)
+                    
                     # Compute and print loss
                     loss = criterion(pred_y, y_data)
                     
@@ -223,6 +224,7 @@ class VectorMapping():
                         
                 # Add up the loss for this training round
                 running_loss += loss.item()
+                
             tqdm.write('[%d, %5d] train loss: %.8f' %
                 (epoch + 1, i + 1, running_loss /len(trainLoader)))
                     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
@@ -245,42 +247,14 @@ class VectorMapping():
                 running_test_loss+=loss.item()
                 
             test_loss = running_test_loss/len(testLoader)
+            
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
-                        (epoch + 1, test_loss))
+                        (epoch + 1 , test_loss))
             if(self.log):
-                wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
+                wandb.log({'epoch times lr': (epoch+1), 'test_loss': test_loss})
+                
             
-            # Check if we need to drop the learning rate
-            scheduler.step(test_loss)
-                    
-            # Check if we need to save the model
-            
-            # TODO: Use the adam optimizer
-            # Generate a run where the test loss is increasing
-            #    -- Find a bottom and goes back up 
-            # Want your learning rate adjustment to calculate off the gradient in the training data (Training loss)
-            # Want your early stopping to depend on the increase in the test loss
-            # Maybe implement ridge regression
-            # Make sure that the data you test your decoding model is seperate from the data you select the voxels. 
-            #      - First select some of the data for the validation
-            #      - Set the final 1000 as your final validation data
-            #      - Training data select the gradient
-            #      - Validation select the hyper parameter
-            #      - Test used for decoder
-            # Ridge regression to a training and validation split
-            #   Encoding:
-            #     - It will select a range of values 
-            #     - You can evaluate your error on the validation set for every value of lambda
-            #   - Larger the lambda more you are penalizing the optimal solution
-            #   - Use ridge regresssion for each direction
-            
-            # Use adam
-            # Fix your stop 
-            # Implement ridge regression
-            # Make sure you have training, validation, and test (Leave out)
-            
-          
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
                 torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_" + self.vector + "2voxels.pt")
@@ -288,9 +262,10 @@ class VectorMapping():
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 8):
+                if(loss_counter >= 5):
                     break
-        
+                    
+                
         # Load our best model and returning it
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_" + self.vector + "2voxels.pt"))
 
@@ -342,9 +317,9 @@ class VectorMapping():
             
         #print(r)
         #r = np.log(r)
-        # plt.hist(r, bins=40, log=True)
-        # #plt.yscale('log')
-        # plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
+        plt.hist(r, bins=40, log=True)
+        #plt.yscale('log')
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
         # torch.save(out, "output_z_scalar.pt")
@@ -353,7 +328,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "z"
+    vector = "c_combined"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     VM.train(train, test)
