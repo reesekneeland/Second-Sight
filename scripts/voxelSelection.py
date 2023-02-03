@@ -95,14 +95,14 @@ class VectorMapping():
         self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
         
         # Pytorch Device 
-        self.device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         
         # Condition to set layer size 
         self.vector = vector
         
-        # self.hashNum = update_hash()
+        self.hashNum = update_hash()
         # self.hashNum = "011"
-        self.hashNum = "096"
+        # self.hashNum = "096"
 
         # Initializes the pytorch model class
         # self.model = model = Linear5Layer(self.vector)
@@ -111,11 +111,11 @@ class VectorMapping():
         
         # Set the parameters for pytorch model training
         # 11.8 for z
-        self.lr = 0.0005
+        self.lr = 0.001
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
-        self.log = False
+        self.log = True
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -145,8 +145,8 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt").requires_grad_(False)
-        x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")#.requires_grad_(False)
+        x  = torch.load(prep_path + vector + "/vector.pt")#.requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]
         x_test = x[25500:27750]
@@ -325,7 +325,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "z"
+    vector = "c_prompt"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     VM.train(train, test)
