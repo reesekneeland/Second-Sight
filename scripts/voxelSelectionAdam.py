@@ -73,10 +73,14 @@ class LinearRegression(torch.nn.Module):
             self.linear = nn.Linear(78848,  11838)
         elif(vector == "z"):
             self.linear = nn.Linear(16384,  11838)
-        elif(vector == "c"):
+        elif(vector == "c_img"):
             self.linear = nn.Linear(1536,  11838)
         elif(vector == "c_combined"):
             self.linear = nn.Linear(3840,  11838)
+        elif(vector == "c_img_mixer"):
+            self.linear = nn.Linear(3840, 11838)
+        elif(vector == "c_img_mixer_0"):
+            self.linear = nn.Linear(3840, 11838)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -98,7 +102,7 @@ class VectorMapping():
         self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
         
         # Pytorch Device 
-        self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
         
         # Condition to set layer size 
         self.vector = vector
@@ -115,7 +119,7 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.1
+        self.lr = 0.0001
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -149,7 +153,7 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
         x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]
@@ -319,7 +323,7 @@ class VectorMapping():
         #r = np.log(r)
         plt.hist(r, bins=40, log=True)
         #plt.yscale('log')
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
         # torch.save(out, "output_z_scalar.pt")

@@ -17,7 +17,8 @@ import wandb
 import copy
 from tqdm import tqdm
 from decoder import Decoder
-from diffusers import StableDiffusionImageEncodingPipeline
+from encoder import Encoder
+# from diffusers import StableDiffusionImageEncodingPipeline
 
 
 # Good models: 
@@ -25,14 +26,35 @@ from diffusers import StableDiffusionImageEncodingPipeline
 #
 #  Masked voxels:
 #    096_z2voxels.pt
-#       - Model of 5051 voxels out of 11838 with a threshold of 0.07     (Used for training the driver)
+#       - Model of 5051 voxels out of 11838 with a threshold of 0.07     (Used for training the decoder)
 #    
 #    173_c_prompt2voxels.pt 
-#       - Model of 7569 voxels out of 11838 with a threshold of 0.070519 (Used for training the driver)
+#       - Model of 7569 voxels out of 11838 with a threshold of 0.070519 (Used for training the decoder)
 #
 #    174_c2voxels.pt 
-#       - Model of 8483 voxels out of 11838 with a threshold of 0.063672 (Used for training the driver)
+#       - Model of 8483 voxels out of 11838 with a threshold of 0.063672 (Used for training the decoder)
 #
+#    206_z2voxels.pt (BEST Z MAP)
+#      - Model of 6378 voxels out of 11838 with a threshold of 0.063478 (Used for training the decoder)
+#
+#    211_c_combined2voxels.pt (BEST C MAP)
+#       - Model of 8144 voxels out of 11838 with a threshold of 0.058954 (Used for training the decoder)
+#
+#    224_c_img_mixer2voxels.pt
+#       - Model of 8112 voxels out of 11838 with a threshold of 0.060343 (Used for training the decoder)
+#
+#    229_c_img_mixer_02voxels.pt
+#       - Model of 8095 voxels out of 11838 with a threshold of 0.060507 (Used for training the decoder)
+#
+#    231_c_img2voxels.pt
+#       - Model of 7690 voxels out of 11838 with a threshold of 0.070246 (Used for training the decoder)    
+#
+#    247_c_combined2voxels.pt
+#       - Model of 7976 voxels out of 11838 with a threshold of 0.065142 (Used for training the decoder)
+#
+#    265_c_combined2voxels.pt
+#       - Model of 7240 voxels out of 11838 with a threshold of 0.06398 (Used for training the decoder)
+
 # 141_model_z.pt 
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
 #
@@ -45,31 +67,43 @@ from diffusers import StableDiffusionImageEncodingPipeline
 # 155_model_z_normalization_test.pt (Normalization Test)
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.0000001 and a threshold of 0.06734
 #
-# 
-
+# 218_model_c_combined.pt
+#      - Model of 8144 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.058954
+#
+# 221_model_z.pt (BEST Z MODEL)
+#      - Model of 6378 voxels out of 11838 with a learning rate of 0.00001 and a threshold of 0.063478
+#
+# 227_model_c_img_mixer.pt
+#      - Model of 8112 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.060343
+#
+# 232_model_c_img.pt
+#      - Model of 7690 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.070246
+#
+# 266_model_c_combined.pt (BEST C MODEL)
+#      - Model of 7240 voxels out of 11838 on old normalization method with a learning rate of 0.00005 and a threshold of 0.06398
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    train_decoder()
+    # train_hash = train_decoder()
 
     # z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
     # c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/image_c_features2.pt")
     # E = Encoder()
     # E.reconstruct(z, c, 0.999999999999)
-    reconstructNImages(z_model_hash="141",
-                         c_model_hash="126",
-                         c_thresh = 0.06734,
-                         z_thresh = 0.07,
-                         idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])#, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    reconstructNImages(z_model_hash="221",
+                         c_model_hash="266",
+                         c_thresh = 0.06398,
+                         z_thresh = 0.063478,
+                         idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
     hashNum = update_hash()
     #hashNum = "179"
     D = Decoder(hashNum = hashNum,
-                 lr=0.00000001,
-                 vector="c", #c, z, c_prompt
-                 threshold=0.063672, #0.063672 for c #174, 0.07 for z #141
-                 inpSize=8483, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07
+                 lr=0.00005,
+                 vector="c_combined", #c, z, c_prompt
+                 threshold=0.06398, #0.063672 for c #174, 0.07 for z #141
+                 inpSize=7240, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -86,6 +120,7 @@ def train_decoder():
     cosSim = nn.CosineSimilarity(dim=0)
     print(cosSim(outputs_c[0], targets_c[0]))
     print(cosSim(torch.randn_like(outputs_c[0]), targets_c[0]))
+    return hashNum
 
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
@@ -93,15 +128,15 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
     Dz = Decoder(hashNum = z_model_hash,
                  vector="z", 
                  threshold=z_thresh,
-                 inpSize = 5051,
+                 inpSize = 6378,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     Dc = Decoder(hashNum = c_model_hash,
-                 vector="c", 
+                 vector="c_combined", 
                  threshold=c_thresh,
-                 inpSize = 7372,
+                 inpSize = 7240,
                  log=False, 
                  device="cuda",
                  parallel=False
@@ -125,25 +160,55 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
     outputs_z, targets_z = Dz.predict(model=z_modelId, indices=idx)
     strength_c = 1
     strength_z = 0
-    E = StableDiffusionImageEncodingPipeline.from_pretrained("lambdalabs/sd-image-variations-diffusers",revision="v2.0")
-    E = E.to("cuda")
-    
+    E = Encoder()
+    # E = StableDiffusionImageEncodingPipeline.from_pretrained(
+    # "lambdalabs/sd-image-variations-diffusers",
+    # revision="v2.0",
+    # ).to("cuda")
     for i in range(len(idx)):
         print(i)
         test_i = idx[i] + 25501
         
         # Make the c reconstrution images. 
         print(len(targets_z), targets_z[i].shape, len(targets_c), targets_c[i].shape)
+        # outputs_z[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
+        # target_c = []
+        # out_c = []
+        # out_c.append(outputs_c[i])
+        # target_c.append(targets_c[i])
+        # for j in range(0,4):
+        #     out_c.append(torch.zeros((1, 768), device="cuda"))
+        #     target_c.append(torch.zeros((1, 768), device="cuda"))
         
-        reconstructed_output_c = E.reconstruct(targets_z[i], outputs_c[i], strength_c)
-        reconstructed_target_c = E.reconstruct(targets_z[i], targets_c[i], strength_c)
+        # out_c = torch.cat(out_c, dim=0).unsqueeze(0)
+        # out_c = out_c.tile(1, 1, 1)
+        # target_c = torch.cat(target_c, dim=0).unsqueeze(0)
+        # target_c = target_c.tile(1, 1, 1)
         
-        # Make the z reconstrution images. 
-        reconstructed_output_z = E.reconstruct(outputs_z[i], targets_c[i], strength_z)
-        reconstructed_target_z = E.reconstruct(targets_z[i], targets_c[i], strength_z)
+        reconstructed_output_c = E.reconstruct(c=outputs_c[i], strength=strength_c)
+        reconstructed_target_c = E.reconstruct(c=targets_c[i], strength=strength_c)
         
-        # Make the z and c reconstrution images. 
-        z_c_reconstruction = E.reconstruct(outputs_z[i], outputs_c[i], 0.8)
+        # # Make the z reconstrution images. 
+        reconstructed_output_z = E.reconstruct(z=outputs_z[i], strength=strength_z)
+        reconstructed_target_z = E.reconstruct(z=targets_z[i], strength=strength_z)
+        
+        # # Make the z and c reconstrution images. 
+        z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=outputs_c[i], strength=0.75)
+        # reconstructed_output_c = E.reconstruct(c=outputs_c[i].reshape((2,1,768)), strength=strength_c)
+        # reconstructed_target_c = E.reconstruct(c=targets_c[i].reshape((2,1,768)), strength=strength_c)
+        
+        # # # Make the z reconstrution images. 
+        # reconstructed_output_z = E.reconstruct(z=outputs_z[i].reshape((1,4,64,64)), strength=strength_z)
+        # reconstructed_target_z = E.reconstruct(z=targets_z[i].reshape((1,4,64,64)), strength=strength_z)
+        
+        # # # Make the z and c reconstrution images. 
+        # z_c_reconstruction = E.reconstruct(z=outputs_z[i].reshape((1,4,64,64)), c=outputs_c[i].reshape((2,1,768)), strength=0.75)
+        
+        # reconstructed_output_c = E.reconstruct(c=out_c, strength=strength_c)
+        # reconstructed_target_c = E.reconstruct(c=target_c, strength=strength_c)
+        
+        # # Make the z and c reconstrution images. 
+        # z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=out_c, strength=0.75)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 
@@ -209,7 +274,7 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
         plt.title("Reconstructed Output Z")
         
         
-        plt.savefig('reconstructions/' + str(i) + '_reconstruction_test.png')
+        plt.savefig('reconstructions/' + str(i) + '_reconstruction_c_combined_3.png')
     
 if __name__ == "__main__":
     main()

@@ -111,13 +111,14 @@ def create_whole_region_normalized():
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
             
     # Normalize the data
-    for i in range(11838):
+    # for i in range(11838):
         
-        whole_region_mean, whole_region_std = whole_region[:, i].mean(), whole_region[:, i].std()
-        whole_region[:, i] = (whole_region[:, i] - whole_region_mean) / whole_region_std
+        # whole_region_mean, whole_region_std = whole_region[:, i].mean(), whole_region[:, i].std()
+        # whole_region[:, i] = (whole_region[:, i] - whole_region_mean) / whole_region_std
+    whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
 
     # Save the tensor
-    torch.save(whole_region, prep_path + "x/whole_region_11838.pt")
+    torch.save(whole_region, prep_path + "x/whole_region_11838_old_norm.pt")
     
     
 def process_data(vector):
@@ -131,7 +132,7 @@ def process_data(vector):
     elif(vector == "c_prompt"):
         vec_target = torch.zeros((27750, 78848))
         datashape = (1, 78848)
-    elif(vector == "c_combined"):
+    elif(vector == "c_combined" or vector == "c_img_mixer"):
         vec_target = torch.zeros((27750, 3840))
         datashape = (1, 3840)
 
@@ -151,11 +152,44 @@ def process_data(vector):
 
     torch.save(vec_target, prep_path + vector + "/vector.pt")
     
+def extract_dim(vector, dim):
+    
+    if(vector == "z"):
+        vec_target = torch.zeros((27750, 16384))
+        datashape = (1, 16384)
+    elif(vector == "c"):
+        vec_target = torch.zeros((27750, 1536))
+        datashape = (1, 1536)
+    elif(vector == "c_prompt"):
+        vec_target = torch.zeros((27750, 78848))
+        datashape = (1, 78848)
+    elif(vector == "c_combined" or vector == "c_img_mixer"):
+        vec_target = torch.zeros((27750, 768))
+        datashape = (1, 768)
+
+    # Loading the description object for subejct1
+    
+    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+
+    for i in tqdm(range(0,27750), desc="vector loader"):
+        
+        # Flexible to both Z and C tensors depending on class configuration
+        
+        # TODO: index the column of this table that is apart of the 1000 test set. 
+        # Do a check here. Do this in get_data
+        # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
+        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
+        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
+        reduced_dim = full_vec[:,dim]
+        vec_target[i] = torch.reshape(reduced_dim, datashape)
+
+    torch.save(vec_target, prep_path + vector + "_" + str(dim) + "/vector.pt")
+    
     
     
 def grab_samples(vector, threshold, hashNum):
     
-    whole_region = torch.load(prep_path + "x/whole_region_11838.pt") 
+    whole_region = torch.load(prep_path + "x/whole_region_11838_old_norm.pt") 
     mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
     new_len = np.count_nonzero(mask)
     target = torch.zeros((27750, new_len))

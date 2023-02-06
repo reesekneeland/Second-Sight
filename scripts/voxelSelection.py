@@ -72,8 +72,10 @@ class LinearRegression(torch.nn.Module):
             self.linear = nn.Linear(78848,  11838)
         elif(vector == "z"):
             self.linear = nn.Linear(16384,  11838)
-        elif(vector == "c"):
+        elif(vector == "c_img"):
             self.linear = nn.Linear(1536,  11838)
+        elif(vector == "c_combined"):
+            self.linear = nn.Linear(3840,  11838)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -113,7 +115,7 @@ class VectorMapping():
         
         # Set the parameters for pytorch model training
         # 11.8 for z
-        self.lr = 0.001
+        self.lr = 10
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -147,8 +149,8 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")#.requires_grad_(False)
-        x  = torch.load(prep_path + vector + "/vector.pt")#.requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]
         x_test = x[25500:27750]
@@ -344,7 +346,7 @@ class VectorMapping():
         #r = np.log(r)
         # plt.hist(r, bins=40, log=True)
         # #plt.yscale('log')
-        # plt.savefig("/export/raid1/home/kneel027/Second-Sight/scripts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
+        # plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied.png")
         
         
         # torch.save(out, "output_z_scalar.pt")
@@ -353,7 +355,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "c_prompt"
+    vector = "c_img"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     VM.train(train, test)

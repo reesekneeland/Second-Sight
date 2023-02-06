@@ -3,6 +3,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torch.autograd import Variable
+from torch.optim import Adam
 import numpy as np
 import glob
 import pandas as pd
@@ -65,9 +66,13 @@ class LinearRegression(torch.nn.Module):
         super(LinearRegression, self).__init__()
         if(vector == "c_prompt"):
             outSize = 78848
+        elif(vector == "c_combined" or vector == "c_img_mixer"):
+            outSize = 3840
+        elif(vector == "c_img_mixer_0"):
+            outSize = 768
         elif(vector == "z"):
             outSize = 16384
-        elif(vector == "c"):
+        elif(vector == "c_img"):
             outSize = 1536
         self.linear = nn.Linear(inpSize, outSize)
     def forward(self, x):
@@ -131,7 +136,7 @@ class Decoder():
                 "architecture": "Linear Regression",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "custom masked positive pearson correlation on c_img data",
+                "dataset": "custom masked positive pearson correlation on c_combined data",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -152,11 +157,8 @@ class Decoder():
         if(self.log):
             wandb.watch(self.model, criterion, log="all")
         
-        # Set the optimizer to Stochastic Gradient Descent
-        optimizer = torch.optim.SGD(self.model.parameters(), lr = self.lr)
-        
-        # Set the learning rate scheduler to reduce the learning rate by 80% if the loss plateaus for 3 epochs
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.2, patience=3)
+        # Set the optimizer to Adam
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
@@ -228,9 +230,6 @@ class Decoder():
                         (epoch + 1, test_loss))
             if(self.log):
                 wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
-            
-            # Check if we need to drop the learning rate
-            scheduler.step(test_loss)
                     
             # Check if we need to save the model
             # Early stopping
@@ -238,9 +237,9 @@ class Decoder():
                 best_loss = test_loss
                 torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + "_normalization_test.pt")
+                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 else:
-                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + "_normalization_test.pt")
+                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -250,9 +249,9 @@ class Decoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + "_normalization_test.pt", map_location='cuda'))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + "_normalization_test.pt", map_location='cuda'))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
 
     def predict(self, model, indices=[0]):

@@ -51,11 +51,10 @@ for i in tqdm(range(0, 20)):
     # torch.save(c, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/c_combined/" + str(i) + ".pt")
     # torch.save(z, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(i) + ".pt")
     z_only = E.reconstruct(z=z, strength=0.0)
-    c_only = E.reconstruct(c=c, strength=1.0)
+    c_only = E.reconstruct(c=c, z=z, strength=0.95)
     z_and_c = E.reconstruct(z=z, c=c, strength=0.75)
     z_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_z_only.png")
     c_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_c_only.png")
-    # c_only_text[0].save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/imx_mixer/" + str(i) + "_c_only_text.png")
     z_and_c.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs/" + str(i) + "_z_and_c.png")
         # image_and_z[0].save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/imx_mixer/" + str(i) + "_z_and_c.png")
 
