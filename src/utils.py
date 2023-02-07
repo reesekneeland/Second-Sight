@@ -192,7 +192,7 @@ def extract_dim(vector, dim):
     
 def grab_samples(vector, threshold, hashNum):
     
-    whole_region = torch.load(prep_path + "x/whole_region_11838_old_norm.pt") 
+    whole_region = torch.load(prep_path + "x/whole_region_11838.pt") 
     mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
     new_len = np.count_nonzero(mask)
     target = torch.zeros((27750, new_len))

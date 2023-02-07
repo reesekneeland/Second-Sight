@@ -3,7 +3,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import numpy as np
 import matplotlib.pyplot as plt
-from fracridge import FracRidgeRegressor, FracRidgeRegressorCV
+import rcca
 from torch.nn import MSELoss
 from sklearn import datasets
 from sklearn.linear_model import Ridge
@@ -14,7 +14,7 @@ from utils import *
 import wandb
 from tqdm import tqdm
 
-class RidgeDecoder():
+class CCADecoder():
     def __init__(self, 
                  hashNum,
                  vector, 
@@ -30,7 +30,7 @@ class RidgeDecoder():
         self.threshold = threshold
         self.device = torch.device(device)
         self.log = log
-        self.model = FracRidgeRegressorCV()
+        self.model = rcca.CCA(kernelcca = False, reg = 0., numCC = np.arange(3, 11))
         self.n_alphas = n_alphas
         # Initialize the data
         self.x_train, self.x_test, self.y_train, self.y_test = get_data(vector=self.vector, threshold=self.threshold, loader=False)
@@ -39,25 +39,25 @@ class RidgeDecoder():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="FracRidge Decoder",
+                project="CCA Decoder",
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
                 "threshold": self.threshold,
-                "architecture": "Fractional Ridge Regression",
+                "architecture": "Canonical Correlation Analysis",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
                 "dataset": "custom masked positive pearson correlation on vector data"
                 }
             )
     def train(self):
-        fracs = np.linspace(1/self.n_alphas, 1 + 1/self.n_alphas, self.n_alphas)
+        regs = regs = np.array(np.logspace(-4, 2, self.n_alphas))
         print("fitting")
-        self.model.fit(self.x_train, self.y_train, frac_grid=fracs)
+        self.model.train([self.x_train, self.y_train])
         print("predicting")
-        pred_frr = self.model.predict(self.x_test)
-        np.save("fracridge_pred_clip.npy", pred_frr)
-        # pred_frr = np.load("fracridge_pred_brain.npy")
+        pred_frr, _ = self.model.predict(self.x_test, self.model.ws)
+        np.save("CCA_pred_clip.npy", pred_frr)
+        # pred_frr = np.load("CCA_pred_brain.npy")
         print("scoring")
         # frr_r2 = r2_score(x_test, pred_frr)
         y_pred = torch.from_numpy(pred_frr)
@@ -65,15 +65,15 @@ class RidgeDecoder():
         loss = criterion(y_pred, self.y_test)
         if(self.log):
             wandb.log({'test_loss': loss})
-        os.makedirs("latent_vectors/" + self.hashNum + "_fracridge_" + self.vector, exist_ok=True)
-        torch.save(y_pred, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_fracridge_" + self.vector + "/" + "y_test_preds.pt")
+        os.makedirs("latent_vectors/" + self.hashNum + "_CCA_" + self.vector, exist_ok=True)
+        torch.save(y_pred, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_CCA_" + self.vector + "/" + "y_test_preds.pt")
         return self.hashNum, y_pred, self.y_test
     
     def predict(self, hashNum, indices=[i for i in range(2250)]):
-        if(not os.path.isdir("latent_vectors/" + hashNum + "_fracridge_" + self.vector)):
+        if(not os.path.isdir("latent_vectors/" + hashNum + "_CCA_" + self.vector)):
             raise FileNotFoundError(
-                errno.ENOENT, os.strerror(errno.ENOENT), hashNum + "_fracridge_" + self.vector)
-        preds = torch.load("/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_fracridge_" + self.vector + "/" + "y_test_preds.pt").to(torch.float32)
+                errno.ENOENT, os.strerror(errno.ENOENT), hashNum + "_CCA_" + self.vector)
+        preds = torch.load("/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_CCA_" + self.vector + "/" + "y_test_preds.pt").to(torch.float32)
         outputs, targets = [], []
         for i in indices:
             # Loading in the test data
@@ -82,6 +82,6 @@ class RidgeDecoder():
             pred_y = preds[i]
             outputs.append(pred_y)
             targets.append(y_data)
-            torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_fracridge_" + self.vector +  "/" + "output_" + str(i) + "_" + self.vector + ".pt")
-            torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_fracridge_" + self.vector +  "/" + "target_" + str(i) + "_" + self.vector + ".pt")
+            torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_CCA_" + self.vector +  "/" + "output_" + str(i) + "_" + self.vector + ".pt")
+            torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.hashNum + "_CCA_" + self.vector +  "/" + "target_" + str(i) + "_" + self.vector + ".pt")
         return outputs, targets
