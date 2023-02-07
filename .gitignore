@@ -2,6 +2,7 @@
 src/__pycache__
 *.pt
 *.png
+*.npy
 hash
 /wandb
 /reconstructions

@@ -153,7 +153,7 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
         x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]

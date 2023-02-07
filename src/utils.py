@@ -44,7 +44,7 @@ def update_hash():
     return str(new_h)
 
 # Loads the data and puts it into a DataLoader
-def get_data(vector, threshold=0.2, batch_size=375, num_workers=16):
+def get_data(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):
         
     y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
     x  = torch.load(prep_path + "x/" + vector + "_2voxels_pearson_thresh" + str(threshold) + ".pt").requires_grad_(False)
@@ -60,13 +60,16 @@ def get_data(vector, threshold=0.2, batch_size=375, num_workers=16):
     # them to one dataset. 
     # x is the brain data 
     # y are the captions
-    trainset = torch.utils.data.TensorDataset(x_train, y_train)
-    testset = torch.utils.data.TensorDataset(x_test, y_test)
-    
-    # Loads the Dataset into a DataLoader
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-    return trainloader, testloader
+    if(loader):
+        trainset = torch.utils.data.TensorDataset(x_train, y_train)
+        testset = torch.utils.data.TensorDataset(x_test, y_test)
+        
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        return trainloader, testloader
+    else:
+        return x_train, x_test, y_train, y_test
 
 
     
@@ -95,7 +98,6 @@ def create_whole_region_unnormalized():
             # Grab the current beta trail. 
             curScan = beta[:, j]
             
-            # Normalizing the scan.  
             single_scan = torch.from_numpy(curScan)
 
             # Discard the unmasked values and keeps the masked values. 
@@ -107,18 +109,19 @@ def create_whole_region_unnormalized():
     
 def create_whole_region_normalized():
     
-    whole_region = torch.zeros((27750, 11838))
+    whole_region_norm = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
             
-    # Normalize the data
-    # for i in range(11838):
-        
-        # whole_region_mean, whole_region_std = whole_region[:, i].mean(), whole_region[:, i].std()
-        # whole_region[:, i] = (whole_region[:, i] - whole_region_mean) / whole_region_std
-    whole_region = whole_region / whole_region.max(0, keepdim=True)[0]
+    # Normalize the data using Z scoring method for each voxel
+    # for i in range(whole_region.shape[1]):
+    #     voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+    #     normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+    #     whole_region_norm[:, i] = normalized_voxel
+    # Normalize the data by dividing all elements by the max of each voxel
+    whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
     # Save the tensor
-    torch.save(whole_region, prep_path + "x/whole_region_11838_old_norm.pt")
+    torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
     
 def process_data(vector):
