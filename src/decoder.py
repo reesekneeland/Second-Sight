@@ -68,9 +68,9 @@ class LinearRegression(torch.nn.Module):
             outSize = 78848
         elif(vector == "c_combined" or vector == "c_img_mixer"):
             outSize = 3840
-        elif(vector == "c_img_mixer_0"):
+        elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
             outSize = 768
-        elif(vector == "z"):
+        elif(vector == "z" or vector == "z_img_mixer"):
             outSize = 16384
         elif(vector == "c_img"):
             outSize = 1536

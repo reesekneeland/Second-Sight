@@ -36,7 +36,7 @@ import nibabel as nib
 
 # Call process data 
 # Input: The vector you want processed as a string
-# process_data("c_img_mixer")
+# process_data("z_img_mixer")
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
@@ -44,7 +44,7 @@ import nibabel as nib
 #   - Parameter #2: The vector threshold as a string
 #   - Parameter #3: The vector hash number as a string
 # create_whole_region_normalized()
-grab_samples("c_combined", "0.06397", "283")
+grab_samples("z_img_mixer", "0.064564", "320")
 
 # extract_dim("c_img_mixer", 0)
 

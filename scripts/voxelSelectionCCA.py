@@ -26,12 +26,20 @@ y_test = y[25500:27750]
         
 n_alphas = 20
 regs = np.linspace(1/n_alphas, 1 + 1/n_alphas, n_alphas)
-model = rcca.CCA(kernelcca = False, reg = 1., numCC = 4)
+# model = rcca.CCA(kernelcca = False, reg = 1., numCC = 4)
+model = rcca.CCACrossValidate(regs = regs, numCCs = np.arange(3,11))
 print("fitting")
 model.train([y_train, x_train])
 print("predicting")
 corrs = model.validate([y_test, x_test])
 preds = model.preds
+ws = model.ws
+print("ws shape", len(ws))
+for i in range(len(ws)):
+    print(ws[i].shape)
+print("preds shape", len(preds))
+preds = np.array(preds[1])
+print("preds shape 2", preds.shape)
 np.save("CCA_pred_brain.npy", preds)
 print("scoring")
 frr_r2 = r2_score(x_test, preds)

@@ -71,16 +71,18 @@ class LinearRegression(torch.nn.Module):
         super(LinearRegression, self).__init__()
         if(vector == "c_prompt"):
             self.linear = nn.Linear(78848,  11838)
-        elif(vector == "z"):
+        elif(vector == "z" or vector == "z_img_mixer"):
             self.linear = nn.Linear(16384,  11838)
-        elif(vector == "c_img"):
+        elif(vector == "c_img"): #custom diffusers clip image embedding
             self.linear = nn.Linear(1536,  11838)
-        elif(vector == "c_combined"):
+        elif(vector == "c_combined"): #image mixer 5x768
             self.linear = nn.Linear(3840,  11838)
-        elif(vector == "c_img_mixer"):
+        elif(vector == "c_img_mixer"): #image mixer only first element populated but stll 5x768
             self.linear = nn.Linear(3840, 11838)
         elif(vector == "c_img_mixer_0"):
             self.linear = nn.Linear(3840, 11838)
+        elif(vector == "c_img_0" or vector == "c_text_0"): #image mixer  only first element 1x768
+            self.linear = nn.Linear(768, 11838)
     
     def forward(self, x):
         y_pred = self.linear(x)
@@ -153,7 +155,8 @@ class VectorMapping():
         
         # Loads the preprocessed data
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+        # x=torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/encoder_experiments/c_text_0.pt")
         x  = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         print(x.shape, y.shape)
         x_train = x[:25500]
@@ -332,7 +335,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "c_combined"
+    vector = "z_img_mixer"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     VM.train(train, test)

@@ -62,6 +62,19 @@ from fracridge_decoder import RidgeDecoder
 #    283_c_combined2voxels_pearson_thresh0.06397
 #       - fracridge Mask of 7322 voxels with a threshold of 0.06397, calculated on Z scored X (DOESNT WORK IN FRACRIDGE, SCIPY ERROR)
 #
+#    313_c_img_02voxels.pt
+#       - 7643
+#       - old normalization method
+#       - 0.062136
+#
+#    316_c_text_02voxels.pt
+#       - 6650
+#       - old normalization method
+#       - 0.067784
+#
+#    320_z_img_mixer2voxels.pt
+#       - Model of 5615 voxels out of 11838 with a threshold of 0.064564 (Used for training the decoder)
+#
 # 141_model_z.pt 
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
 #
@@ -77,7 +90,7 @@ from fracridge_decoder import RidgeDecoder
 # 218_model_c_combined.pt
 #      - Model of 8144 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.058954
 #
-# 221_model_z.pt (BEST Z MODEL)
+# 221_model_z.pt 
 #      - Model of 6378 voxels out of 11838 with a learning rate of 0.00001 and a threshold of 0.063478
 #
 # 227_model_c_img_mixer.pt
@@ -86,21 +99,30 @@ from fracridge_decoder import RidgeDecoder
 # 232_model_c_img.pt
 #      - Model of 7690 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.070246
 #
-# 266_model_c_combined.pt (BEST C MODEL)
+# 266_model_c_combined.pt 
 #      - Model of 7240 voxels out of 11838 on old normalization method with a learning rate of 0.00005 and a threshold of 0.06398
+#
+# 318_model_c_img_0.pt (BEST C MODEL PART 1)
+#    - 7643
+#    - old normalization method
+#    - 0.062136
+#
+# 319_model_c_text_0.pt (BEST C MODEL PART 2)
+#    - 6650
+#    - old normalization method
+#    - 0.067784
+#
+# 322_z_img_mixer2voxels.pt (BEST Z MODEL)
+#    - 5615
+#    - old normalization method
+#    - 0.064564 
+
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # train_hash = train_decoder()
-    c_hash,_,_ = run_fr_decoder()
-    # z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
-    # c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/image_c_features2.pt")
-    # E = Encoder()
-    # E.reconstruct(z, c, 0.999999999999)
-    reconstructNImages(z_model_hash="221",
-                         c_model_hash="294",
-                         c_thresh = 0.063339,
-                         z_thresh = 0.063478,
-                         idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # c_hash,_,_ = run_fr_decoder()
+    reconstructNImages(experiment_title="img_mixer reconstructions",
+                       idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
@@ -108,9 +130,9 @@ def train_decoder():
     #hashNum = "179"
     D = Decoder(hashNum = hashNum,
                  lr=0.00005,
-                 vector="c_combined", #c, z, c_prompt
-                 threshold=0.066412, #0.063672 for c #174, 0.07 for z #141
-                 inpSize=7920, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
+                 vector="z_img_mixer", #c, z, c_prompt
+                 threshold=0.064564, #0.063672 for c #174, 0.07 for z #141
+                 inpSize=5615, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -144,30 +166,38 @@ def run_fr_decoder():
 
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
-def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
-    Dz = Decoder(hashNum = z_model_hash,
-                 vector="z", 
-                 threshold=z_thresh,
-                 inpSize = 6378,
+def reconstructNImages(experiment_title, idx):
+    Dz = Decoder(hashNum = "322",
+                 vector="z_img_mixer", 
+                 threshold=0.064564,
+                 inpSize = 5615,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
-    # Dc = Decoder(hashNum = c_model_hash,
-    #              vector="c_combined", 
-    #              threshold=c_thresh,
-    #              inpSize = 7240,
-    #              log=False, 
-    #              device="cuda",
-    #              parallel=False
-    #              )
-    Dc = RidgeDecoder(hashNum = c_model_hash,
-                vector="c_combined", 
+    Dc_i = Decoder(hashNum = "318",
+                 vector="c_img_0", 
+                 threshold=0.062136,
+                 inpSize = 7643,
                  log=False, 
-                 threshold=c_thresh,
                  device="cuda",
-                 n_alphas=20
+                 parallel=False
                  )
+    Dc_t = Decoder(hashNum = "319",
+                 vector="c_text_0", 
+                 threshold=0.067784,
+                 inpSize = 6650,
+                 log=False, 
+                 device="cuda",
+                 parallel=False
+                 )
+    # Dc = RidgeDecoder(hashNum = c_model_hash,
+    #             vector="c_combined", 
+    #              log=False, 
+    #              threshold=c_thresh,
+    #              device="cuda",
+    #              n_alphas=20
+    #              )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -179,64 +209,47 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
         
 
     # Grabbing the models for a hash
-    z_modelId = z_model_hash + "_model_" + Dz.vector + ".pt"
-    c_modelId = c_model_hash + "_model_" + Dc.vector + ".pt"
+    z_modelId = Dz.hashNum + "_model_" + Dz.vector + ".pt"
+    c_img_modelId = Dc_i.hashNum + "_model_" + Dc_i.vector + ".pt"
+    c_text_modelId = Dc_t.hashNum + "_model_" + Dc_t.vector + ".pt"
     
     # Generating predicted and target vectors
-    outputs_c, targets_c = Dc.predict(hashNum=c_model_hash, indices=idx)
-    # outputs_c, targets_c = Dc.predict(model=c_modelId, indices=idx)
+    # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
+    outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId, indices=idx)
+    outputs_c_t, targets_c_t = Dc_t.predict(model=c_text_modelId, indices=idx)
     outputs_z, targets_z = Dz.predict(model=z_modelId, indices=idx)
     strength_c = 1
     strength_z = 0
     E = Encoder()
-    # E = StableDiffusionImageEncodingPipeline.from_pretrained(
-    # "lambdalabs/sd-image-variations-diffusers",
-    # revision="v2.0",
-    # ).to("cuda")
     for i in range(len(idx)):
         print(i)
         test_i = idx[i] + 25501
         
+        c_combined, c_combined_target = [], []
+        c_combined.append(outputs_c_i[i])
+        c_combined_target.append(targets_c_i[i])
+        c_combined.append(outputs_c_t[i])
+        c_combined_target.append(targets_c_t[i])
+        for j in range(0,3):
+            c_combined.append(torch.zeros((1, 768), device="cuda"))
+            c_combined_target.append(torch.zeros((1, 768), device="cuda"))
+        
+        c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
+        c_combined = c_combined.tile(1, 1, 1)
+        c_combined_target = torch.cat(c_combined_target, dim=0).unsqueeze(0)
+        c_combined_target = c_combined_target.tile(1, 1, 1)
+    
         # Make the c reconstrution images. 
-        print(len(targets_z), targets_z[i].shape, len(targets_c), targets_c[i].shape)
-        # outputs_z[i] = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/044_model_z.pt/output_1_z.pt")
-        # target_c = []
-        # out_c = []
-        # out_c.append(outputs_c[i])
-        # target_c.append(targets_c[i])
-        # for j in range(0,4):
-        #     out_c.append(torch.zeros((1, 768), device="cuda"))
-        #     target_c.append(torch.zeros((1, 768), device="cuda"))
         
-        # out_c = torch.cat(out_c, dim=0).unsqueeze(0)
-        # out_c = out_c.tile(1, 1, 1)
-        # target_c = torch.cat(target_c, dim=0).unsqueeze(0)
-        # target_c = target_c.tile(1, 1, 1)
-        
-        reconstructed_output_c = E.reconstruct(c=outputs_c[i], strength=strength_c)
-        reconstructed_target_c = E.reconstruct(c=targets_c[i], strength=strength_c)
+        reconstructed_output_c = E.reconstruct(c=c_combined, strength=strength_c)
+        reconstructed_target_c = E.reconstruct(c=c_combined_target, strength=strength_c)
         
         # # Make the z reconstrution images. 
         reconstructed_output_z = E.reconstruct(z=outputs_z[i], strength=strength_z)
         reconstructed_target_z = E.reconstruct(z=targets_z[i], strength=strength_z)
         
         # # Make the z and c reconstrution images. 
-        z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=outputs_c[i], strength=0.75)
-        # reconstructed_output_c = E.reconstruct(c=outputs_c[i].reshape((2,1,768)), strength=strength_c)
-        # reconstructed_target_c = E.reconstruct(c=targets_c[i].reshape((2,1,768)), strength=strength_c)
-        
-        # # # Make the z reconstrution images. 
-        # reconstructed_output_z = E.reconstruct(z=outputs_z[i].reshape((1,4,64,64)), strength=strength_z)
-        # reconstructed_target_z = E.reconstruct(z=targets_z[i].reshape((1,4,64,64)), strength=strength_z)
-        
-        # # # Make the z and c reconstrution images. 
-        # z_c_reconstruction = E.reconstruct(z=outputs_z[i].reshape((1,4,64,64)), c=outputs_c[i].reshape((2,1,768)), strength=0.75)
-        
-        # reconstructed_output_c = E.reconstruct(c=out_c, strength=strength_c)
-        # reconstructed_target_c = E.reconstruct(c=target_c, strength=strength_c)
-        
-        # # Make the z and c reconstrution images. 
-        # z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=out_c, strength=0.75)
+        z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=c_combined, strength=0.8)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 
@@ -302,7 +315,8 @@ def reconstructNImages(z_model_hash, c_model_hash, c_thresh, z_thresh, idx):
         plt.title("Reconstructed Output Z")
         
         
-        plt.savefig('reconstructions/' + str(i) + '_reconstruction_c_combined_9.png')
+        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
+        plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
     main()
