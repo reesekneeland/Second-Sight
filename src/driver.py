@@ -121,28 +121,30 @@ def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # train_hash = train_decoder()
     # c_hash,_,_ = run_fr_decoder()
-    reconstructNImages(experiment_title="img_mixer reconstructions",
-                       idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    train_decoder()
+    # reconstructNImages(experiment_title="img_mixer reconstructions",
+    #                    idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
-    hashNum = update_hash()
-    #hashNum = "179"
+    #hashNum = update_hash()
+    hashNum = "361"
     D = Decoder(hashNum = hashNum,
-                 lr=0.00005,
-                 vector="z_img_mixer", #c, z, c_prompt
-                 threshold=0.064564, #0.063672 for c #174, 0.07 for z #141
-                 inpSize=5615, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
+                 lr=0.000001,
+                 vector="c_combined", #c, z, c_prompt
+                 threshold=0.070591, #0.063672 for c #174, 0.07 for z #141
+                 inpSize=6828, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
                  log=True, 
                  batch_size=750,
                  parallel=False,
                  device="cuda:1",
                  num_workers=16,
                  epochs=300
-                 )
-    D.train()
+                )
+    #D.train()
     modelId = D.hashNum + "_model_" + D.vector + ".pt"
-    outputs_c, targets_c = D.predict(model=modelId, indices=[1, 2, 3])
+    
+    outputs_c, targets_c = D.predict(model=modelId)
     # Test
     # modelId_z = "044" + "_model_" + "z" + ".pt"
     # outputs_z, targets_z = D.predict(model=modelId_z, indices=[1, 2, 3])

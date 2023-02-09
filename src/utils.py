@@ -111,17 +111,33 @@ def create_whole_region_normalized():
     
     whole_region_norm = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+    
+    # TODO: Look at the betas before z score and max. 
+    # Whitening: Normalize the output c and z vector and then unnormalize them before going back into the decoder. 
+    # Learn the noramiziation maybe a two layer network
+        # With a relu use two a positive one and a negative one
+    # Action list
+    #   Look at the actual effect of these normalization
+    #   Look at the histogram of beta values and then apply normalization
+    #   Add simple non linearities to improve decoders
+    #   Start with the encoding model and then do bayes theory inversion with prior information (Clip to brain)
+    #         - Create priors on the image  
+    #         - Select the 100 tops ones that can 
+    #         - Get an enormus library of clip vectos 
+    #  
             
     # Normalize the data using Z scoring method for each voxel
     # for i in range(whole_region.shape[1]):
     #     voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
     #     normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
     #     whole_region_norm[:, i] = normalized_voxel
+        
+        
     # Normalize the data by dividing all elements by the max of each voxel
     whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
     # Save the tensor
-    torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+    torch.save(whole_region_norm, prep_path + "x/whole_region_11838.pt")
     
     
 def process_data(vector):
@@ -196,7 +212,7 @@ def grab_samples(vector, threshold, hashNum):
     mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
     new_len = np.count_nonzero(mask)
     target = torch.zeros((27750, new_len))
-    for i in tqdm(range(27750), desc=(vector + " masking")):
+    for i in tqdm(range(27750), desc=(vector + " masking")): 
        
         # Indexing into the sample and then using y_mask to grab the correct samples. 
         target[i] = whole_region[i][torch.from_numpy(mask)]
