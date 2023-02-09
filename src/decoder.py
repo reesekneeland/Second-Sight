@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
+from torchmetrics.functional import pearson_corrcoef
 from pycocotools.coco import COCO
 import h5py
 from utils import *
@@ -259,7 +260,48 @@ class Decoder():
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
 
-    def predict(self, model, indices=[0]):
+    # def predict(self, model, indices=[0]):
+    #     print(model)
+    #     os.makedirs("latent_vectors/" + model, exist_ok=True)
+    #     # Load the model into the class to be used for predictions
+    #     if(self.parallel):
+    #         self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+    #     else:
+    #         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+    #     self.model.eval()
+    #     outputs, targets = [], []
+    #     x, y = next(iter(self.testloader))
+    #     for x in self.testloader:
+    #         for i in indices:
+    #             # Loading in the test data
+    #             x_data = x[i]
+    #             y_data = y[i]
+    #             x_data = x_data[None,:].to(self.device)
+    #             y_data = y_data[None,:].to(self.device)
+    #             # Generating predictions based on the current model
+    #             pred_y = self.model(x_data).to(self.device)
+    #             outputs.append(pred_y)
+    #             targets.append(y_data)
+    #             torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "output_" + str(i) + "_" + self.vector + ".pt")
+    #             torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "target_" + str(i) + "_" + self.vector + ".pt")
+            
+                
+            
+    #     # Pearson correlation
+    #     out = torch.Tensor(outputs)
+    #     target = torch.Tensor(target)
+    #     r = []
+    #     for p in range(out[0].shape[1]):
+    #         r.append(pearson_corrcoef(out[:,p], target[:,p]))
+    #     r = np.array(r)
+    #     print(np.mean(r))
+    #     plt.hist(r, bins=40, log=True)
+    #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_log_applied_decoder.png")
+    #     return outputs, targets
+    
+    def predict(self, model):
+        out = torch.zeros((2250,3840))
+        target = torch.zeros((2250, 3840))
         print(model)
         os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
@@ -268,21 +310,34 @@ class Decoder():
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
         self.model.eval()
-        outputs, targets = [], []
-        x, y = next(iter(self.testloader))
-        # test_loss = 0
-        for i in indices:
+
+        for index, data in enumerate(self.testloader):
+            
             # Loading in the test data
-            x_data = x[i]
-            y_data = y[i]
-            x_data = x_data[None,:].to(self.device)
-            y_data = y_data[None,:].to(self.device)
+            x_data, y_data = data
+            x_data = x_data.to(self.device)
+            y_data = y_data.to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
-            # test_loss += compound_loss(pred_y, y_data)
-            outputs.append(pred_y)
-            targets.append(y_data)
-            torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "output_" + str(i) + "_" + self.vector + ".pt")
-            torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "target_" + str(i) + "_" + self.vector + ".pt")
-        # print("test loss: " + str(test_loss/len(indices)))
-        return outputs, targets
+            out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
+            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
+        
+        out = out.detach()
+        target = target.detach()
+        
+    
+        # Pearson correlation
+        r = []
+        for p in range(out.shape[1]):
+            r.append(pearson_corrcoef(out[:,p], target[:,p]))
+        r = np.array(r)
+        print(np.mean(r))
+            
+        plt.hist(r, bins=40, log=True)
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
+        
+        return out, target
+        
+        
+        # torch.save(out, "output_z_scalar.pt")
+        # torch.save(target, "target_z_scalar.pt")

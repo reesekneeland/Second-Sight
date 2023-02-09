@@ -128,8 +128,8 @@ def main():
 
 
 def train_decoder():
-    hashNum = update_hash()
-    #hashNum = "179"
+    #hashNum = update_hash()
+    hashNum = "361"
     D = Decoder(hashNum = hashNum,
                  lr=0.00005,
                  vector="c_img_0", #c, z, c_prompt
@@ -141,10 +141,11 @@ def train_decoder():
                  device="cuda:1",
                  num_workers=16,
                  epochs=300
-                 )
-    D.train()
+                )
+    #D.train()
     modelId = D.hashNum + "_model_" + D.vector + ".pt"
-    outputs_c, targets_c = D.predict(model=modelId, indices=[1, 2, 3])
+    
+    outputs_c, targets_c = D.predict(model=modelId)
     # Test
     # modelId_z = "044" + "_model_" + "z" + ".pt"
     # outputs_z, targets_z = D.predict(model=modelId_z, indices=[1, 2, 3])

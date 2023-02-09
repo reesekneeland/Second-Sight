@@ -121,7 +121,7 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.0001
+        self.lr = 0.00001
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -339,7 +339,7 @@ class VectorMapping():
 
 
 def main():
-    vector = "z_img_mixer"
+    vector = "c_combined"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     # VM.train(train, test)
