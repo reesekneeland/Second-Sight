@@ -24,10 +24,10 @@ x_test = x[25500:27750]
 y_train = y[:25500]
 y_test = y[25500:27750]
         
-n_alphas = 20
+n_alphas = 10
 regs = np.linspace(1/n_alphas, 1 + 1/n_alphas, n_alphas)
 # model = rcca.CCA(kernelcca = False, reg = 1., numCC = 4)
-model = rcca.CCACrossValidate(regs = regs, numCCs = np.arange(3,11))
+model = rcca.CCACrossValidate(regs = regs, numCCs = np.arange(3,11), numCV=1)
 print("fitting")
 model.train([y_train, x_train])
 print("predicting")

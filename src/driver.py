@@ -17,6 +17,7 @@ import wandb
 import copy
 from tqdm import tqdm
 from decoder import Decoder
+from encoder import Encoder
 from reconstructor import Reconstructor
 from fracridge_decoder import RidgeDecoder
 # from diffusers import StableDiffusionImageEncodingPipeline
@@ -98,51 +99,110 @@ from fracridge_decoder import RidgeDecoder
 #      - Model of 8112 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.060343
 #
 # 232_model_c_img.pt
-#      - Model of 7690 voxels out of 11838 with a learning rate of 0.000002 and a threshold of 0.070246
+#      - Model of 7690 voxels out of 11838 with a learning rate of 0.000002 and a threshold of  0.070246
 #
 # 266_model_c_combined.pt 
 #      - Model of 7240 voxels out of 11838 on old normalization method with a learning rate of 0.00005 and a threshold of 0.06398
 #
-# 318_model_c_img_0.pt (BEST C MODEL PART 1)
+# 318_model_c_img_0.pt 
 #    - 7643
 #    - old normalization method
 #    - 0.062136
 #
-# 319_model_c_text_0.pt (BEST C MODEL PART 2)
+# 319_model_c_text_0.pt 
 #    - 6650
 #    - old normalization method
 #    - 0.067784
 #
-# 322_z_img_mixer2voxels.pt (BEST Z MODEL)
+# 322_z_img_mixer2voxels.pt 
 #    - 5615
 #    - old normalization method
 #    - 0.064564 
 #    - compound_loss: 0.6940
+#
+# 373_model_c_img_0.pt (BEST C MODEL PART 1)
+#    - 7643
+#    - trained on new MLP
+#    - old normalization method
+#    - 0.062136
+# 375_model_c_text_0.pt (BEST C MODEL PART 2)
+#    - 6650
+#    - trained on new MLP
+#    - old normalization method
+#    - 0.067784
+# 377_model_z_img_mixer.pt (BEST Z MODEL)
+#    - 5615
+#    - trained on new MLP
+#    - old normalization method
+#    - 0.064564 
+#    - compound_loss: 0.6940
+#
+#
+#   Encoders:
+#      - 374_model_c_img_0.pt
+#           - old normalization method
+#           - Mean: 0.13217218
+#
+#      - 376_model_c_text_0.pt
+#           - old normalization
+#           - Mean: 0.09641416
+#
+#      - 378_model_z_img_mixer.pt
+#           - old normalization
+#           - Mean: 0.07613872
 
-def main():
+
+def main(decode, encode):
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    train_hash = train_decoder()
-    # c_hash,_,_ = run_fr_decoder()
-    # reconstructNImages(experiment_title="compound_loss test",
-                    #    idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    
+    if(decode):
+        train_hash = train_decoder()
+    elif(encode):
+        encoder_hash = train_encoder()
+    else:
+        reconstructNImages(experiment_title="73k COCO Library Decoder",
+                       idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
-def train_decoder():
+def train_encoder():
     #hashNum = update_hash()
-    hashNum = "361"
-    D = Decoder(hashNum = hashNum,
-                 lr=0.00005,
-                 vector="c_img_0", #c, z, c_prompt
-                 threshold=0.062136, #0.063672 for c #174, 0.07 for z #141
-                 inpSize=7643, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
+    hashNum = "378"
+    E = Encoder(hashNum = hashNum,
+                 lr=0.0001,
+                 vector="z_img_mixer", #c, z, c_prompt
                  log=True, 
                  batch_size=750,
                  parallel=False,
-                 device="cuda:1",
+                 device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
-    #D.train()
+    #E.train()
+    modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    
+    outputs_c = E.predict(model=modelId)
+    # Test
+    # modelId_z = "044" + "_model_" + "z" + ".pt"
+    # outputs_z, targets_z = D.predict(model=modelId_z, indices=[1, 2, 3])
+    # cosSim = nn.CosineSimilarity(dim=0)
+    return hashNum
+
+def train_decoder():
+    hashNum = update_hash()
+    # hashNum = "361"
+    D = Decoder(hashNum = hashNum,
+                 lr=0.00005,
+                 vector="z_img_mixer", #c, z, c_prompt
+                 log=True, 
+                 threshold=0.064564,
+                 inpSize = 5615,
+                 batch_size=750,
+                 parallel=False,
+                 device="cuda:0",
+                 num_workers=16,
+                 epochs=300
+                )
+    D.train()
     modelId = D.hashNum + "_model_" + D.vector + ".pt"
     
     outputs_c, targets_c = D.predict(model=modelId)
@@ -154,32 +214,19 @@ def train_decoder():
     print(cosSim(torch.randn_like(outputs_c[0]), targets_c[0]))
     return hashNum
 
-def run_fr_decoder():
-    hashNum = update_hash()
-    #hashNum = "179"
-    D = RidgeDecoder(hashNum = hashNum,
-                vector="c_combined", 
-                 log=True, 
-                 threshold=0.06397,
-                 device="cuda",
-                 n_alphas=20
-                 )
-    hashNum, outputs, target = D.train()
-    return hashNum, outputs, target
-
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "349",
+    Dz = Decoder(hashNum = "377",
                  vector="z_img_mixer", 
-                 threshold=0.066482,
-                 inpSize = 5508,
+                 threshold=0.064564,
+                 inpSize = 5615,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     
-    Dc_i = Decoder(hashNum = "318",
+    Dc_i = Decoder(hashNum = "373",
                  vector="c_img_0", 
                  threshold=0.062136,
                  inpSize = 7643,
@@ -188,7 +235,7 @@ def reconstructNImages(experiment_title, idx):
                  parallel=False
                  )
     
-    Dc_t = Decoder(hashNum = "319",
+    Dc_t = Decoder(hashNum = "375",
                  vector="c_text_0", 
                  threshold=0.067784,
                  inpSize = 6650,
@@ -196,13 +243,6 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    # Dc = RidgeDecoder(hashNum = c_model_hash,
-    #             vector="c_combined", 
-    #              log=False, 
-    #              threshold=c_thresh,
-    #              device="cuda",
-    #              n_alphas=20
-    #              )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -220,21 +260,27 @@ def reconstructNImages(experiment_title, idx):
     
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
-    outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId, indices=idx)
-    outputs_c_t, targets_c_t = Dc_t.predict(model=c_text_modelId, indices=idx)
-    outputs_z, targets_z = Dz.predict(model=z_modelId, indices=idx)
+    outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
+    outputs_c_i = [outputs_c_i[i] for i in idx]
+    targets_c_i = [targets_c_i[i] for i in idx]
+    outputs_c_t, targets_c_t = Dc_t.predict(model=c_text_modelId)
+    outputs_c_t = [outputs_c_t[i] for i in idx]
+    targets_c_t = [targets_c_t[i] for i in idx]
+    outputs_z, targets_z = Dz.predict(model=z_modelId)
+    outputs_z = [outputs_z[i] for i in idx]
+    targets_z = [targets_z[i] for i in idx]
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
     for i in range(len(idx)):
         print(i)
         test_i = idx[i] + 25501
-        
+        print("shape: ", outputs_c_i[i].shape)
         c_combined, c_combined_target = [], []
-        c_combined.append(outputs_c_i[i])
-        c_combined_target.append(targets_c_i[i])
-        c_combined.append(outputs_c_t[i])
-        c_combined_target.append(targets_c_t[i])
+        c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
+        c_combined_target.append(targets_c_i[i].reshape((1,768)).to("cuda"))
+        c_combined.append(outputs_c_t[i].reshape((1,768)).to("cuda"))
+        c_combined_target.append(targets_c_t[i].reshape((1,768)).to("cuda"))
         for j in range(0,3):
             c_combined.append(torch.zeros((1, 768), device="cuda"))
             c_combined_target.append(torch.zeros((1, 768), device="cuda"))
@@ -324,4 +370,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main()
+    main(decode=False, encode=True)

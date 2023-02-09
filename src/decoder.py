@@ -76,11 +76,12 @@ class LinearRegression(torch.nn.Module):
             outSize = 1536
         self.linear = nn.Linear(inpSize, 10000)
         self.relu = nn.ReLU()
-        self.linear2 = nn.Linear(10000, outSize)
+        self.linear2 = nn.Linear(10000, 12000)
+        self.outlayer = nn.Linear(12000, outSize)
     def forward(self, x):
-        y_pred = self.linear(x)
-        y_pred = self.relu(y_pred)
-        y_pred = self.linear2(y_pred)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
     
 # Main Class    
@@ -300,8 +301,18 @@ class Decoder():
     #     return outputs, targets
     
     def predict(self, model):
-        out = torch.zeros((2250,3840))
-        target = torch.zeros((2250, 3840))
+        if(self.vector == "c_prompt"):
+            outSize = 78848
+        elif(self.vector == "c_combined" or self.vector == "c_img_mixer"):
+            outSize = 3840
+        elif(self.vector == "c_img_mixer_0" or self.vector=="c_img_0" or self.vector=="c_text_0"):
+            outSize = 768
+        elif(self.vector == "z" or self.vector == "z_img_mixer"):
+            outSize = 16384
+        elif(self.vector == "c_img"):
+            outSize = 1536
+        out = torch.zeros((2250, outSize))
+        target = torch.zeros((2250, outSize))
         print(model)
         os.makedirs("latent_vectors/" + model, exist_ok=True)
         # Load the model into the class to be used for predictions
@@ -322,19 +333,19 @@ class Decoder():
             out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
             target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
         
-        out = out.detach()
-        target = target.detach()
+        # out = out.detach()
+        # target = target.detach()
         
     
         # Pearson correlation
-        r = []
-        for p in range(out.shape[1]):
-            r.append(pearson_corrcoef(out[:,p], target[:,p]))
-        r = np.array(r)
-        print(np.mean(r))
+        # r = []
+        # for p in range(out.shape[1]):
+        #     r.append(pearson_corrcoef(out[:,p], target[:,p]))
+        # r = np.array(r)
+        # print(np.mean(r))
             
-        plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
+        # plt.hist(r, bins=40, log=True)
+        # plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
         
         return out, target
         

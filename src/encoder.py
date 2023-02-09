@@ -1,173 +1,302 @@
-import os, sys
+# Only GPU's in use
+import os
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
-import PIL
 import torch
+from torch.autograd import Variable
+from torch.optim import Adam
 import numpy as np
-from PIL import Image
-from einops import rearrange
-from torch import autocast
-sys.path.append('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/stablediffusion')
-from ldm.extras import load_model_from_config
-from ldm.models.diffusion.ddim import DDIMSampler
-from huggingface_hub import hf_hub_download
-from transformers import CLIPProcessor, CLIPModel
-import clip
-from nsd_access import NSDAccess
+import glob
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import torch.nn as nn
+from torchmetrics.functional import pearson_corrcoef
+from pycocotools.coco import COCO
+import h5py
+from utils import *
+import wandb
+import copy
 from tqdm import tqdm
 
-def load_img(im_array):
 
-    image = Image.fromarray(im_array)
-    w, h = 512, 512  # resize to integer multiple of 64
-    imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)
-    image = np.array(imagePil).astype(np.float32) / 255.0
-    image = image[None].transpose(0, 3, 1, 2)
-    image = torch.from_numpy(image).to(torch.float16)
-    return 2. * image - 1., imagePil
+# You decode brain data into clip then you encode the clip into an image. 
 
 
+# target_c.pt (Ground Truth)
+#   - Correct c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the correct image)
+
+# target_z.pt (Ground Truth)
+#   - Correct z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the correct image)
+
+
+# output_c.pt (We made)
+#   - Wrong c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the wrong image)
+
+# output_z.pt (We made)
+#   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
+
+
+    
+# Pytorch model class for Linear regression layer Neural Network
+class LinearRegression(torch.nn.Module):
+    def __init__(self, vector, outputSize):
+        super(LinearRegression, self).__init__()
+        if(vector == "c_prompt"):
+            inpSize = 78848
+        elif(vector == "c_combined" or vector == "c_img_mixer"):
+            inpSize = 3840
+        elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
+            inpSize = 768
+        elif(vector == "z" or vector == "z_img_mixer"):
+            inpSize = 16384
+        elif(vector == "c_img"):
+            inpSize = 1536
+        self.linear = nn.Linear(inpSize, outputSize)
+    def forward(self, x):
+        y_pred = self.linear(x)
+        return y_pred
+    
+# Main Class    
 class Encoder():
-    def __init__(self):
-        torch.cuda.empty_cache()
-        self.ckpt = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-full.ckpt")
-        self.config = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-config.yaml")
+    def __init__(self, 
+                 hashNum,
+                 vector, 
+                 log, 
+                 lr=0.00001,
+                 batch_size=750,
+                 parallel=True,
+                 device="cuda",
+                 num_workers=16,
+                 epochs=200
+                 ):
 
-        self.device = "cuda"
-        self.model = load_model_from_config(self.config, self.ckpt, device=self.device, verbose=False)
-        self.model = self.model.to(self.device).half()
-
-        self.clip_model, self.preprocess = clip.load("ViT-L/14", device=self.device)
-        self.sampler = DDIMSampler(self.model)
-        self.scale = 5
-
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/samples", exist_ok=True)
-        self.outpath = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/samples"
-        self.base_count = len(os.listdir(self.outpath))+3
-
-        self.init_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-        self.init_preprocess = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-
-        self.batch_size = 1
+        # Set the parameters for pytorch model training
+        self.hashNum     = hashNum
+        self.vector      = vector
+        self.device      = torch.device(device)
+        self.lr          = lr
+        self.batch_size  = batch_size
+        self.num_epochs  = epochs
+        self.num_workers = num_workers
+        self.log         = log
+        self.parallel    = parallel
+        self.outputSize  = 11838
+    
+        # Initialize the Pytorch model class
+        self.model = LinearRegression(self.vector, self.outputSize)
         
-    @torch.no_grad()
-    def get_im_c(self, im_path):
-        # im = Image.open(im_path).convert("RGB")
-        prompts = self.preprocess(im_path).to(self.device).unsqueeze(0)
-        return self.clip_model.encode_image(prompts).float()
-
-    @torch.no_grad()
-    def get_txt_c(self, txt):
-        text = clip.tokenize([txt,]).to(self.device)
-        return self.clip_model.encode_text(text)
-
-    def encode_image(self, image):
-        conds_img = []
-        c_img = self.get_im_c(image)
-        conds_img.append(c_img)
-        for j in range(0,4):
-            conds_img.append((torch.zeros((1, 768), device=self.device)))
-        conds_img = torch.cat(conds_img, dim=0).unsqueeze(0)
-        conds_img = conds_img.tile(1, 1, 1)
-        print("encode image shape: ", conds_img.shape)
-        return conds_img
+        # Configure multi-gpu training
+        if(self.parallel):
+            self.model = nn.DataParallel(self.model)
         
-    def encode_combined(self, image, prompts):
-        conds_combined = []
-        c_img = self.get_im_c(image)
-        conds_combined.append(c_img)
-        inputs = self.init_preprocess(text=prompts, images=image, return_tensors="pt", padding=True)
-        outputs = self.init_clip_model(**inputs)
-        logits_per_image = outputs.logits_per_image # this is the image-text similarity score
-        probs = logits_per_image.softmax(dim=1).tolist()[0] # we can take the softmax to get the label probabilities
-        sorted_prompts = [x for _, x in sorted(zip(probs, prompts), reverse=True)]
-        sorted_probs = sorted(probs, reverse=True)
+        # Send model to Pytorch Device 
+        self.model.to(self.device)
         
-        for j in range(0,4):
-            high_prob = sorted_probs[0]
-            if(sorted_probs[j] >= high_prob/2):
-                c_text = 2*sorted_probs[j]*self.get_txt_c(sorted_prompts[j])
-                conds_combined.append(c_text)
+        # Initialize the data loaders
+        self.trainloader, self.testloader = get_data_encoder(vector=self.vector, 
+                                                             batch_size=self.batch_size, 
+                                                             num_workers=self.num_workers)
+        
+        # Initializes Weights and Biases to keep track of experiments and training runs
+        if(self.log):
+            wandb.init(
+                # set the wandb project where this run will be logged
+                project="encoder",
+                # track hyperparameters and run metadata
+                config={
+                "hash": self.hashNum,
+                "architecture": "Linear Regression",
+                # "architecture": "2 Convolutional Layers",
+                "vector": self.vector,
+                "dataset": "custom masked positive pearson correlation on c_combined data",
+                "epochs": self.num_epochs,
+                "learning_rate": self.lr,
+                "batch_size:": self.batch_size,
+                "num_workers": self.num_workers
+                }
+            )
+    
+
+    def train(self):
+        # Set best loss to negative value so it always gets overwritten
+        best_loss = -1.0
+        loss_counter = 0
+        
+        # Configure the pytorch objects, loss function (criterion)
+        # criterion = nn.MSELoss(size_average = False)
+        
+        # Import gradients to wandb to track loss gradients
+        # if(self.log):
+        #     wandb.watch(self.model, criterion, log="all")
+        
+        # Set the optimizer to Adam
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
+        
+        # Begin training, iterates through epochs, and through the whole dataset for every epoch
+        for epoch in tqdm(range(self.num_epochs), desc="epochs"):
+            
+            # For each epoch, do a training and a validation stage
+            # Entering training stage
+            self.model.train()
+            
+            # Keep track of running loss for this training epoch
+            running_loss = 0.0
+            for i, data in enumerate(self.trainloader):
+                
+                # Load the data out of our dataloader by grabbing the next chunk
+                # The chunk is the same size as the batch size
+                # x_data = Brain Data
+                # y_data = Clip/Z vector Data
+                x_data, y_data = data
+                
+                # Moving the tensors to the GPU
+                x_data = x_data.to(self.device)
+                y_data = y_data.to(self.device)
+                
+                # Zero gradients in the optimizer
+                optimizer.zero_grad()
+                
+                # Forward pass: Compute predicted y by passing x to the model
+                with torch.set_grad_enabled(True):
+                    
+                    # Train the x data in the model to get the predicted y value. 
+                    pred_y = self.model(x_data).to(self.device)
+                    
+                    # Compute the loss between the predicted y and the y data. 
+                    loss = compound_loss(pred_y, y_data)
+                    
+                    # Perform weight updating
+                    loss.backward()
+                    optimizer.step()
+
+                # tqdm.write('train loss: %.3f' %(loss.item()))
+                # Add up the loss for this training round
+                running_loss += loss.item()
+
+            tqdm.write('[%d] train loss: %.8f' %
+                (epoch + 1, running_loss /len(self.trainloader)))
+                #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
+                
+            # Entering validation stage
+            # Set model to evaluation mode
+            self.model.eval()
+            running_test_loss = 0.0
+            for i, data in enumerate(self.testloader):
+                
+                # Loading in the test data
+                x_data, y_data = data
+                x_data = x_data.to(self.device)
+                y_data = y_data.to(self.device)
+                
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+                
+                # Compute the test loss 
+                loss = compound_loss(pred_y, y_data)
+
+                running_test_loss += loss.item()
+                
+            test_loss = running_test_loss / len(self.testloader)
+                
+            # Printing and logging loss so we can keep track of progress
+            tqdm.write('[%d] test loss: %.8f' %
+                        (epoch + 1, test_loss))
+            if(self.log):
+                wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
+                    
+            # Check if we need to save the model
+            # Early stopping
+            if(best_loss == -1.0 or test_loss < best_loss):
+                best_loss = test_loss
+                torch.save(best_loss, "best_loss_" + self.vector + ".pt")
+                if(self.parallel):
+                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                else:
+                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                loss_counter = 0
             else:
-                conds_combined.append((torch.zeros((1, 768), device=self.device)))
-        conds_combined = torch.cat(conds_combined, dim=0).unsqueeze(0)
-        conds_combined = conds_combined.tile(1, 1, 1)
-        return conds_combined
-    
-    def encode_latents(self, init_image):
-        return self.model.get_first_stage_encoding(self.model.encode_first_stage(init_image.to(self.device)))
-    
-    def reconstruct(self, strength, z=None, c=None):
-        assert 0. <= strength <= 1., 'can only work with strength in [0.0, 1.0]'
-        if(strength==0.0):
-            c = torch.empty((1, 5, 768)).to(self.device)
-            init_latent = z.reshape((1,4,64,64)).to(self.device)
-            t_enc = 0
-        
-        elif(strength==1.0):
-            init_latent = torch.randn((1,4,64,64)).to(self.device)
-            c = c.reshape((1,5,768)).to(self.device)
-            t_enc = 49
+                loss_counter += 1
+                tqdm.write("loss counter: " + str(loss_counter))
+                if(loss_counter >= 5):
+                    break
+                
+        # Load our best model into the class to be used for predictions
+        if(self.parallel):
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
         else:
-            t_enc = int(strength * 50)
-            init_latent = z.reshape((1,4,64,64)).to(self.device)
-            c = c.reshape((1,5,768)).to(self.device)
-        self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
-        precision_scope = autocast 
-        with torch.no_grad():
-            with precision_scope("cuda"):
-                with self.model.ema_scope():
-                    uc = None
-                    if self.scale != 1.0:
-                        uc = self.model.get_learned_conditioning(1 * [""])
-                    # encode (scaled latent)
-                    z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc]*1).to(self.device))
-                    # decode it
-                    print(z_enc.shape, c.shape, t_enc, strength, uc.shape if uc is not None else None)
-                    samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
-                                            unconditional_conditioning=uc,)
 
-                    x_samples = self.model.decode_first_stage(samples)
-                    x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
-                    x_sample = 255. * rearrange(x_samples[0].cpu().numpy(), 'c h w -> h w c')
-                    img = Image.fromarray(x_sample.astype(np.uint8))
-                    img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
-                    self.base_count += 1
-        return img
+    # def predict(self, model):
+    #     out = torch.zeros((2250, 11838))
+    #     target = torch.zeros((2250, 11838))
+    #     print(model)
+    #     os.makedirs("latent_vectors/" + model, exist_ok=True)
+    #     # Load the model into the class to be used for predictions
+    #     if(self.parallel):
+    #         self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+    #     else:
+    #         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+    #     self.model.eval()
 
-    def main(self,):
-        nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-
-        captions = nsda.read_image_coco_info([i for i in range(73000)], info_type='captions', show_annot=False)
-        # nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-        # captions = nsda.read_image_coco_info([i for i in range(73000)], info_type='captions', show_annot=False)
-        for i in tqdm(range(0, 20)):
-    # Array of image data 1 x 425 x 425 x 3 (Stores pixel intensities)
-            img_arr = nsda.read_images([i], show=False)
-            init_image, img_pil = load_img(img_arr[0])
-            # image = Image.fromarray(img_arr.reshape((425, 425, 3)))
+    #     for index, data in enumerate(self.testloader):
             
-            #find best prompts
-            prompts = []
-            # Load the 5 prompts for each image
-            for j in range(len(captions[i])):
-                # Index into the caption list and get the corresponding 5 captions. 
-                prompts.append(captions[i][j]['caption'])
-            c = E.encode_combined(img_pil, prompts)
-            z = E.encode_latents(init_image)
-            
-            # Save the c and z vectors into there corresponding files. 
-            # torch.save(c, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/c_combined/" + str(i) + ".pt")
-            # torch.save(z, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(i) + ".pt")
-            z_only = E.reconstruct(z=z, strength=0.0)
-            
-            z_and_c = E.reconstruct(z=z, c=c, strength=0.75)
-            c_only = E.reconstruct(c=c, strength=1.0)
-            z_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_z_only.png")
-            c_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_c_only.png")
-            z_and_c.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_z_and_c.png")
+    #         # Loading in the test data
+    #         x_data, y_data = data
+    #         x_data = x_data.to(self.device)
+    #         y_data = y_data.to(self.device)
+    #         # Generating predictions based on the current model
+    #         pred_y = self.model(x_data).to(self.device)
+    #         out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
+    #         target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
         
-if __name__ == "__main__":
-    E = Encoder()
-    E.main()
+    #     out = out.detach()
+    #     target = target.detach()
+        
+    
+    #     # Pearson correlation
+    #     r = []
+    #     for p in range(out.shape[1]):
+    #         r.append(pearson_corrcoef(out[:,p], target[:,p]))
+    #     r = np.array(r)
+    #     print(np.mean(r))
+            
+    #     plt.hist(r, bins=40, log=True)
+    #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
+        
+    #     return out, target
+
+    def predict(self, model):
+
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+
+        # Save to latent vectors
+        out = torch.zeros((73000, 11838))
+        print(model)
+        os.makedirs("latent_vectors/" + model, exist_ok=True)
+        # Load the model into the class to be used for predictions
+        if(self.parallel):
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        else:
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        self.model.eval()
+
+        #preprocessed_data_c_img_0 = torch.load(prep_path + "c_img_0/vector.pt")
+        #preprocessed_data_c_text_0 = torch.load(prep_path + "c_text_0/vector.pt")
+        preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector.pt")
+
+
+
+        for index, data in enumerate(preprocessed_data_z_img_mixer):
+            
+            # Loading in the test data
+            x_data = data
+            x_data = x_data.to(self.device)
+            # Generating predictions based on the current model
+            pred_y = self.model(x_data).to(self.device)
+            out[index] = pred_y
+            
+        torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
+        
+        return out
     
