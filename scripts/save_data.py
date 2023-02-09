@@ -32,7 +32,7 @@ import nibabel as nib
 
 # Create the whole region and normalize it by subtracting
 # the meand and diving by the standard deveiation. 
-create_whole_region_normalized()
+# create_whole_region_normalized()
 
 # Call process data 
 # Input: The vector you want processed as a string
@@ -48,4 +48,5 @@ create_whole_region_normalized()
 
 # extract_dim("c_img_mixer", 0)
 
-
+# process_data_full("z_img_mixer")
+process_data_full("c_combined")
