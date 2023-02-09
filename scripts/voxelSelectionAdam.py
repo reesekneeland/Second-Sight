@@ -110,7 +110,7 @@ class VectorMapping():
         self.vector = vector
         
         self.hashNum = update_hash()
-        # self.hashNum = "011"
+        # self.hashNum = "320"
         # self.hashNum = "096"
 
         # Initializes the pytorch model class
@@ -188,11 +188,11 @@ class VectorMapping():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss()
+        # criterion = compound_loss()
         
         # Import gradients to wandb to track loss gradients
-        if(self.log):
-            wandb.watch(self.model, criterion, log="all")
+        # if(self.log):
+        #     wandb.watch(self.model, criterion, log="all")
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
@@ -223,7 +223,7 @@ class VectorMapping():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute and print loss
-                    loss = criterion(pred_y, y_data)
+                    loss = compound_loss(pred_y, y_data)
                     
                     # Perform weight updating
                     loss.backward()
@@ -250,7 +250,7 @@ class VectorMapping():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute loss
-                loss = criterion(pred_y, y_data)
+                loss = compound_loss(pred_y, y_data)
                 running_test_loss+=loss.item()
                 
             test_loss = running_test_loss/len(testLoader)
@@ -284,7 +284,8 @@ class VectorMapping():
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + hashNum + "_" + self.vector + "2voxels.pt"))
         self.model.eval()
         self.model.to(self.device)
-
+        test_loss = 0
+        criterion = nn.CosineSimilarity()
         for index, data in enumerate(testLoader):
             
             # Loading in the test data
@@ -293,6 +294,9 @@ class VectorMapping():
             y_data = y_data.to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
+            loss = compound_loss(pred_y, y_data)
+            print(loss)
+            test_loss += loss.item()
             out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
             target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
         
@@ -302,16 +306,16 @@ class VectorMapping():
         # targetPrev = torch.load("target_z_scalar.pt")
         # print("out check", torch.eq(out, outPrev))
         # print("target check", torch.eq(target, targetPrev))
-        
-    
+        test_loss = test_loss/len(testLoader)
+        print("test loss: ", test_loss)
         # Pearson correlation
         r = []
         for p in range(out.shape[1]):
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
-        print(np.mean(r))
+        print("mean pearson: ", np.mean(r))
         threshold = round((min(r) * -1), 6)
-        print(threshold)
+        print("threshold: ", threshold)
         mask = np.array(len(r) * [True])
         # for threshold in [0.0, 0.05, 0.1, 0.2]:
         #     threshmask = np.where(np.array(r) > threshold, mask, False)
@@ -338,9 +342,9 @@ def main():
     vector = "z_img_mixer"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
-    VM.train(train, test)
+    # VM.train(train, test)
     
-    VM.predict(test, VM.hashNum)
+    VM.predict(test, "320")
 
 if __name__ == "__main__":
     main()

@@ -32,7 +32,7 @@ import nibabel as nib
 
 # Create the whole region and normalize it by subtracting
 # the meand and diving by the standard deveiation. 
-# create_whole_region_normalized()
+create_whole_region_normalized()
 
 # Call process data 
 # Input: The vector you want processed as a string
@@ -44,7 +44,7 @@ import nibabel as nib
 #   - Parameter #2: The vector threshold as a string
 #   - Parameter #3: The vector hash number as a string
 # create_whole_region_normalized()
-grab_samples("z_img_mixer", "0.064564", "320")
+# grab_samples("z_img_mixer", "0.066482", "345")
 
 # extract_dim("c_img_mixer", 0)
 

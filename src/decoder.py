@@ -16,7 +16,6 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-# from encoder import Encoder
 
 
 # You decode brain data into clip then you encode the clip into an image. 
@@ -74,9 +73,13 @@ class LinearRegression(torch.nn.Module):
             outSize = 16384
         elif(vector == "c_img"):
             outSize = 1536
-        self.linear = nn.Linear(inpSize, outSize)
+        self.linear = nn.Linear(inpSize, 10000)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(10000, outSize)
     def forward(self, x):
         y_pred = self.linear(x)
+        y_pred = self.relu(y_pred)
+        y_pred = self.linear2(y_pred)
         return y_pred
     
 # Main Class    
@@ -119,10 +122,10 @@ class Decoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = get_data(vector=self.vector, 
-                                                     threshold=self.threshold, 
-                                                     batch_size=self.batch_size, 
-                                                     num_workers=self.num_workers)
+        self.trainloader, self.testloader = get_data_decoder(vector=self.vector, 
+                                                            threshold=self.threshold, 
+                                                            batch_size=self.batch_size, 
+                                                            num_workers=self.num_workers)
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -154,8 +157,8 @@ class Decoder():
         criterion = nn.MSELoss(size_average = False)
         
         # Import gradients to wandb to track loss gradients
-        if(self.log):
-            wandb.watch(self.model, criterion, log="all")
+        # if(self.log):
+        #     wandb.watch(self.model, criterion, log="all")
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
@@ -191,6 +194,7 @@ class Decoder():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
+                    # loss = compound_loss(pred_y, y_data)
                     loss = criterion(pred_y, y_data)
                     
                     # Perform weight updating
@@ -219,6 +223,7 @@ class Decoder():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
+                # loss = compound_loss(pred_y, y_data)
                 loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()
@@ -265,6 +270,7 @@ class Decoder():
         self.model.eval()
         outputs, targets = [], []
         x, y = next(iter(self.testloader))
+        # test_loss = 0
         for i in indices:
             # Loading in the test data
             x_data = x[i]
@@ -273,8 +279,10 @@ class Decoder():
             y_data = y_data[None,:].to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
+            # test_loss += compound_loss(pred_y, y_data)
             outputs.append(pred_y)
             targets.append(y_data)
             torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "output_" + str(i) + "_" + self.vector + ".pt")
             torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "target_" + str(i) + "_" + self.vector + ".pt")
+        # print("test loss: " + str(test_loss/len(indices)))
         return outputs, targets

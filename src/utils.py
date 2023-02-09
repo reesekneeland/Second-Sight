@@ -11,6 +11,7 @@ import h5py
 import pickle
 import math
 import matplotlib.pyplot as plt
+import torch.nn as nn
 import PIL.Image as pim
 import nibabel as nib
 from nsd_access import NSDAccess
@@ -44,7 +45,36 @@ def update_hash():
     return str(new_h)
 
 # Loads the data and puts it into a DataLoader
-def get_data(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):
+def get_data_decoder(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):
+        
+    y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+    x  = torch.load(prep_path + "x/" + vector + "_2voxels_pearson_thresh" + str(threshold) + ".pt").requires_grad_(False)
+    x_train = x[:25500]
+    x_test = x[25500:27750]
+    y_train = y[:25500]
+    y_test = y[25500:27750]
+    print("shapes", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
+    
+    # Loads the raw tensors into a Dataset object
+    
+    # TensorDataset takes in two tensors of equal size and then maps 
+    # them to one dataset. 
+    # x is the brain data 
+    # y are the captions
+    if(loader):
+        trainset = torch.utils.data.TensorDataset(x_train, y_train)
+        testset = torch.utils.data.TensorDataset(x_test, y_test)
+        
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        return trainloader, testloader
+    else:
+        return x_train, x_test, y_train, y_test
+
+
+# Loads the data and puts it into a DataLoader
+def get_data_encoder(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):
         
     y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
     x  = torch.load(prep_path + "x/" + vector + "_2voxels_pearson_thresh" + str(threshold) + ".pt").requires_grad_(False)
@@ -202,3 +232,9 @@ def grab_samples(vector, threshold, hashNum):
         target[i] = whole_region[i][torch.from_numpy(mask)]
     torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + threshold + ".pt")
 
+def compound_loss(pred, target):
+        alpha = 0.9
+        mse = nn.MSELoss()
+        cs = nn.CosineSimilarity()
+        loss = alpha * mse(pred, target) + (1 - alpha) * (1- torch.mean(cs(pred, target)))
+        return loss

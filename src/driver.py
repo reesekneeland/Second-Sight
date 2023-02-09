@@ -17,7 +17,7 @@ import wandb
 import copy
 from tqdm import tqdm
 from decoder import Decoder
-from encoder import Encoder
+from reconstructor import Reconstructor
 from fracridge_decoder import RidgeDecoder
 # from diffusers import StableDiffusionImageEncodingPipeline
 
@@ -74,6 +74,7 @@ from fracridge_decoder import RidgeDecoder
 #
 #    320_z_img_mixer2voxels.pt
 #       - Model of 5615 voxels out of 11838 with a threshold of 0.064564 (Used for training the decoder)
+#       - compound loss: 0.11211
 #
 # 141_model_z.pt 
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
@@ -116,13 +117,14 @@ from fracridge_decoder import RidgeDecoder
 #    - 5615
 #    - old normalization method
 #    - 0.064564 
+#    - compound_loss: 0.6940
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # train_hash = train_decoder()
+    train_hash = train_decoder()
     # c_hash,_,_ = run_fr_decoder()
-    reconstructNImages(experiment_title="img_mixer reconstructions",
-                       idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # reconstructNImages(experiment_title="compound_loss test",
+                    #    idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
 def train_decoder():
@@ -130,9 +132,9 @@ def train_decoder():
     #hashNum = "179"
     D = Decoder(hashNum = hashNum,
                  lr=0.00005,
-                 vector="z_img_mixer", #c, z, c_prompt
-                 threshold=0.064564, #0.063672 for c #174, 0.07 for z #141
-                 inpSize=5615, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
+                 vector="c_img_0", #c, z, c_prompt
+                 threshold=0.062136, #0.063672 for c #174, 0.07 for z #141
+                 inpSize=7643, # 8483 for c with thresh 0.063672, 5051 for z with thresh 0.07, #8144 for c_combined with thresh 0.058954, 6378 for z with thresh 0.063478
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -167,14 +169,15 @@ def run_fr_decoder():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "322",
+    Dz = Decoder(hashNum = "349",
                  vector="z_img_mixer", 
-                 threshold=0.064564,
-                 inpSize = 5615,
+                 threshold=0.066482,
+                 inpSize = 5508,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
+    
     Dc_i = Decoder(hashNum = "318",
                  vector="c_img_0", 
                  threshold=0.062136,
@@ -183,6 +186,7 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
+    
     Dc_t = Decoder(hashNum = "319",
                  vector="c_text_0", 
                  threshold=0.067784,
@@ -220,7 +224,7 @@ def reconstructNImages(experiment_title, idx):
     outputs_z, targets_z = Dz.predict(model=z_modelId, indices=idx)
     strength_c = 1
     strength_z = 0
-    E = Encoder()
+    R = Reconstructor()
     for i in range(len(idx)):
         print(i)
         test_i = idx[i] + 25501
@@ -241,15 +245,15 @@ def reconstructNImages(experiment_title, idx):
     
         # Make the c reconstrution images. 
         
-        reconstructed_output_c = E.reconstruct(c=c_combined, strength=strength_c)
-        reconstructed_target_c = E.reconstruct(c=c_combined_target, strength=strength_c)
+        reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
+        reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
         # # Make the z reconstrution images. 
-        reconstructed_output_z = E.reconstruct(z=outputs_z[i], strength=strength_z)
-        reconstructed_target_z = E.reconstruct(z=targets_z[i], strength=strength_z)
+        reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
+        reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
         
         # # Make the z and c reconstrution images. 
-        z_c_reconstruction = E.reconstruct(z=outputs_z[i], c=c_combined, strength=0.8)
+        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.8)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 
@@ -259,7 +263,7 @@ def reconstructNImages(experiment_title, idx):
         
         # Create figure
         fig = plt.figure(figsize=(10, 7))
-        plt.title(str(i) + ": Reconstruction")
+        plt.title(str(i) + ": " + experiment_title)
         
         # Setting values to rows and column variables
         rows = 3
