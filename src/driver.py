@@ -172,11 +172,11 @@ def main(decode, encode):
 
 
 def train_encoder():
-    #hashNum = update_hash()
-    hashNum = "378"
+    hashNum = update_hash()
+    #hashNum = "410"
     E = Encoder(hashNum = hashNum,
-                 lr=0.0005,
-                 vector="z_img_mixer", #c, z, c_prompt
+                 lr=0.00001,
+                 vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -184,14 +184,11 @@ def train_encoder():
                  num_workers=16,
                  epochs=300
                 )
-    #E.train()
+    E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
     outputs_c = E.predict(model=modelId)
-    # Test
-    # modelId_z = "044" + "_model_" + "z" + ".pt"
-    # outputs_z, targets_z = D.predict(model=modelId_z, indices=[1, 2, 3])
-    # cosSim = nn.CosineSimilarity(dim=0)
+
     return hashNum
 
 def train_decoder():
@@ -377,4 +374,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=True, encode=False)
+    main(decode=False, encode=True)
