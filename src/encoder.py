@@ -67,6 +67,25 @@ class LinearRegression(torch.nn.Module):
         y_pred = self.outlayer(y_pred)
         return y_pred
     
+# -------------- 
+# class LinearRegression(torch.nn.Module):
+#     def __init__(self, vector, outputSize):
+#         super(LinearRegression, self).__init__()
+#         if(vector == "c_prompt"):
+#             inpSize = 78848
+#         elif(vector == "c_combined" or vector == "c_img_mixer"):
+#             inpSize = 3840
+#         elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
+#             inpSize = 768
+#         elif(vector == "z" or vector == "z_img_mixer"):
+#             inpSize = 16384
+#         elif(vector == "c_img"):
+#             inpSize = 1536
+#         self.linear = nn.Linear(inpSize, outputSize)
+#     def forward(self, x):
+#         y_pred = self.linear(x)
+#         return y_pred
+    
 # Main Class    
 class Encoder():
     def __init__(self, 
@@ -236,9 +255,42 @@ class Encoder():
             self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            
+    def generate_hist(self, model):
+        
+        out = torch.zeros((2250,11838))
+        target = torch.zeros((2250, 11838))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
+        
+        for index, data in enumerate(self.testloader):
+            
+            # Loading in the test data
+            x_data, y_data = data
+            x_data = x_data.to(self.device)
+            y_data = y_data.to(self.device)
+            # Generating predictions based on the current model
+            pred_y = self.model(x_data).to(self.device)
+            
+            out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
+            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
+        
+        out = out.detach()
+        target = target.detach()
+        
+        r = []
+        for p in range(out.shape[1]):
+            r.append(pearson_corrcoef(out[:,p], target[:,p]))
+        r = np.array(r)
+        
+        print("mean pearson: ", np.mean(r))
+        plt.hist(r, bins=40, log=True)
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        
 
 
-    def predict(self, model):
+    def predict(self, model, predict):
 
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
 
@@ -253,25 +305,30 @@ class Encoder():
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
         self.model.eval()
 
-        #preprocessed_data_c_img_0 = torch.load(prep_path + "c_img_0/vector.pt")
-        #preprocessed_data_c_text_0 = torch.load(prep_path + "c_text_0/vector.pt")
-        preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector.pt")
-
-
-
-        for index, data in enumerate(preprocessed_data_z_img_mixer):
+        #preprocessed_data
+        # if(model == "z_img_mixer"):
+        preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
             
-            # Loading in the data
-            x_data = data
-            x_data = x_data.to(self.device)
+        # elif(model == "c_text_0"):
+        # preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
             
-            # Generating predictions based on the current model
-            pred_y = self.model(x_data).to(self.device)
-            # if(torch.max(pred_y) < 0.1):
-            #     print(torch.max(pred_y))
-            out[index] = pred_y
-            
-        torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
+        # elif(model == "c_img_0"):
+        #preprocessed_data = torch.load(prep_path + "c_img_0/vector.pt")
+
+        if(predict):
+            for index, data in enumerate(preprocessed_data):
+                
+                # Loading in the data
+                x_data = data
+                x_data = x_data.to(self.device)
+                
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+                out[index] = pred_y
+                
+            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
+        
+        self.generate_hist(model)
         
         return out
     
