@@ -77,6 +77,9 @@ from fracridge_decoder import RidgeDecoder
 #       - Model of 5615 voxels out of 11838 with a threshold of 0.064564 (Used for training the decoder)
 #       - compound loss: 0.11211
 #
+#    395_z_img_mixer2voxels.pt
+#       - Model of 5496 voxels out of 11838 with a threshold of 0.08283 (Used for training the decoder)
+#
 # 141_model_z.pt 
 #      - Model of 5051 voxels out of 11383 with a learning rate of 0.000003 and a threshold of 0.07
 #
@@ -135,7 +138,11 @@ from fracridge_decoder import RidgeDecoder
 #    - trained on new MLP
 #    - old normalization method
 #    - 0.064564 
-#    - compound_loss: 0.6940
+# 385_model_z_img_mixer.pt (BEST Z MODEL)
+#    - 5615
+#    - trained on new MLP
+#    - old normalization method
+#    - 0.064564
 #
 #
 #   Encoders:
@@ -168,7 +175,7 @@ def train_encoder():
     #hashNum = update_hash()
     hashNum = "378"
     E = Encoder(hashNum = hashNum,
-                 lr=0.0001,
+                 lr=0.0005,
                  vector="z_img_mixer", #c, z, c_prompt
                  log=True, 
                  batch_size=750,
@@ -191,11 +198,11 @@ def train_decoder():
     hashNum = update_hash()
     # hashNum = "361"
     D = Decoder(hashNum = hashNum,
-                 lr=0.00005,
+                 lr=0.000025,
                  vector="z_img_mixer", #c, z, c_prompt
                  log=True, 
-                 threshold=0.064564,
-                 inpSize = 5615,
+                 threshold=0.08283,
+                 inpSize = 5496,
                  batch_size=750,
                  parallel=False,
                  device="cuda:0",
@@ -370,4 +377,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=False, encode=True)
+    main(decode=True, encode=False)
