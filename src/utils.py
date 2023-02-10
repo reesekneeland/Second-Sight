@@ -17,7 +17,7 @@ import nibabel as nib
 from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
-from torchmetrics.functional import pearson_corrcoef
+from pearson import PearsonCorrCoef
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -303,19 +303,25 @@ def predictVector(model, vector, x):
         latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
         y = torch.load(prep_path + vector + "/vector_73k.pt").requires_grad_(False)
         x_preds = torch.load(latent_path + model + "/" + "brain_preds.pt").requires_grad_(False)
+        count = 0
+        for i in range(x_preds.shape[0]):
+            if(torch.max(x_preds[i])==0 and i%10000==0):
+                count+=1
+                print(i)
+        print("count: ", count)
         # y = y.detach()
         # x_preds = x_preds.detach()
+        PeC = PearsonCorrCoef(num_outputs=x_preds.shape[0])
         out = torch.zeros((x.shape[0], y.shape[1]))
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(x_preds.shape[0], 1).moveaxis(0, 1)
+            x_preds_t = x_preds.moveaxis(0, 1)
             # Pearson correlation
-            r = torch.zeros((73000,))
-            for p in range(x_preds.shape[0]):
-                r[p] = pearson_corrcoef(x_preds[p], x[i])
-                if(p%10000 == 0):
-                    if(torch.isnan(r[p])):
-                        print("nan", max(x_preds[p]), x[i])
-                    print(r[p])
-            print("max: ", r.max())
-            out[i] = y[r.argmax()]
+            # pearson = torch.zeros((73000,))
+            print(x_preds_t.shape, xDup.shape)
+            pearson = PeC(xDup, x_preds_t)
+            print("pearson shape: ", pearson.shape)
+            out[i] = y[pearson.argmax(dim=0)]
+            print("max of pred: ", out[i].max())
         torch.save(out, latent_path + model + "/" + vector + "_library_preds.pt")
         return out

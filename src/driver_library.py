@@ -242,12 +242,12 @@ def reconstructNImages(experiment_title, idx):
     targets_c_i = targets_c_i[idx]
     targets_c_t = targets_c_t[idx]
     targets_z = targets_z[idx]
-    outputs_c_i = predictVector(model="374_model_c_img_0.pt", vector="c_img_0", x=x_test)
-    outputs_c_t = predictVector(model="376_model_c_text_0.pt", vector="c_text_0", x=x_test)
-    outputs_z = predictVector(model="378_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)
-    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/374_model_c_img_0.pt/c_img_0_library_preds.pt")
-    # outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/376_model_c_text_0.pt/c_text_0_library_preds.pt")
-    # outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/378_model_z_img_mixer.pt/z_img_mixer_library_preds.pt")
+    outputs_c_i = predictVector(model="410_model_c_img_0.pt", vector="c_img_0", x=x_test)
+    outputs_c_t = predictVector(model="411_model_c_text_0.pt", vector="c_text_0", x=x_test)
+    outputs_z = predictVector(model="412_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)
+    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_library_preds.pt")
+    # outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_library_preds.pt")
+    # outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_library_preds.pt")
     strength_c = 1
     strength_z = 0
     R = Reconstructor()

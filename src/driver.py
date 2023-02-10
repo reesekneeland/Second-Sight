@@ -173,10 +173,10 @@ def main(decode, encode):
 
 def train_encoder():
     #hashNum = update_hash()
-    hashNum = "378"
+    hashNum = "410"
     E = Encoder(hashNum = hashNum,
                  lr=0.0005,
-                 vector="z_img_mixer", #c, z, c_prompt
+                 vector="c_img_0", #c, z, c_prompt
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -377,4 +377,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=True, encode=False)
+    main(decode=False, encode=True)

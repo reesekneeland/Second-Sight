@@ -283,7 +283,7 @@ class Encoder():
 
         #preprocessed_data_c_img_0 = torch.load(prep_path + "c_img_0/vector.pt")
         #preprocessed_data_c_text_0 = torch.load(prep_path + "c_text_0/vector.pt")
-        preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector.pt")
+        preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector_73k.pt")
 
 
 
