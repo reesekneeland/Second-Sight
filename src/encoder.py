@@ -34,6 +34,12 @@ from tqdm import tqdm
 
 # output_z.pt (We made)
 #   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
+#
+# 410_model_c_img_0.pt
+#
+# 411_model_c_text_0.pt
+#
+# 412_model_z_img_mixer.pt
 
 
     
@@ -51,9 +57,14 @@ class LinearRegression(torch.nn.Module):
             inpSize = 16384
         elif(vector == "c_img"):
             inpSize = 1536
-        self.linear = nn.Linear(inpSize, outputSize)
+        self.linear = nn.Linear(inpSize, 10000)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(10000, 12000)
+        self.outlayer = nn.Linear(12000, outputSize)
     def forward(self, x):
-        y_pred = self.linear(x)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
     
 # Main Class    
@@ -227,45 +238,6 @@ class Encoder():
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
 
-    # def predict(self, model):
-    #     out = torch.zeros((2250, 11838))
-    #     target = torch.zeros((2250, 11838))
-    #     print(model)
-    #     os.makedirs("latent_vectors/" + model, exist_ok=True)
-    #     # Load the model into the class to be used for predictions
-    #     if(self.parallel):
-    #         self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     else:
-    #         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     self.model.eval()
-
-    #     for index, data in enumerate(self.testloader):
-            
-    #         # Loading in the test data
-    #         x_data, y_data = data
-    #         x_data = x_data.to(self.device)
-    #         y_data = y_data.to(self.device)
-    #         # Generating predictions based on the current model
-    #         pred_y = self.model(x_data).to(self.device)
-    #         out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
-    #         target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
-        
-    #     out = out.detach()
-    #     target = target.detach()
-        
-    
-    #     # Pearson correlation
-    #     r = []
-    #     for p in range(out.shape[1]):
-    #         r.append(pearson_corrcoef(out[:,p], target[:,p]))
-    #     r = np.array(r)
-    #     print(np.mean(r))
-            
-    #     plt.hist(r, bins=40, log=True)
-    #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
-        
-    #     return out, target
-
     def predict(self, model):
 
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -289,11 +261,14 @@ class Encoder():
 
         for index, data in enumerate(preprocessed_data_z_img_mixer):
             
-            # Loading in the test data
+            # Loading in the data
             x_data = data
             x_data = x_data.to(self.device)
+            
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
+            # if(torch.max(pred_y) < 0.1):
+            #     print(torch.max(pred_y))
             out[index] = pred_y
             
         torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
