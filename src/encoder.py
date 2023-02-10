@@ -51,9 +51,14 @@ class LinearRegression(torch.nn.Module):
             inpSize = 16384
         elif(vector == "c_img"):
             inpSize = 1536
-        self.linear = nn.Linear(inpSize, outputSize)
+        self.linear = nn.Linear(inpSize, 10000)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(10000, 12000)
+        self.outlayer = nn.Linear(12000, outputSize)
     def forward(self, x):
-        y_pred = self.linear(x)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
     
 # Main Class    
