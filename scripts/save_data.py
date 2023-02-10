@@ -44,9 +44,14 @@ import nibabel as nib
 #   - Parameter #2: The vector threshold as a string
 #   - Parameter #3: The vector hash number as a string
 # create_whole_region_normalized()
-grab_samples("z_img_mixer", "0.08283", "395")
+# grab_samples("z_img_mixer", "0.08283", "395")
 
 # extract_dim("c_img_mixer", 0)
 
 # process_data_full("z_img_mixer")
 # process_data_full("c_combined")
+
+load_data("z_img_mixer", loader=False)
+
+voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
+voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')

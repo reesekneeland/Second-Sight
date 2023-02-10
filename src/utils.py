@@ -17,7 +17,7 @@ import nibabel as nib
 from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
-from torchmetrics.functional import pearson_corrcoef
+from pearson import PearsonCorrCoef
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -44,6 +44,60 @@ def update_hash():
         file.truncate()      
     file.close()
     return str(new_h)
+
+
+# Main data loader, 
+def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
+    
+    y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+    x = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+    x_train = torch.zeros((20480, 11838))
+    x_val = torch.zeros((4500, 11838))
+    x_test = torch.zeros((2770, 11838))
+    y_train = torch.zeros((20480, y.shape[1]))
+    y_val = torch.zeros((4500, y.shape[1]))
+    y_test = torch.zeros((2770, y.shape[1]))
+    print("shapes", x.shape, y.shape)
+    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+    
+    # Loads the raw tensors into a Dataset object
+    
+    # TensorDataset takes in two tensors of equal size and then maps 
+    # them to one dataset. 
+    # x is the brain data 
+    # y are the vectors
+    train_i, test_i, val_i = 0,0,0
+    trueCount = 0
+    for i in range(x.shape[0]):
+        test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
+        # print(test_sample)
+        # test_sample=True
+        if(test_sample):
+            trueCount+=1
+        if(test_sample):
+            x_test[test_i] = x[i]
+            y_test[test_i] = y[i]
+            test_i +=1
+        elif train_i<20480:
+            x_train[train_i] = x[i]
+            y_train[train_i] = y[i]
+            train_i+=1
+        else:
+            x_val[val_i] = x[i]
+            y_val[val_i] = y[i]
+            val_i +=1
+
+    if(loader):
+        trainset = torch.utils.data.TensorDataset(x_train, y_train)
+        testset = torch.utils.data.TensorDataset(x_val, y_val)
+        
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        return trainloader, testloader
+    else:
+        print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
+        return x_train, x_val, x_test, y_train, y_val, y_test
 
 # Loads the data and puts it into a DataLoader
 def get_data_decoder(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):
@@ -157,7 +211,9 @@ def create_whole_region_normalized():
     
     whole_region_norm = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
-    
+
+    unnormalized_var = torch.var(whole_region[0])
+    print(unnormalized_var.shape)
     # TODO: Look at the betas before z score and max. 
     # Whitening: Normalize the output c and z vector and then unnormalize them before going back into the decoder. 
     # Learn the noramiziation maybe a two layer network
@@ -181,9 +237,10 @@ def create_whole_region_normalized():
         
     # Normalize the data by dividing all elements by the max of each voxel
     whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+    unnormalized_var = torch.var(whole_region_norm[0])
 
     # Save the tensor
-    torch.save(whole_region_norm, prep_path + "x/whole_region_11838.pt")
+    # torch.save(whole_region_norm, prep_path + "x/whole_region_11838.pt")
     
     
 def process_data(vector):
@@ -303,19 +360,25 @@ def predictVector(model, vector, x):
         latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
         y = torch.load(prep_path + vector + "/vector_73k.pt").requires_grad_(False)
         x_preds = torch.load(latent_path + model + "/" + "brain_preds.pt").requires_grad_(False)
+        count = 0
+        for i in range(x_preds.shape[0]):
+            if(torch.max(x_preds[i])==0 and i%10000==0):
+                count+=1
+                print(i)
+        print("count: ", count)
         # y = y.detach()
         # x_preds = x_preds.detach()
+        PeC = PearsonCorrCoef(num_outputs=x_preds.shape[0])
         out = torch.zeros((x.shape[0], y.shape[1]))
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(x_preds.shape[0], 1).moveaxis(0, 1)
+            x_preds_t = x_preds.moveaxis(0, 1)
             # Pearson correlation
-            r = torch.zeros((73000,))
-            for p in range(x_preds.shape[0]):
-                r[p] = pearson_corrcoef(x_preds[p], x[i])
-                if(p%10000 == 0):
-                    if(torch.isnan(r[p])):
-                        print("nan", max(x_preds[p]), x[i])
-                    print(r[p])
-            print("max: ", r.max())
-            out[i] = y[r.argmax()]
+            # pearson = torch.zeros((73000,))
+            print(x_preds_t.shape, xDup.shape)
+            pearson = PeC(xDup, x_preds_t)
+            print("pearson shape: ", pearson.shape)
+            out[i] = y[pearson.argmax(dim=0)]
+            print("max of pred: ", out[i].max())
         torch.save(out, latent_path + model + "/" + vector + "_library_preds.pt")
         return out
