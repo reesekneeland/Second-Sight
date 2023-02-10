@@ -173,10 +173,10 @@ def main(decode, encode):
 
 def train_encoder():
     #hashNum = update_hash()
-    hashNum = "410"
+    hashNum = "412"
     E = Encoder(hashNum = hashNum,
                  lr=0.0005,
-                 vector="c_img_0", #c, z, c_prompt
+                 vector="z_img_mixer", #c, z, c_prompt
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -184,7 +184,7 @@ def train_encoder():
                  num_workers=16,
                  epochs=300
                 )
-    E.train()
+    # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
     outputs_c = E.predict(model=modelId)

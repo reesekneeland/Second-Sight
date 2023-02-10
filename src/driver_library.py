@@ -213,6 +213,8 @@ def train_decoder():
     print(cosSim(torch.randn_like(outputs_c[0]), targets_c[0]))
     return hashNum
 
+
+
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
