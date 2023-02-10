@@ -69,23 +69,27 @@ import nibabel as nib
 class LinearRegression(torch.nn.Module):
     def __init__(self, vector):
         super(LinearRegression, self).__init__()
+        outSize = 11838
         if(vector == "c_prompt"):
-            self.linear = nn.Linear(78848,  11838)
+            inpSize = 78848
+        elif(vector == "c_combined" or vector == "c_img_mixer"):
+            inpSize = 3840
+        elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
+            inpSize = 768
         elif(vector == "z" or vector == "z_img_mixer"):
-            self.linear = nn.Linear(16384,  11838)
-        elif(vector == "c_img"): #custom diffusers clip image embedding
-            self.linear = nn.Linear(1536,  11838)
-        elif(vector == "c_combined"): #image mixer 5x768
-            self.linear = nn.Linear(3840,  11838)
-        elif(vector == "c_img_mixer"): #image mixer only first element populated but stll 5x768
-            self.linear = nn.Linear(3840, 11838)
-        elif(vector == "c_img_mixer_0"):
-            self.linear = nn.Linear(3840, 11838)
-        elif(vector == "c_img_0" or vector == "c_text_0"): #image mixer  only first element 1x768
-            self.linear = nn.Linear(768, 11838)
-    
+            inpSize = 16384
+        elif(vector == "c_img"):
+            inpSize = 1536
+        self.linear = nn.Linear(inpSize, 10000)
+        self.activation = nn.ReLU()
+        self.linear2 = nn.Linear(10000, 12000)
+        # self.linear3 = nn.Linear(12000, 15000)
+        self.outlayer = nn.Linear(12000, outSize)
     def forward(self, x):
-        y_pred = self.linear(x)
+        y_pred = self.activation(self.linear(x))
+        y_pred = self.activation(self.linear2(y_pred))
+        # y_pred = self.activation(self.linear3(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
 
 # Main Class    
@@ -121,7 +125,7 @@ class VectorMapping():
         
         
         # Set the parameters for pytorch model training
-        self.lr = 0.00001
+        self.lr = 0.000005
         self.batch_size = 750
         self.num_epochs = 300
         self.num_workers = 4
@@ -188,7 +192,7 @@ class VectorMapping():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        # criterion = compound_loss()
+        criterion = nn.MSELoss()
         
         # Import gradients to wandb to track loss gradients
         # if(self.log):
@@ -223,7 +227,7 @@ class VectorMapping():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute and print loss
-                    loss = compound_loss(pred_y, y_data)
+                    loss = criterion(pred_y, y_data)
                     
                     # Perform weight updating
                     loss.backward()
@@ -250,7 +254,7 @@ class VectorMapping():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute loss
-                loss = compound_loss(pred_y, y_data)
+                loss = criterion(pred_y, y_data)
                 running_test_loss+=loss.item()
                 
             test_loss = running_test_loss/len(testLoader)
@@ -284,8 +288,8 @@ class VectorMapping():
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + hashNum + "_" + self.vector + "2voxels.pt"))
         self.model.eval()
         self.model.to(self.device)
-        test_loss = 0
-        criterion = nn.CosineSimilarity()
+        # test_loss = 0
+        # criterion = nn.CosineSimilarity()
         for index, data in enumerate(testLoader):
             
             # Loading in the test data
@@ -294,9 +298,9 @@ class VectorMapping():
             y_data = y_data.to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_data).to(self.device)
-            loss = compound_loss(pred_y, y_data)
-            print(loss)
-            test_loss += loss.item()
+            # loss = nn.MSELoss(pred_y, y_data)
+            # print(loss)
+            # test_loss += loss.item()
             out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
             target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
         
@@ -306,8 +310,8 @@ class VectorMapping():
         # targetPrev = torch.load("target_z_scalar.pt")
         # print("out check", torch.eq(out, outPrev))
         # print("target check", torch.eq(target, targetPrev))
-        test_loss = test_loss/len(testLoader)
-        print("test loss: ", test_loss)
+        # test_loss = test_loss/len(testLoader)
+        # print("test loss: ", test_loss)
         # Pearson correlation
         r = []
         for p in range(out.shape[1]):
@@ -339,12 +343,12 @@ class VectorMapping():
 
 
 def main():
-    vector = "c_combined"
+    vector = "z_img_mixer"
     VM = VectorMapping(vector)
     train, test = VM.get_data_masked()
     # VM.train(train, test)
     
-    VM.predict(test, "320")
+    VM.predict(test, "395")
 
 if __name__ == "__main__":
     main()
