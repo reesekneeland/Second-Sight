@@ -184,10 +184,10 @@ def train_encoder():
                  num_workers=16,
                  epochs=300
                 )
-    # E.train()
+    #E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    outputs = E.predict_cc3m(model=modelId)
+    outputs = E.predict_cc3m(model=modelId, predict=False)
 
     return hashNum
 
