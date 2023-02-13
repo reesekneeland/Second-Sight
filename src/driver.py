@@ -173,11 +173,11 @@ def main(decode, encode):
 
 def train_encoder():
     #hashNum = update_hash()
-    hashNum = "412"
+    hashNum = "411"
     E = Encoder(hashNum = hashNum,
                  lr=0.0005,
-                 vector="z_img_mixer", #c, z, c_prompt
-                 log=True, 
+                 vector="c_text_0", #c, z, c_prompt
+                 log=False, 
                  batch_size=750,
                  parallel=False,
                  device="cuda:0",
@@ -187,7 +187,7 @@ def train_encoder():
     # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    outputs_c = E.predict(model=modelId)
+    outputs = E.predict_cc3m(model=modelId)
 
     return hashNum
 

@@ -16,7 +16,7 @@ from nsd_access import NSDAccess
 from tqdm import tqdm
 
 def load_img(im_array):
-
+    
     image = Image.fromarray(im_array)
     w, h = 512, 512  # resize to integer multiple of 64
     imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)

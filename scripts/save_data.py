@@ -32,7 +32,7 @@ import nibabel as nib
 
 # Create the whole region and normalize it by subtracting
 # the meand and diving by the standard deveiation. 
-# create_whole_region_normalized()
+# normalization_test()
 
 # Call process data 
 # Input: The vector you want processed as a string
@@ -49,9 +49,12 @@ import nibabel as nib
 # extract_dim("c_img_mixer", 0)
 
 # process_data_full("z_img_mixer")
+process_data_full("c_img_0")
+process_data_full("c_text_0")
 # process_data_full("c_combined")
 
-load_data("z_img_mixer", loader=False)
+# load_data("z_img_mixer", loader=False)
 
-voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
-voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
+# voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
+# voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
+# load_cc3m()
