@@ -305,11 +305,6 @@ class Encoder():
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
         self.model.eval()
 
-<<<<<<< HEAD
-        #preprocessed_data
-        # if(model == "z_img_mixer"):
-        preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
-=======
         # preprocessed_data_c_img_0 = torch.load(prep_path + "c_img_0/vector_73k.pt")
         # preprocessed_data_c_text_0 = torch.load(prep_path + "c_text_0/vector_73k.pt")
         preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector_73k.pt")
@@ -321,7 +316,6 @@ class Encoder():
             # Loading in the data
             x_data = data
             x_data = x_data.to(self.device)
->>>>>>> 2146f498e4c5955b32d8ab9e6a061dd6d911c10f
             
         # elif(model == "c_text_0"):
         # preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
