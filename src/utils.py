@@ -12,7 +12,7 @@ import pickle
 import math
 import matplotlib.pyplot as plt
 import torch.nn as nn
-import PIL.Image as pim
+import PIL.Image as Image
 import nibabel as nib
 from nsd_access import NSDAccess
 import torch
@@ -44,6 +44,64 @@ def update_hash():
         file.truncate()      
     file.close()
     return str(new_h)
+
+def get_last_token(s, tokens={'@': list, '.': dict}):
+    l,name,entry,t = 2**31,'','',None
+    for tok,toktype in tokens.items():
+        ss = s.split(tok)
+        if len(ss)>1 and len(ss[-1])<l:
+            l = len(ss[-1])
+            entry = ss[-1]
+            name = tok.join(ss[:-1])
+            t = toktype
+    return name, entry, t
+
+
+def has_token(s, tokens=['@', '.']):
+    isin = False
+    for tok in tokens:
+        if tok in s:
+            isin = True
+    return isin
+    
+def extend_list(l, i, v):
+    if len(l)<i+1:
+        l += [None,]*(i+1-len(l))
+    l[i] = v
+    return l
+
+def flatten_dict(base, append=''):
+    '''flatten nested dictionary and lists'''
+    flat = {}
+    for k,v in base.items():
+        if type(v)==dict:
+            flat.update(flatten_dict(v, '%s%s.'%(append,k)))
+        elif type(v)==list:
+            flat.update(flatten_dict({'%s%s@%d'%(append,k,i): vv for i,vv in enumerate(v)}))
+        else:
+            flat['%s%s'%(append,k)] = v
+    return flat
+
+def embed_dict(fd):
+    d = {}
+    for k,v in fd.items():
+        name, entry, ty = get_last_token(k, {'@': list, '.': dict})
+        if ty==list:
+            if name in d.keys():
+                d[name] = extend_list(d[name], int(entry), v)
+            else:
+                d[name] = extend_list([], int(entry), v)
+        elif ty==dict:
+            if name in d.keys():
+                d[name].update({entry: v})
+            else:
+                d[name] = {entry: v}
+        else:
+            if k in d.keys():
+                d[k].update(v)
+            else:
+                d[k] = v   
+    return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
 
 
 # Main data loader, 
@@ -214,10 +272,34 @@ def create_whole_region_unnormalized():
 def create_whole_region_normalized():
     
     whole_region_norm = torch.zeros((27750, 11838))
+    whole_region_norm_z = torch.zeros((27750, 11838))
+    whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+            
+    # Normalize the data using Z scoring method for each voxel
+    for i in range(whole_region.shape[1]):
+        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+        normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+        whole_region_norm_z[:, i] = normalized_voxel
+        
+
+    # Normalize the data by dividing all elements by the max of each voxel
+    whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+
+    # Save the tensor
+    torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+    
+def normalization_test():
+    
+    whole_region_norm = torch.zeros((27750, 11838))
+    whole_region_norm_z = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
 
-    unnormalized_var = torch.var(whole_region[0])
-    print(unnormalized_var.shape)
+    unnormalized = torch.var(whole_region, dim=0)
+    print("unnormalized: ", unnormalized.shape, unnormalized)
+    plt.figure(0)
+    plt.hist(whole_region[0].numpy(), bins=40, log=True)
+        #plt.yscale('log')
+    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_unnormalized.png")
     # TODO: Look at the betas before z score and max. 
     # Whitening: Normalize the output c and z vector and then unnormalize them before going back into the decoder. 
     # Learn the noramiziation maybe a two layer network
@@ -233,19 +315,38 @@ def create_whole_region_normalized():
     #  
             
     # Normalize the data using Z scoring method for each voxel
-    # for i in range(whole_region.shape[1]):
-    #     voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
-    #     normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-    #     whole_region_norm[:, i] = normalized_voxel
+    for i in range(whole_region.shape[1]):
+        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+        normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+        whole_region_norm_z[:, i] = normalized_voxel
         
-        
+    normalized_z = torch.mean(whole_region_norm_z, dim=0)
+    print("normalized_z: ", normalized_z.shape, normalized_z)
+    plt.figure(1)
+    plt.hist(whole_region_norm_z[0].numpy(), bins=40, log=True)
+        #plt.yscale('log')
+    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_z.png")
     # Normalize the data by dividing all elements by the max of each voxel
     whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
-    unnormalized_var = torch.var(whole_region_norm[0])
-
+    normalized_max = torch.mean(whole_region_norm, dim=0)
+    print("normalized_max: ", normalized_max.shape, normalized_max)
+    plt.figure(2)
+    plt.hist(whole_region_norm[0].numpy(), bins=40, log=True)
+        #plt.yscale('log')
+    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_max.png")
+    voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
+    voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
+    voxel_data_dict = embed_dict({k: np.copy(d) for k,d in voxel_data_set.items()})
+    voxel_data_set.close()
+    voxel_data = voxel_data_dict['voxel_data']["1"]
+    g_normalized = torch.mean(torch.from_numpy(voxel_data), dim=0)
+    plt.figure(3)
+    print("g_normalized: ", g_normalized.shape, g_normalized)
+    plt.hist(voxel_data[0], bins=40, log=True)
+        #plt.yscale('log')
+    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_ghislain.png")
     # Save the tensor
     # torch.save(whole_region_norm, prep_path + "x/whole_region_11838.pt")
-    
     
 def process_data(vector):
     
@@ -281,28 +382,34 @@ def process_data(vector):
 def process_data_full(vector):
     
     if(vector == "z" or vector == "z_img_mixer"):
-        vec_target = torch.zeros((73000, 16384))
-        vec_target2 = None
+        # vec_target = torch.zeros((2819140, 16384))
+        # vec_target2 = None
         datashape = (1,16384)
+    elif(vector == "c_img_0" or vector == "c_text_0"):
+        # vec_target = torch.zeros((2819140, 768))
+        # vec_target2 = None
+        datashape = (1,768)
     elif(vector == "c_combined"):
         vec_target = torch.zeros((73000, 768))
         vec_target2 = torch.zeros((73000, 768))
         datashape = (1,768)
 
     # Flexible to both Z and C tensors depending on class configuration
-    if vec_target2 is not None:
-        for i in tqdm(range(73000), desc="vector loader"):
-            full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,0]
-            full_vec2 = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,1]
-            vec_target[i] = full_vec.reshape(datashape)
-            vec_target2[i] = full_vec2.reshape(datashape)
-        torch.save(vec_target, prep_path + "c_img_0/vector_73k.pt")
-        torch.save(vec_target2, prep_path + "c_text_0/vector_73k.pt")
-    else:
-        for i in tqdm(range(73000), desc="vector loader"):
-            full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")
-            vec_target[i] = full_vec.reshape(datashape)
-        torch.save(vec_target, prep_path + vector + "/vector_73k.pt")
+    # if vec_target2 is not None:
+    #     for i in tqdm(range(73000), desc="vector loader"):
+    #         full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,0]
+    #         full_vec2 = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,1]
+    #         vec_target[i] = full_vec.reshape(datashape)
+    #         vec_target2[i] = full_vec2.reshape(datashape)
+    #     torch.save(vec_target, prep_path + "c_img_0/vector_73k.pt")
+    #     torch.save(vec_target2, prep_path + "c_text_0/vector_73k.pt")
+    # else:
+    for i in tqdm(range(124), desc="batched vector loader"):
+        vec_target = torch.zeros((22735, datashape[1]))
+        for j in range(22735):
+            full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
+            vec_target[j] = full_vec.reshape(datashape)
+        torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
     
     
 def extract_dim(vector, dim):
@@ -362,14 +469,9 @@ def compound_loss(pred, target):
 def predictVector(model, vector, x):
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
         latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
-        y = torch.load(prep_path + vector + "/vector_73k.pt").requires_grad_(False)
-        x_preds = torch.load(latent_path + model + "/" + "brain_preds.pt").requires_grad_(False)
-        count = 0
-        for i in range(x_preds.shape[0]):
-            if(torch.max(x_preds[i])==0 and i%10000==0):
-                count+=1
-                print(i)
-        print("count: ", count)
+        y = torch.load(prep_path + vector + "/vector_cc3m.pt").requires_grad_(False)
+        x_preds = torch.zeros()
+        x_preds = torch.load(latent_path + model + "/" + "cc3m_brain_preds.pt").requires_grad_(False)
         # y = y.detach()
         # x_preds = x_preds.detach()
         PeC = PearsonCorrCoef(num_outputs=x_preds.shape[0])
@@ -384,5 +486,52 @@ def predictVector(model, vector, x):
             print("pearson shape: ", pearson.shape)
             out[i] = y[pearson.argmax(dim=0)]
             print("max of pred: ", out[i].max())
-        torch.save(out, latent_path + model + "/" + vector + "_library_preds.pt")
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
+        return out
+
+
+def predictVector_cc3m(model, vector, x):
+        if(vector == "c_img_0" or vector == "c_text_0"):
+            datasize = 768
+        elif(vector == "z_img_mixer"):
+            datasize = 16384
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        # y = torch.load(prep_path + vector + "/vector_cc3m.pt").requires_grad_(False)
+
+        # y = y.detach()
+        # x_preds = x_preds.detach()
+        PeC = PearsonCorrCoef(num_outputs=22735).to("cuda")
+        outputPeC = PearsonCorrCoef(num_outputs=620).to("cuda")
+        out = torch.zeros((x.shape[0], 5, datasize))
+        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to("cuda")
+            batch_max_x = torch.zeros((620, x.shape[1])).to("cuda")
+            batch_max_y = torch.zeros((620, datasize)).to("cuda")
+            for batch in tqdm(range(124), desc="batching sample"):
+                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to("cuda")
+                # y_2 = torch.load(prep_path + vector + "/cc3m_batches/" + str(2*batch + 1) + ".pt").to("cuda")
+                # y = torch.concat([y_1, y_2])
+                x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
+                # x_preds_2 = torch.load(latent_path + model + "/cc3m_batches/" + str(2*batch + 1) + ".pt")
+                # x_preds_t = torch.concat([x_preds_1, x_preds_2]).moveaxis(0, 1).to("cuda")
+                x_preds_t = x_preds.moveaxis(0, 1).to("cuda")
+                # Pearson correlation
+                # pearson = torch.zeros((73000,))
+                # print(x_preds_t.shape, xDup.shape)
+                pearson = PeC(xDup, x_preds_t)
+                # print("pearson shape: ", pearson.shape)
+                top5_ind = torch.topk(pearson, 5).indices
+                for j, index in enumerate(top5_ind):
+                    batch_max_x[5*batch + j] = x_preds_t[:,index].to("cuda")
+                    batch_max_y[5*batch + j] = y[index].to("cuda")
+            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to("cuda")
+            batch_max_x = batch_max_x.moveaxis(0, 1).to("cuda")
+            print(xDupOut.shape, batch_max_x.shape)
+            outPearson = outputPeC(xDupOut, batch_max_x)
+            top5_ind_out = torch.topk(outPearson, 5).indices
+            for j, index in enumerate(top5_ind_out):
+                    out[i, j] = batch_max_y[index] 
+            print("max of pred: ", out[i].max())
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
         return out

@@ -173,21 +173,38 @@ def main(decode, encode):
 
 def train_encoder():
     #hashNum = update_hash()
+<<<<<<< HEAD
     hashNum = "415"
     E = Encoder(hashNum = hashNum,
                  lr=0.00001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
+=======
+    hashNum = "411"
+    E = Encoder(hashNum = hashNum,
+                 lr=0.0005,
+                 vector="c_text_0", #c, z, c_prompt
+                 log=False, 
+>>>>>>> ba264ae136ff928e6112769d1c19de60c48aa0c2
                  batch_size=750,
                  parallel=False,
                  device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
+<<<<<<< HEAD
     
     #E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     E.library_predict(model=modelId, predict=False)
+=======
+    #E.train()
+    modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    
+    outputs = E.predict_cc3m(model=modelId, predict=False)
+
+    return hashNum
+>>>>>>> ba264ae136ff928e6112769d1c19de60c48aa0c2
 
 def train_decoder():
     hashNum = update_hash()

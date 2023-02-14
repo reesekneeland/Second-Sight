@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from PIL import Image
 sys.path.append('../src')
-from encoder import Encoder, load_img
+from reconstructor import Reconstructor, load_img
 
 from PIL import Image
 import random
@@ -22,7 +22,7 @@ _, img_pil2 = load_img(img_arr[2])
 _, img_pil3 = load_img(img_arr[3])
 _, img_pil4 = load_img(img_arr[4])
 imgs = [img_pil0, img_pil1, img_pil2, img_pil3, img_pil4]
-E = Encoder()
+E = Reconstructor()
 # Iterate through all images and captions in nsd sampled from COCO
 start = time.time()
 for i in tqdm(range(0, 5000)):
@@ -31,11 +31,11 @@ for i in tqdm(range(0, 5000)):
     # image = Image.fromarray(img_arr.reshape((425, 425, 3)))
     
     #find best prompts
-    # prompts = []
+    prompts = []
     # Load the 5 prompts for each image
-    # for j in range(len(captions[i])):
-    #     # Index into the caption list and get the corresponding 5 captions. 
-    #     prompts.append(captions[i][j]['caption'])
+    for j in range(len(captions[i])):
+        # Index into the caption list and get the corresponding 5 captions. 
+        prompts.append(captions[i][j]['caption'])
     # c = E.encode_combined(img_pil, prompts)
     c = E.encode_image(img_pil)
     # z = E.encode_latents(init_image)

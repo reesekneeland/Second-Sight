@@ -347,5 +347,42 @@ class Encoder():
             torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
         
         self.generate_hist()
+        
+        return out
     
+    def predict_cc3m(self, model):
+
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+
+        # Save to latent vectors
+        print(model)
+        os.makedirs("latent_vectors/" + model + "/cc3m_batches/", exist_ok=True)
+        # Load the model into the class to be used for predictions
+        if(self.parallel):
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        else:
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        self.model.eval()
+
+
+
+        for i in tqdm(range(124), desc="predicting brain batches"):
+            out = torch.zeros((22735, 11838))
+            preprocessed_data_batch = torch.load(prep_path + self.vector + "/cc3m_batches/" + str(i) + ".pt")
+
+            for index, data in enumerate(preprocessed_data_batch):
+                
+                # Loading in the data
+                x_data = data
+                x_data = x_data.to(self.device)
+                
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+                # if(torch.max(pred_y) < 0.1):
+                #     print(torch.max(pred_y))
+                out[index] = pred_y
+                
+            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
+        
+        return out
     
