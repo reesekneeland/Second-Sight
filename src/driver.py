@@ -165,7 +165,7 @@ def main(decode, encode):
     if(decode):
         train_hash = train_decoder()
     elif(encode):
-        encoder_hash = train_encoder()
+        train_encoder()
     else:
         reconstructNImages(experiment_title="73k COCO Library Decoder",
                        idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
@@ -173,14 +173,10 @@ def main(decode, encode):
 
 def train_encoder():
     #hashNum = update_hash()
-<<<<<<< HEAD
-    hashNum = "378"
-=======
-    hashNum = "412"
->>>>>>> 2146f498e4c5955b32d8ab9e6a061dd6d911c10f
+    hashNum = "415"
     E = Encoder(hashNum = hashNum,
-                 lr=0.0005,
-                 vector="z_img_mixer", #c, z, c_prompt
+                 lr=0.00001,
+                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -188,16 +184,10 @@ def train_encoder():
                  num_workers=16,
                  epochs=300
                 )
-<<<<<<< HEAD
-    #E.train()
-=======
-    # E.train()
->>>>>>> 2146f498e4c5955b32d8ab9e6a061dd6d911c10f
-    modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    outputs_c = E.predict(model=modelId, predict=False)
-
-    return hashNum
+    #E.train()
+    modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    E.library_predict(model=modelId, predict=False)
 
 def train_decoder():
     hashNum = update_hash()

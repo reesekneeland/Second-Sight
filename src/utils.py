@@ -47,6 +47,10 @@ def update_hash():
 
 
 # Main data loader, 
+# Loader = True
+#    - Returns the train and test data loader
+# Loader = False
+#    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     
     y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)

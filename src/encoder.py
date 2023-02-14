@@ -123,9 +123,11 @@ class Encoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = get_data_encoder(vector=self.vector, 
-                                                             batch_size=self.batch_size, 
-                                                             num_workers=self.num_workers)
+        self.trainloader, self.testloader = load_data(vector=self.vector, 
+                                                      batch_size=self.batch_size, 
+                                                      num_workers=self.num_workers, 
+                                                      loader=True)
+
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -135,10 +137,9 @@ class Encoder():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "Linear Regression",
-                # "architecture": "2 Convolutional Layers",
+                "architecture": "MLP",
                 "vector": self.vector,
-                "dataset": "custom masked positive pearson correlation on c_combined data",
+                "dataset": "Whole region visual cortex",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -175,9 +176,9 @@ class Encoder():
                 
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
-                # x_data = Brain Data
-                # y_data = Clip/Z vector Data
-                x_data, y_data = data
+                # x_data = Clip vector Data
+                # y_data = Brain Data
+                y_data, x_data = data
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
@@ -214,7 +215,7 @@ class Encoder():
             for i, data in enumerate(self.testloader):
                 
                 # Loading in the test data
-                x_data, y_data = data
+                y_data, x_data = data
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
                 
@@ -256,25 +257,40 @@ class Encoder():
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
             
-    def generate_hist(self, model):
+    def generate_hist(self):
         
-        out = torch.zeros((2250,11838))
-        target = torch.zeros((2250, 11838))
+        out = torch.zeros((2770,11838))
+        target = torch.zeros((2770, 11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
         
-        for index, data in enumerate(self.testloader):
+        _, _, y_test, _, _, x_test = load_data(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=False)
+        
+        y_test.to(self.device)
+        x_test.to(self.device)
+        print(x_test.device)
+        print(y_test.device)
+       
+        
+        loss = 0
+        criterion = nn.MSELoss(size_average = False)
+        
+        for index in range(y_test.shape[0]):
             
-            # Loading in the test data
-            x_data, y_data = data
-            x_data = x_data.to(self.device)
-            y_data = y_data.to(self.device)
             # Generating predictions based on the current model
-            pred_y = self.model(x_data).to(self.device)
+            print(self.model.device)
+            pred_y = self.model(x_test[index]).to(self.device)
+            print(self.model.device)
+            loss += criterion(pred_y, y_test[index])
             
             out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
-            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
+            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_test[index]
+            
+        loss = loss / y_test.shape[0]
         
         out = out.detach()
         target = target.detach()
@@ -284,52 +300,40 @@ class Encoder():
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
         
-        print("mean pearson: ", np.mean(r))
+        print("Mean Pearson: ", np.mean(r))
+        print("Loss: ", loss)
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
         
 
 
-    def predict(self, model, predict):
-
-        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-
-        # Save to latent vectors
-        out = torch.zeros((73000, 11838))
-        print(model)
-        os.makedirs("latent_vectors/" + model, exist_ok=True)
-        # Load the model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-        self.model.eval()
-
-<<<<<<< HEAD
-        #preprocessed_data
-        # if(model == "z_img_mixer"):
-        preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
-=======
-        # preprocessed_data_c_img_0 = torch.load(prep_path + "c_img_0/vector_73k.pt")
-        # preprocessed_data_c_text_0 = torch.load(prep_path + "c_text_0/vector_73k.pt")
-        preprocessed_data_z_img_mixer = torch.load(prep_path + "z_img_mixer/vector_73k.pt")
-
-
-
-        for index, data in enumerate(preprocessed_data_z_img_mixer):
-            
-            # Loading in the data
-            x_data = data
-            x_data = x_data.to(self.device)
->>>>>>> 2146f498e4c5955b32d8ab9e6a061dd6d911c10f
-            
-        # elif(model == "c_text_0"):
-        # preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
-            
-        # elif(model == "c_img_0"):
-        #preprocessed_data = torch.load(prep_path + "c_img_0/vector.pt")
-
+    def library_predict(self, model, predict):
+        
         if(predict):
+            prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+
+            # Save to latent vectors
+            out = torch.zeros((73000, 11838))
+            print(model)
+            os.makedirs("latent_vectors/" + model, exist_ok=True)
+            # Load the model into the class to be used for predictions
+            if(self.parallel):
+                self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+            else:
+                self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+            self.model.eval()
+
+            # preprocessed_data = torch.zeros()
+            # if(model == "z_img_mixer"):
+            #     preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
+                
+            # elif(model == "c_text_0"):
+            #     preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
+                
+            # elif(model == "c_img_0"):
+            preprocessed_data = torch.load(prep_path + "c_img_0/vector_73k.pt")
+            print(preprocessed_data.shape)
+
             for index, data in enumerate(preprocessed_data):
                 
                 # Loading in the data
@@ -342,7 +346,6 @@ class Encoder():
                 
             torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
         
-        self.generate_hist(model)
-        
-        return out
+        self.generate_hist()
+    
     
