@@ -159,8 +159,8 @@ def main(decode, encode):
     elif(encode):
         encoder_hash = train_encoder()
     else:
-        reconstructNImages(experiment_title="cc3m ground truth test",
-                       idx=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+        reconstructNImages(experiment_title="cc3m clip only ",
+                       idx=[i for i in range(20)])
 
 
 def train_encoder():
@@ -244,12 +244,12 @@ def reconstructNImages(experiment_title, idx):
     targets_c_i = targets_c_i[idx]
     targets_c_t = targets_c_t[idx]
     targets_z = targets_z[idx]
-    outputs_c_i = predictVector(model="410_model_c_img_0.pt", vector="c_img_0", x=x_test)
-    outputs_c_t = predictVector(model="411_model_c_text_0.pt", vector="c_text_0", x=x_test)
-    outputs_z = predictVector(model="412_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)
-    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
-    # outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
-    # outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")
+    # outputs_c_i = predictVector_cc3m(model="410_model_c_img_0.pt", vector="c_img_0", x=x_test)[:,0]
+    # outputs_c_t = predictVector_cc3m(model="411_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
+    # outputs_z = predictVector_cc3m(model="412_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)[:,0]
+    outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
+    outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
+    outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")[:,0]
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
@@ -258,29 +258,29 @@ def reconstructNImages(experiment_title, idx):
         brain_scan = x_test[idx[i]]
         # index = int(subj1x.loc[(subj1x['subject1_rep0'] == test_i) | (subj1x['subject1_rep1'] == test_i) | (subj1x['subject1_rep2'] == test_i)].nsdId)
         rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/"
-        outputs_c_i[i] = torch.load(rootdir + "c_img_0/" + str(i) + ".pt")
-        outputs_c_t[i] = torch.load(rootdir + "c_text_0/" + str(i) + ".pt")
-        outputs_z[i] = torch.load(rootdir + "z_img_mixer/" + str(i) + ".pt")
+        # outputs_c_i[i] = torch.load(rootdir + "c_img_0/" + str(i) + ".pt")
+        # outputs_c_t[i] = torch.load(rootdir + "c_text_0/" + str(i) + ".pt")
+        # outputs_z[i] = torch.load(rootdir + "z_img_mixer/" + str(i) + ".pt")
         print(i)
         
         print("shape: ", outputs_c_i[i].shape)
         c_combined, c_combined_target, c_img, c_img_target = [], [], [], []
-        c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
-        c_img.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
+        # c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
+        c_img.append(outputs_c_i[i,0].reshape((1,768)).to("cuda"))
         c_img.append(torch.zeros((1, 768), device="cuda"))
         c_img_target.append(targets_c_i[i].reshape((1,768)).to("cuda"))
         c_img_target.append(torch.zeros((1, 768), device="cuda"))
         c_combined_target.append(targets_c_i[i].reshape((1,768)).to("cuda"))
-        c_combined.append(outputs_c_t[i].reshape((1,768)).to("cuda"))
+        # c_combined.append(outputs_c_t[i].reshape((1,768)).to("cuda"))
         c_combined_target.append(targets_c_t[i].reshape((1,768)).to("cuda"))
         for j in range(0,3):
-            c_combined.append(torch.zeros((1, 768), device="cuda"))
+            # c_combined.append(torch.zeros((1, 768), device="cuda"))
             c_combined_target.append(torch.zeros((1, 768), device="cuda"))
             c_img.append(torch.zeros((1, 768), device="cuda"))
             c_img_target.append(torch.zeros((1, 768), device="cuda"))
         
-        c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
-        c_combined = c_combined.tile(1, 1, 1)
+        # c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
+        # c_combined = c_combined.tile(1, 1, 1)
         c_img = torch.cat(c_img, dim=0).unsqueeze(0)
         c_img = c_img.tile(1, 1, 1)
         c_combined_target = torch.cat(c_combined_target, dim=0).unsqueeze(0)
@@ -290,7 +290,7 @@ def reconstructNImages(experiment_title, idx):
     
         # Make the c reconstrution images. 
         
-        reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
+        reconstructed_output_c = R.reconstruct(c=outputs_c_i[i], strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
         reconstructed_output_c_img = R.reconstruct(c=c_img, strength=strength_c)
@@ -301,7 +301,7 @@ def reconstructNImages(experiment_title, idx):
         reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
         
         # # Make the z and c reconstrution images. 
-        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.8)
+        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=outputs_c_i[i], strength=0.8)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 

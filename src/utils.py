@@ -45,6 +45,64 @@ def update_hash():
     file.close()
     return str(new_h)
 
+def get_last_token(s, tokens={'@': list, '.': dict}):
+    l,name,entry,t = 2**31,'','',None
+    for tok,toktype in tokens.items():
+        ss = s.split(tok)
+        if len(ss)>1 and len(ss[-1])<l:
+            l = len(ss[-1])
+            entry = ss[-1]
+            name = tok.join(ss[:-1])
+            t = toktype
+    return name, entry, t
+
+
+def has_token(s, tokens=['@', '.']):
+    isin = False
+    for tok in tokens:
+        if tok in s:
+            isin = True
+    return isin
+    
+def extend_list(l, i, v):
+    if len(l)<i+1:
+        l += [None,]*(i+1-len(l))
+    l[i] = v
+    return l
+
+def flatten_dict(base, append=''):
+    '''flatten nested dictionary and lists'''
+    flat = {}
+    for k,v in base.items():
+        if type(v)==dict:
+            flat.update(flatten_dict(v, '%s%s.'%(append,k)))
+        elif type(v)==list:
+            flat.update(flatten_dict({'%s%s@%d'%(append,k,i): vv for i,vv in enumerate(v)}))
+        else:
+            flat['%s%s'%(append,k)] = v
+    return flat
+
+def embed_dict(fd):
+    d = {}
+    for k,v in fd.items():
+        name, entry, ty = get_last_token(k, {'@': list, '.': dict})
+        if ty==list:
+            if name in d.keys():
+                d[name] = extend_list(d[name], int(entry), v)
+            else:
+                d[name] = extend_list([], int(entry), v)
+        elif ty==dict:
+            if name in d.keys():
+                d[name].update({entry: v})
+            else:
+                d[name] = {entry: v}
+        else:
+            if k in d.keys():
+                d[k].update(v)
+            else:
+                d[k] = v   
+    return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
+
 
 # Main data loader, 
 def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
@@ -410,12 +468,6 @@ def predictVector(model, vector, x):
         y = torch.load(prep_path + vector + "/vector_cc3m.pt").requires_grad_(False)
         x_preds = torch.zeros()
         x_preds = torch.load(latent_path + model + "/" + "cc3m_brain_preds.pt").requires_grad_(False)
-        count = 0
-        for i in range(x_preds.shape[0]):
-            if(torch.max(x_preds[i])==0 and i%10000==0):
-                count+=1
-                print(i)
-        print("count: ", count)
         # y = y.detach()
         # x_preds = x_preds.detach()
         PeC = PearsonCorrCoef(num_outputs=x_preds.shape[0])
@@ -433,61 +485,49 @@ def predictVector(model, vector, x):
         torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
         return out
 
-def get_last_token(s, tokens={'@': list, '.': dict}):
-    l,name,entry,t = 2**31,'','',None
-    for tok,toktype in tokens.items():
-        ss = s.split(tok)
-        if len(ss)>1 and len(ss[-1])<l:
-            l = len(ss[-1])
-            entry = ss[-1]
-            name = tok.join(ss[:-1])
-            t = toktype
-    return name, entry, t
 
+def predictVector_cc3m(model, vector, x):
+        if(vector == "c_img_0" or vector == "c_text_0"):
+            datasize = 768
+        elif(vector == "z_img_mixer"):
+            datasize = 16384
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        # y = torch.load(prep_path + vector + "/vector_cc3m.pt").requires_grad_(False)
 
-def has_token(s, tokens=['@', '.']):
-    isin = False
-    for tok in tokens:
-        if tok in s:
-            isin = True
-    return isin
-    
-def extend_list(l, i, v):
-    if len(l)<i+1:
-        l += [None,]*(i+1-len(l))
-    l[i] = v
-    return l
-
-def flatten_dict(base, append=''):
-    '''flatten nested dictionary and lists'''
-    flat = {}
-    for k,v in base.items():
-        if type(v)==dict:
-            flat.update(flatten_dict(v, '%s%s.'%(append,k)))
-        elif type(v)==list:
-            flat.update(flatten_dict({'%s%s@%d'%(append,k,i): vv for i,vv in enumerate(v)}))
-        else:
-            flat['%s%s'%(append,k)] = v
-    return flat
-
-def embed_dict(fd):
-    d = {}
-    for k,v in fd.items():
-        name, entry, ty = get_last_token(k, {'@': list, '.': dict})
-        if ty==list:
-            if name in d.keys():
-                d[name] = extend_list(d[name], int(entry), v)
-            else:
-                d[name] = extend_list([], int(entry), v)
-        elif ty==dict:
-            if name in d.keys():
-                d[name].update({entry: v})
-            else:
-                d[name] = {entry: v}
-        else:
-            if k in d.keys():
-                d[k].update(v)
-            else:
-                d[k] = v   
-    return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
-
+        # y = y.detach()
+        # x_preds = x_preds.detach()
+        PeC = PearsonCorrCoef(num_outputs=22735).to("cuda")
+        outputPeC = PearsonCorrCoef(num_outputs=620).to("cuda")
+        out = torch.zeros((x.shape[0], 5, datasize))
+        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to("cuda")
+            batch_max_x = torch.zeros((620, x.shape[1])).to("cuda")
+            batch_max_y = torch.zeros((620, datasize)).to("cuda")
+            for batch in tqdm(range(124), desc="batching sample"):
+                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to("cuda")
+                # y_2 = torch.load(prep_path + vector + "/cc3m_batches/" + str(2*batch + 1) + ".pt").to("cuda")
+                # y = torch.concat([y_1, y_2])
+                x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
+                # x_preds_2 = torch.load(latent_path + model + "/cc3m_batches/" + str(2*batch + 1) + ".pt")
+                # x_preds_t = torch.concat([x_preds_1, x_preds_2]).moveaxis(0, 1).to("cuda")
+                x_preds_t = x_preds.moveaxis(0, 1).to("cuda")
+                # Pearson correlation
+                # pearson = torch.zeros((73000,))
+                # print(x_preds_t.shape, xDup.shape)
+                pearson = PeC(xDup, x_preds_t)
+                # print("pearson shape: ", pearson.shape)
+                top5_ind = torch.topk(pearson, 5).indices
+                for j, index in enumerate(top5_ind):
+                    batch_max_x[5*batch + j] = x_preds_t[:,index].to("cuda")
+                    batch_max_y[5*batch + j] = y[index].to("cuda")
+            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to("cuda")
+            batch_max_x = batch_max_x.moveaxis(0, 1).to("cuda")
+            print(xDupOut.shape, batch_max_x.shape)
+            outPearson = outputPeC(xDupOut, batch_max_x)
+            top5_ind_out = torch.topk(outPearson, 5).indices
+            for j, index in enumerate(top5_ind_out):
+                    out[i, j] = batch_max_y[index] 
+            print("max of pred: ", out[i].max())
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
+        return out
