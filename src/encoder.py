@@ -17,6 +17,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
+from pearson import PearsonCorrCoef
 
 
 # You decode brain data into clip then you encode the clip into an image. 
@@ -154,7 +155,7 @@ class Encoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        # criterion = nn.MSELoss(size_average = False)
+        criterion = PearsonCorrCoef(num_outputs=self.batch_size).to("cuda")
         
         # Import gradients to wandb to track loss gradients
         # if(self.log):
@@ -194,7 +195,7 @@ class Encoder():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
-                    loss = compound_loss(pred_y, y_data)
+                    loss = torch.mean(criterion(pred_y, y_data))
                     
                     # Perform weight updating
                     loss.backward()
@@ -223,7 +224,7 @@ class Encoder():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
-                loss = compound_loss(pred_y, y_data)
+                loss = torch.mean(criterion(pred_y, y_data))
 
                 running_test_loss += loss.item()
                 

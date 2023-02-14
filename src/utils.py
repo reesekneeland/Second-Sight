@@ -503,6 +503,7 @@ def predictVector_cc3m(model, vector, x):
         # x_preds = x_preds.detach()
         PeC = PearsonCorrCoef(num_outputs=22735).to("cuda")
         outputPeC = PearsonCorrCoef(num_outputs=620).to("cuda")
+        loss = nn.MSELoss(reduction='none')
         out = torch.zeros((x.shape[0], 5, datasize))
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
             xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to("cuda")
@@ -519,19 +520,36 @@ def predictVector_cc3m(model, vector, x):
                 # Pearson correlation
                 # pearson = torch.zeros((73000,))
                 # print(x_preds_t.shape, xDup.shape)
-                pearson = PeC(xDup, x_preds_t)
+                # pearson = PeC(xDup, x_preds_t)
+                L2 = torch.mean(loss(xDup, x_preds_t), dim=0)
                 # print("pearson shape: ", pearson.shape)
-                top5_ind = torch.topk(pearson, 5).indices
+                # print("L2 shape: ", L2.shape)
+                top5_ind = torch.topk(L2, 5).indices
                 for j, index in enumerate(top5_ind):
                     batch_max_x[5*batch + j] = x_preds_t[:,index].to("cuda")
                     batch_max_y[5*batch + j] = y[index].to("cuda")
             xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to("cuda")
             batch_max_x = batch_max_x.moveaxis(0, 1).to("cuda")
             print(xDupOut.shape, batch_max_x.shape)
-            outPearson = outputPeC(xDupOut, batch_max_x)
-            top5_ind_out = torch.topk(outPearson, 5).indices
+            # outPearson = outputPeC(xDupOut, batch_max_x)
+            outL2 = torch.mean(loss(xDupOut, batch_max_x), dim=0)
+            top5_ind_out = torch.topk(outL2, 5).indices
             for j, index in enumerate(top5_ind_out):
                     out[i, j] = batch_max_y[index] 
             print("max of pred: ", out[i].max())
-        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds_MSE.pt")
         return out
+    
+def format_clip(c):
+    if(len(c.shape)<2):
+        c = c.reshape((1,768))
+    c_combined = []
+    for i in range(c.shape[0]):
+        c_combined.append(c[i].reshape((1,768)).to("cuda"))
+    
+    for j in range(5-c.shape[0]):
+        c_combined.append(torch.zeros((1, 768), device="cuda"))
+    
+    c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
+    c_combined = c_combined.tile(1, 1, 1)
+    return c_combined
