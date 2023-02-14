@@ -35,11 +35,27 @@ from tqdm import tqdm
 # output_z.pt (We made)
 #   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
 #
-# 410_model_c_img_0.pt
+
+# 417_model_c_img_0.pt
+#     - old norm
 #
-# 411_model_c_text_0.pt
+# 419_model_c_text_0.pt
+#     - old norm
 #
-# 412_model_z_img_mixer.pt
+# 420_model_z_img_mixer.pt
+#     - old norm
+# ---------------------------
+# 424_model_c_img_0.pt
+#     - Z score
+#
+# 425_model_c_text_0.pt
+#     - Z score
+#
+# 426_model_z_img_mixer.pt
+#     - Z score
+
+
+
 
 
     
@@ -270,44 +286,51 @@ class Encoder():
                                                 num_workers=self.num_workers, 
                                                 loader=False)
         
-        y_test.to(self.device)
-        x_test.to(self.device)
-        print(x_test.device)
-        print(y_test.device)
-       
+        y_test = y_test.to(self.device)
+        x_test = x_test.to(self.device)
+
         
         loss = 0
+        pearson_corrcoef_loss = 0
         criterion = nn.MSELoss(size_average = False)
         
         for index in range(y_test.shape[0]):
             
             # Generating predictions based on the current model
-            print(self.model.device)
             pred_y = self.model(x_test[index]).to(self.device)
-            print(self.model.device)
             loss += criterion(pred_y, y_test[index])
             
-            out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
-            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_test[index]
+            out[index] = pred_y
+            target[index] = y_test[index]
+            
+            pearson_corrcoef_loss += pearson_corrcoef(out[index], target[index])
+            #print(pearson_corrcoef(out[index], target[index]))
+            
             
         loss = loss / y_test.shape[0]
+        
+        # Vector correlation for that trial row wise
+        pearson_corrcoef_loss = pearson_corrcoef_loss / y_test.shape[0]
         
         out = out.detach()
         target = target.detach()
         
         r = []
         for p in range(out.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
         
+        print("Vector Correlation: ", float(pearson_corrcoef_loss))
         print("Mean Pearson: ", np.mean(r))
-        print("Loss: ", loss)
+        print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
         
 
 
-    def library_predict(self, model, predict):
+    def predict_73K_coco(self, model, predict):
         
         if(predict):
             prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -348,7 +371,6 @@ class Encoder():
         
         self.generate_hist()
         
-        return out
     
     def predict_cc3m(self, model):
 

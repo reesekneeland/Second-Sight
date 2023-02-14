@@ -132,6 +132,7 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     trueCount = 0
     for i in range(x.shape[0]):
         test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
+        #if(test_sample==True): print("something")
         # print(test_sample)
         # test_sample=True
         if(test_sample):
@@ -148,6 +149,7 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
             x_val[val_i] = x[i]
             y_val[val_i] = y[i]
             val_i +=1
+            
 
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -271,7 +273,7 @@ def create_whole_region_unnormalized():
     
 def create_whole_region_normalized():
     
-    whole_region_norm = torch.zeros((27750, 11838))
+    #whole_region_norm = torch.zeros((27750, 11838))
     whole_region_norm_z = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
             
@@ -283,10 +285,11 @@ def create_whole_region_normalized():
         
 
     # Normalize the data by dividing all elements by the max of each voxel
-    whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+    # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
     # Save the tensor
-    torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+    torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
+    #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
 def normalization_test():
     
