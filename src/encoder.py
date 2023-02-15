@@ -170,11 +170,11 @@ class Encoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        # criterion = nn.MSELoss(size_average = False)
+        criterion = nn.MSELoss(size_average = False)
         
         # Import gradients to wandb to track loss gradients
-        # if(self.log):
-        #     wandb.watch(self.model, criterion, log="all")
+        if(self.log):
+            wandb.watch(self.model, criterion, log="all")
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
@@ -210,7 +210,7 @@ class Encoder():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
-                    loss = compound_loss(pred_y, y_data)
+                    loss = criterion(pred_y, y_data)
                     
                     # Perform weight updating
                     loss.backward()
@@ -239,7 +239,7 @@ class Encoder():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
-                loss = compound_loss(pred_y, y_data)
+                loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()
                 

@@ -176,7 +176,7 @@ def train_encoder():
     #hashNum = "421"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
-                 vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer
+                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
                  batch_size=750,
                  parallel=False,

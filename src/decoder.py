@@ -329,6 +329,7 @@ class Decoder():
 
         
         loss = 0
+        pearson_corrcoef_loss = 0
         criterion = nn.MSELoss(size_average = False)
         
         for index in range(y_test.shape[0]):
@@ -340,7 +341,12 @@ class Decoder():
             out[index] = pred_y
             target[index] = y_test[index]
             
+            pearson_corrcoef_loss += pearson_corrcoef(out[index], target[index])
+            
         loss = loss / y_test.shape[0]
+        
+        # Vector correlation for that trial row wise
+        pearson_corrcoef_loss = pearson_corrcoef_loss / y_test.shape[0]
         
         out = out.detach()
         target = target.detach()
@@ -350,6 +356,7 @@ class Decoder():
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
         
+        print("Vector Correlation: ", float(pearson_corrcoef_loss)) 
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
