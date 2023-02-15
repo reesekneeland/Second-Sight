@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
-from torchmetrics.functional import pearson_corrcoef
+from pearson import PearsonCorrCoef
 from pycocotools.coco import COCO
 import h5py
 from utils import *
@@ -122,10 +122,7 @@ class Decoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = load_data(vector=self.vector, 
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers, 
-                                                      loader=True)
+        self.trainloader, self.testloader = None, None
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -148,6 +145,10 @@ class Decoder():
     
 
     def train(self):
+        self.trainloader, self.testloader = load_data(vector=self.vector, 
+                                                      batch_size=self.batch_size, 
+                                                      num_workers=self.num_workers, 
+                                                      loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -297,7 +298,7 @@ class Decoder():
     #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_log_applied_decoder.png")
     #     return outputs, targets
     
-    def predict(self, model):
+    def predict(self, model, x, y):
         
         if(self.vector == "c_prompt"):
             outSize = 78848
@@ -309,57 +310,32 @@ class Decoder():
             outSize = 16384
         elif(self.vector == "c_img"):
             outSize = 1536
-        
-        out = torch.zeros((2770, outSize))
-        target = torch.zeros((2770, outSize))
+            
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        
-        _, _, x_test, _, _, y_test = load_data(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
-                                                loader=False)
-        
-        y_test = y_test.to(self.device)
-        x_test = x_test.to(self.device)
 
         
-        loss = 0
-        pearson_corrcoef_loss = 0
+        y_test = y.to(self.device)
+        x_test = x.to(self.device)
+
+
+        PeC = PearsonCorrCoef(num_outputs=x.shape[0]).to(device)
         criterion = nn.MSELoss(size_average = False)
         
-        for index in range(y_test.shape[0]):
-            
-            # Generating predictions based on the current model
-            pred_y = self.model(x_test[index]).to(self.device)
-            loss += criterion(pred_y, y_test[index])
-            
-            out[index] = pred_y
-            target[index] = y_test[index]
-            
-            pearson_corrcoef_loss += pearson_corrcoef(out[index], target[index])
-            
-        loss = loss / y_test.shape[0]
+        # Generating predictions based on the current model
+        out = self.model(x_test).to(self.device)
+        loss = criterion(out, y_test)/ y_test.shape[0]
         
         # Vector correlation for that trial row wise
-        pearson_corrcoef_loss = pearson_corrcoef_loss / y_test.shape[0]
+        pearson_corrcoef_loss = torch.mean(PeC(out.moveaxis(0,1), y_test.moveaxis(0,1)))
+          
         
         out = out.detach()
-        target = target.detach()
-        
-        r = []
-        for p in range(out.shape[1]):
-            r.append(pearson_corrcoef(out[:,p], target[:,p]))
-        r = np.array(r)
         
         print("Vector Correlation: ", float(pearson_corrcoef_loss)) 
-        print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
-        plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
-        
-        return out, target
+        return out
     
     # def predict(self, model):
     #     if(self.vector == "c_prompt"):
