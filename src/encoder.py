@@ -17,6 +17,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
+from pearson import PearsonCorrCoef
 
 
 # You decode brain data into clip then you encode the clip into an image. 
@@ -153,7 +154,7 @@ class Encoder():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "MLP",
+                "architecture": "MLP, pearson loss whole",
                 "vector": self.vector,
                 "dataset": "Whole region visual cortex",
                 "epochs": self.num_epochs,
@@ -198,8 +199,8 @@ class Encoder():
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                
+                y_data = y_data.moveaxis(0, 1).to(self.device)
+                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
                 
@@ -207,7 +208,7 @@ class Encoder():
                 with torch.set_grad_enabled(True):
                     
                     # Train the x data in the model to get the predicted y value. 
-                    pred_y = self.model(x_data).to(self.device)
+                    pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
                     loss = criterion(pred_y, y_data)
@@ -233,10 +234,10 @@ class Encoder():
                 # Loading in the test data
                 y_data, x_data = data
                 x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                
+                y_data = y_data.moveaxis(0, 1).to(self.device)
+                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
                 # Generating predictions based on the current model
-                pred_y = self.model(x_data).to(self.device)
+                pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
                 
                 # Compute the test loss 
                 loss = criterion(pred_y, y_data)
@@ -392,17 +393,17 @@ class Encoder():
             out = torch.zeros((22735, 11838))
             preprocessed_data_batch = torch.load(prep_path + self.vector + "/cc3m_batches/" + str(i) + ".pt")
 
-            for index, data in enumerate(preprocessed_data_batch):
+            # for index in range(len(preprocessed_data_batch)):
                 
                 # Loading in the data
-                x_data = data
-                x_data = x_data.to(self.device)
+            x_data = preprocessed_data_batch
+            x_data = x_data.to(self.device)
                 
                 # Generating predictions based on the current model
-                pred_y = self.model(x_data).to(self.device)
-                # if(torch.max(pred_y) < 0.1):
-                #     print(torch.max(pred_y))
-                out[index] = pred_y
+            pred_y = self.model(x_data).to(self.device)
+            # if(torch.max(pred_y) < 0.1):
+            #     print(torch.max(pred_y))
+            out = pred_y.to("cpu")
                 
             torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
         

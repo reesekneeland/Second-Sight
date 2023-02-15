@@ -159,8 +159,8 @@ def main(decode, encode):
     elif(encode):
         encoder_hash = train_encoder()
     else:
-        reconstructNImages(experiment_title="cc3m clip only ",
-                       idx=[i for i in range(20)])
+        reconstructNImages(experiment_title="cc3m top 5 comparison new split",
+                       idx=[i for i in range(22)])
 
 
 def train_encoder():
@@ -197,7 +197,7 @@ def train_decoder():
                  inpSize = 5615,
                  batch_size=750,
                  parallel=False,
-                 device="cuda:0",
+                 device="cuda:1",
                  num_workers=16,
                  epochs=300
                 )
@@ -244,12 +244,12 @@ def reconstructNImages(experiment_title, idx):
     targets_c_i = targets_c_i[idx]
     targets_c_t = targets_c_t[idx]
     targets_z = targets_z[idx]
-    # outputs_c_i = predictVector_cc3m(model="410_model_c_img_0.pt", vector="c_img_0", x=x_test)[:,0]
+    outputs_c_i = predictVector_cc3m(model="417_model_c_img_0.pt", vector="c_img_0", x=x_test)
     # outputs_c_t = predictVector_cc3m(model="411_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
     # outputs_z = predictVector_cc3m(model="412_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)[:,0]
-    outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
+    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
     outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
-    outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")[:,0]
+    outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
@@ -264,44 +264,33 @@ def reconstructNImages(experiment_title, idx):
         print(i)
         
         print("shape: ", outputs_c_i[i].shape)
-        c_combined, c_combined_target, c_img, c_img_target = [], [], [], []
-        # c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
-        c_img.append(outputs_c_i[i,0].reshape((1,768)).to("cuda"))
-        c_img.append(torch.zeros((1, 768), device="cuda"))
-        c_img_target.append(targets_c_i[i].reshape((1,768)).to("cuda"))
-        c_img_target.append(torch.zeros((1, 768), device="cuda"))
-        c_combined_target.append(targets_c_i[i].reshape((1,768)).to("cuda"))
-        # c_combined.append(outputs_c_t[i].reshape((1,768)).to("cuda"))
-        c_combined_target.append(targets_c_t[i].reshape((1,768)).to("cuda"))
-        for j in range(0,3):
-            # c_combined.append(torch.zeros((1, 768), device="cuda"))
-            c_combined_target.append(torch.zeros((1, 768), device="cuda"))
-            c_img.append(torch.zeros((1, 768), device="cuda"))
-            c_img_target.append(torch.zeros((1, 768), device="cuda"))
+        c_combined = format_clip(outputs_c_i[i])
+        print(targets_c_i.shape, targets_c_i[0].shape)
+        c_combined_target = format_clip(targets_c_i[i])
+        c_0 = format_clip(outputs_c_i[i,0])
+        c_1 = format_clip(outputs_c_i[i,1])
+        c_2 = format_clip(outputs_c_i[i,2])
+        c_3 = format_clip(outputs_c_i[i,3])
+        c_4 = format_clip(outputs_c_i[i,4])
         
-        # c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
-        # c_combined = c_combined.tile(1, 1, 1)
-        c_img = torch.cat(c_img, dim=0).unsqueeze(0)
-        c_img = c_img.tile(1, 1, 1)
-        c_combined_target = torch.cat(c_combined_target, dim=0).unsqueeze(0)
-        c_combined_target = c_combined_target.tile(1, 1, 1)
-        c_img_target = torch.cat(c_img_target, dim=0).unsqueeze(0)
-        c_img_target = c_img_target.tile(1, 1, 1)
     
         # Make the c reconstrution images. 
         
-        reconstructed_output_c = R.reconstruct(c=outputs_c_i[i], strength=strength_c)
+        reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
-        reconstructed_output_c_img = R.reconstruct(c=c_img, strength=strength_c)
-        reconstructed_target_c_img = R.reconstruct(c=c_img_target, strength=strength_c)
+        reconstructed_output_c_0 = R.reconstruct(c=c_0, strength=strength_c)
+        reconstructed_output_c_1 = R.reconstruct(c=c_1, strength=strength_c)
+        reconstructed_output_c_2 = R.reconstruct(c=c_2, strength=strength_c)
+        reconstructed_output_c_3 = R.reconstruct(c=c_3, strength=strength_c)
+        reconstructed_output_c_4 = R.reconstruct(c=c_4, strength=strength_c)
         
         # # Make the z reconstrution images. 
-        reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
-        reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
+        # reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
+        # reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
         
         # # Make the z and c reconstrution images. 
-        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=outputs_c_i[i], strength=0.8)
+        # z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=outputs_c_i[i], strength=0.8)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 
@@ -329,59 +318,59 @@ def reconstructNImages(experiment_title, idx):
         fig.add_subplot(rows, columns, 2)
         
         # Showing image
-        plt.imshow(z_c_reconstruction)
+        plt.imshow(reconstructed_target_c)
         plt.axis('off')
-        plt.title("Z and C Reconstructed")
+        plt.title("Target C")
         
         # Adds a subplot at the 1st position
         fig.add_subplot(rows, columns, 3)
         
          # Showing image
-        plt.imshow(reconstructed_target_c)
+        plt.imshow(reconstructed_output_c)
         plt.axis('off')
-        plt.title("Reconstructed Target C")
+        plt.title("Output 5 Cs")
         
         
         # Adds a subplot at the 2nd position
         fig.add_subplot(rows, columns, 4)
         
        # Showing image
-        plt.imshow(reconstructed_output_c)
+        plt.imshow(reconstructed_output_c_0)
         plt.axis('off')
-        plt.title("Reconstructed Output C")
+        plt.title("C_0")
         
          # Adds a subplot at the 1st position
         fig.add_subplot(rows, columns, 5)
         
          # Showing image
-        plt.imshow(reconstructed_target_c_img)
+        plt.imshow(reconstructed_output_c_1)
         plt.axis('off')
-        plt.title("Reconstructed Target C_img")
+        plt.title("C_1")
         
         
         # Adds a subplot at the 2nd position
         fig.add_subplot(rows, columns, 6)
         
        # Showing image
-        plt.imshow(reconstructed_output_c_img)
+        plt.imshow(reconstructed_output_c_2)
         plt.axis('off')
-        plt.title("Reconstructed Output C_img")
+        plt.title("C_2")
         
         # Adds a subplot at the 3rd position
         fig.add_subplot(rows, columns, 7)
         
         # Showing image
-        plt.imshow(reconstructed_target_z)
+        plt.imshow(reconstructed_output_c_3)
         plt.axis('off')
-        plt.title("Reconstructed Target Z")
+        plt.title("C_3")
     
         # Adds a subplot at the 4th position
         fig.add_subplot(rows, columns, 8)
         
         # Showing image
-        plt.imshow(reconstructed_output_z)
+        plt.imshow(reconstructed_output_c_4)
         plt.axis('off')
-        plt.title("Reconstructed Output Z")
+        plt.title("C_4")
         
         
         os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)

@@ -493,7 +493,7 @@ def predictVector(model, vector, x):
         return out
 
 
-def predictVector_cc3m(model, vector, x):
+def predictVector_cc3m(model, vector, x, device="cuda:1"):
         if(vector == "c_img_0" or vector == "c_text_0"):
             datasize = 768
         elif(vector == "z_img_mixer"):
@@ -504,37 +504,60 @@ def predictVector_cc3m(model, vector, x):
 
         # y = y.detach()
         # x_preds = x_preds.detach()
-        PeC = PearsonCorrCoef(num_outputs=22735).to("cuda")
-        outputPeC = PearsonCorrCoef(num_outputs=620).to("cuda")
+        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
+        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
+        # loss = nn.MSELoss(reduction='none')
         out = torch.zeros((x.shape[0], 5, datasize))
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
-            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to("cuda")
-            batch_max_x = torch.zeros((620, x.shape[1])).to("cuda")
-            batch_max_y = torch.zeros((620, datasize)).to("cuda")
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
+            batch_max_x = torch.zeros((620, x.shape[1])).to(device)
+            batch_max_y = torch.zeros((620, datasize)).to(device)
             for batch in tqdm(range(124), desc="batching sample"):
-                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to("cuda")
+                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to(device)
                 # y_2 = torch.load(prep_path + vector + "/cc3m_batches/" + str(2*batch + 1) + ".pt").to("cuda")
                 # y = torch.concat([y_1, y_2])
                 x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
+                # print(x_preds.shape, batch_max_x.shape, batch_max_y.shape)
                 # x_preds_2 = torch.load(latent_path + model + "/cc3m_batches/" + str(2*batch + 1) + ".pt")
                 # x_preds_t = torch.concat([x_preds_1, x_preds_2]).moveaxis(0, 1).to("cuda")
-                x_preds_t = x_preds.moveaxis(0, 1).to("cuda")
+                x_preds_t = x_preds.moveaxis(0, 1).to(device)
                 # Pearson correlation
                 # pearson = torch.zeros((73000,))
                 # print(x_preds_t.shape, xDup.shape)
                 pearson = PeC(xDup, x_preds_t)
+                # L2 = torch.mean(loss(xDup, x_preds_t), dim=0)
                 # print("pearson shape: ", pearson.shape)
+                # print("L2 shape: ", L2.shape)
                 top5_ind = torch.topk(pearson, 5).indices
                 for j, index in enumerate(top5_ind):
-                    batch_max_x[5*batch + j] = x_preds_t[:,index].to("cuda")
-                    batch_max_y[5*batch + j] = y[index].to("cuda")
-            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to("cuda")
-            batch_max_x = batch_max_x.moveaxis(0, 1).to("cuda")
-            print(xDupOut.shape, batch_max_x.shape)
+                    batch_max_x[5*batch + j] = x_preds_t[:,index]
+                    batch_max_y[5*batch + j] = y[index]
+                # del x_preds_t
+                # del x_preds
+                # del y
+                # torch.cuda.empty_cache()
+            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
+            batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
+            # print(xDupOut.shape, batch_max_x.shape)
             outPearson = outputPeC(xDupOut, batch_max_x)
+            # outL2 = torch.mean(loss(xDupOut, batch_max_x), dim=0)
             top5_ind_out = torch.topk(outPearson, 5).indices
             for j, index in enumerate(top5_ind_out):
                     out[i, j] = batch_max_y[index] 
             print("max of pred: ", out[i].max())
         torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
         return out
+    
+def format_clip(c):
+    if(len(c.shape)<2):
+        c = c.reshape((1,768))
+    c_combined = []
+    for i in range(c.shape[0]):
+        c_combined.append(c[i].reshape((1,768)).to("cuda"))
+    
+    for j in range(5-c.shape[0]):
+        c_combined.append(torch.zeros((1, 768), device="cuda"))
+    
+    c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
+    c_combined = c_combined.tile(1, 1, 1)
+    return c_combined
