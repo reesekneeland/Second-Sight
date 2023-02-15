@@ -112,7 +112,7 @@ def embed_dict(fd):
 def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     
     y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
-    x = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+    x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
     x_train = torch.zeros((20480, 11838))
     x_val = torch.zeros((4500, 11838))
     x_test = torch.zeros((2770, 11838))

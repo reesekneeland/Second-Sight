@@ -208,7 +208,7 @@ def train_decoder():
                  inpSize = 11838,
                  batch_size=750,
                  parallel=False,
-                 device="cuda:0",
+                 device="cuda:1",
                  num_workers=16,
                  epochs=300
                 )
@@ -377,4 +377,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=False, encode=False)
+    main(decode=True, encode=False)
