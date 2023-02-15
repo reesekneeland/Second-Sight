@@ -146,28 +146,34 @@ from fracridge_decoder import RidgeDecoder
 #
 #
 #   Encoders:
-#      - 374_model_c_img_0.pt
-#           - old normalization method
-#           - Mean: 0.13217218
+#      # 417_model_c_img_0.pt
+#     - old norm
 #
-#      - 376_model_c_text_0.pt
-#           - old normalization
-#           - Mean: 0.09641416
+# 419_model_c_text_0.pt
+#     - old norm
 #
-#      - 378_model_z_img_mixer.pt
-#           - old normalization
-#           - Mean: 0.07613872
+# 420_model_z_img_mixer.pt
+#     - old norm
+# ---------------------------
+# 424_model_c_img_0.pt
+#     - Z score
+#
+# 425_model_c_text_0.pt
+#     - Z score
+#
+# 426_model_z_img_mixer.pt
+#     - Z score
 
 
 def main(decode, encode):
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     
     if(decode):
-        train_hash = train_decoder()
+        train_decoder()
     elif(encode):
         train_encoder()
     else:
-        reconstructNImages(experiment_title="73k COCO Library Decoder",
+        reconstructNImages(experiment_title="73k COCO Z Score Decoder",
                        idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
@@ -196,11 +202,10 @@ def train_decoder():
     hashNum = update_hash()
     # hashNum = "361"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000025,
-                 vector="z_img_mixer", #c, z, c_prompt
+                 lr=0.000005,
+                 vector="z_img_mixer", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
-                 threshold=0.08283,
-                 inpSize = 5496,
+                 inpSize = 11838,
                  batch_size=750,
                  parallel=False,
                  device="cuda:0",
@@ -222,28 +227,25 @@ def train_decoder():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "377",
+    Dz = Decoder(hashNum = "443",
                  vector="z_img_mixer", 
-                 threshold=0.064564,
-                 inpSize = 5615,
+                 inpSize = 11838,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     
-    Dc_i = Decoder(hashNum = "373",
+    Dc_i = Decoder(hashNum = "441",
                  vector="c_img_0", 
-                 threshold=0.062136,
-                 inpSize = 7643,
+                 inpSize = 11838,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     
-    Dc_t = Decoder(hashNum = "375",
+    Dc_t = Decoder(hashNum = "442",
                  vector="c_text_0", 
-                 threshold=0.067784,
-                 inpSize = 6650,
+                 inpSize = 11838,
                  log=False, 
                  device="cuda",
                  parallel=False
@@ -375,4 +377,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=False, encode=True)
+    main(decode=False, encode=False)

@@ -91,7 +91,6 @@ class Decoder():
                  vector, 
                  log, 
                  lr=0.00001,
-                 threshold=0.06734,
                  inpSize = 7372,
                  batch_size=750,
                  parallel=True,
@@ -103,7 +102,6 @@ class Decoder():
         # Set the parameters for pytorch model training
         self.hashNum = hashNum
         self.vector = vector
-        self.threshold = threshold
         self.device = torch.device(device)
         self.lr = lr
         self.batch_size = batch_size
@@ -137,11 +135,10 @@ class Decoder():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "threshold": self.threshold,
                 "architecture": "Linear Regression",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "custom masked positive pearson correlation on c_combined data",
+                "dataset": "Z score test",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
