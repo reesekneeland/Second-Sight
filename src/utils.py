@@ -119,7 +119,6 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     y_train = torch.zeros((20480, y.shape[1]))
     y_val = torch.zeros((4500, y.shape[1]))
     y_test = torch.zeros((2770, y.shape[1]))
-    print("shapes", x.shape, y.shape)
     subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
     # Loads the raw tensors into a Dataset object

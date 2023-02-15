@@ -320,7 +320,7 @@ class Decoder():
         x_test = x.to(self.device)
 
 
-        PeC = PearsonCorrCoef(num_outputs=x.shape[0]).to(device)
+        PeC = PearsonCorrCoef(num_outputs=x.shape[0]).to(self.device)
         criterion = nn.MSELoss(size_average = False)
         
         # Generating predictions based on the current model

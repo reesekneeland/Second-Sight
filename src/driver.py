@@ -234,7 +234,6 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    
     Dc_i = Decoder(hashNum = "441",
                  vector="c_img_0", 
                  inpSize = 11838,
@@ -242,7 +241,6 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    
     Dc_t = Decoder(hashNum = "442",
                  vector="c_text_0", 
                  inpSize = 11838,
@@ -286,7 +284,7 @@ def reconstructNImages(experiment_title, idx):
     R = Reconstructor()
     for i in range(len(idx)):
         print(i)
-        test_i = test_trials[i]
+        test_i = test_trials[i+1]
         print("shape: ", outputs_c_i[i].shape)
         c_combined, c_combined_target = [], []
         c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
