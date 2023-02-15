@@ -129,18 +129,14 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     # x is the brain data 
     # y are the vectors
     train_i, test_i, val_i = 0,0,0
-    trueCount = 0
+    test_trials = []
     for i in range(x.shape[0]):
         test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
-        #if(test_sample==True): print("something")
-        # print(test_sample)
-        # test_sample=True
-        if(test_sample):
-            trueCount+=1
         if(test_sample):
             x_test[test_i] = x[i]
             y_test[test_i] = y[i]
             test_i +=1
+            test_trials.append(i+1)
         elif train_i<20480:
             x_train[train_i] = x[i]
             y_train[train_i] = y[i]
@@ -161,7 +157,7 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
         return trainloader, testloader
     else:
         print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
-        return x_train, x_val, x_test, y_train, y_val, y_test
+        return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
 # Loads the data and puts it into a DataLoader
 def get_data_decoder(vector, threshold=0.2, batch_size=375, num_workers=16, loader=True):

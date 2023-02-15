@@ -146,34 +146,28 @@ from fracridge_decoder import RidgeDecoder
 #
 #
 #   Encoders:
-#      # 417_model_c_img_0.pt
-#     - old norm
+#      - 374_model_c_img_0.pt
+#           - old normalization method
+#           - Mean: 0.13217218
 #
-# 419_model_c_text_0.pt
-#     - old norm
+#      - 376_model_c_text_0.pt
+#           - old normalization
+#           - Mean: 0.09641416
 #
-# 420_model_z_img_mixer.pt
-#     - old norm
-# ---------------------------
-# 424_model_c_img_0.pt
-#     - Z score
-#
-# 425_model_c_text_0.pt
-#     - Z score
-#
-# 426_model_z_img_mixer.pt
-#     - Z score
+#      - 378_model_z_img_mixer.pt
+#           - old normalization
+#           - Mean: 0.07613872
 
 
 def main(decode, encode):
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     
     if(decode):
-        train_decoder()
+        train_hash = train_decoder()
     elif(encode):
         train_encoder()
     else:
-        reconstructNImages(experiment_title="MLP decoder new split",
+        reconstructNImages(experiment_title="73k COCO Library Decoder",
                        idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
@@ -202,13 +196,14 @@ def train_decoder():
     hashNum = update_hash()
     # hashNum = "361"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000005,
-                 vector="z_img_mixer", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.000025,
+                 vector="z_img_mixer", #c, z, c_prompt
                  log=True, 
-                 inpSize = 11838,
+                 threshold=0.08283,
+                 inpSize = 5496,
                  batch_size=750,
                  parallel=False,
-                 device="cuda:1",
+                 device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
@@ -227,25 +222,28 @@ def train_decoder():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "443",
+    Dz = Decoder(hashNum = "377",
                  vector="z_img_mixer", 
-                 inpSize = 11838,
+                 threshold=0.064564,
+                 inpSize = 5615,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     
-    Dc_i = Decoder(hashNum = "441",
+    Dc_i = Decoder(hashNum = "373",
                  vector="c_img_0", 
-                 inpSize = 11838,
+                 threshold=0.062136,
+                 inpSize = 7643,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
     
-    Dc_t = Decoder(hashNum = "442",
+    Dc_t = Decoder(hashNum = "375",
                  vector="c_text_0", 
-                 inpSize = 11838,
+                 threshold=0.067784,
+                 inpSize = 6650,
                  log=False, 
                  device="cuda",
                  parallel=False
@@ -255,12 +253,7 @@ def reconstructNImages(experiment_title, idx):
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-    _, _, x_test, _, _, targets_c_i, test_trials = load_data(vector="c_img_0", 
-                                                             loader=False)
-    _, _, _, _, _, targets_c_t, _ = load_data(vector="c_text_0", 
-                                              loader=False)
-    _, _, _, _, _, targets_z, _ = load_data(vector="z_img_mixer", 
-                                            loader=False)
+    
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         
@@ -272,13 +265,13 @@ def reconstructNImages(experiment_title, idx):
     
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
-    outputs_c_i = Dc_i.predict(model=c_img_modelId, x=x_test, y=targets_c_i)
+    outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     outputs_c_i = [outputs_c_i[i] for i in idx]
     targets_c_i = [targets_c_i[i] for i in idx]
-    outputs_c_t = Dc_t.predict(model=c_text_modelId, x=x_test, y=targets_c_t)
+    outputs_c_t, targets_c_t = Dc_t.predict(model=c_text_modelId)
     outputs_c_t = [outputs_c_t[i] for i in idx]
     targets_c_t = [targets_c_t[i] for i in idx]
-    outputs_z = Dz.predict(model=z_modelId, x=x_test, y=targets_z)
+    outputs_z, targets_z = Dz.predict(model=z_modelId)
     outputs_z = [outputs_z[i] for i in idx]
     targets_z = [targets_z[i] for i in idx]
     strength_c = 1
@@ -286,7 +279,7 @@ def reconstructNImages(experiment_title, idx):
     R = Reconstructor()
     for i in range(len(idx)):
         print(i)
-        test_i = test_trials[i]
+        test_i = idx[i] + 25501
         print("shape: ", outputs_c_i[i].shape)
         c_combined, c_combined_target = [], []
         c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
@@ -382,4 +375,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=True, encode=False)
+    main(decode=False, encode=True)
