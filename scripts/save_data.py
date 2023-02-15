@@ -43,14 +43,14 @@ import nibabel as nib
 #   - Parameter #1: The vector you want grabbed as a string
 #   - Parameter #2: The vector threshold as a string
 #   - Parameter #3: The vector hash number as a string
-# create_whole_region_normalized()
+create_whole_region_normalized()
 # grab_samples("z_img_mixer", "0.08283", "395")
 
 # extract_dim("c_img_mixer", 0)
 
 # process_data_full("z_img_mixer")
-process_data_full("c_img_0")
-process_data_full("c_text_0")
+# process_data_full("c_img_0")
+# process_data_full("c_text_0")
 # process_data_full("c_combined")
 
 # load_data("z_img_mixer", loader=False)

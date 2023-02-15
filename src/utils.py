@@ -132,6 +132,7 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
     trueCount = 0
     for i in range(x.shape[0]):
         test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
+        #if(test_sample==True): print("something")
         # print(test_sample)
         # test_sample=True
         if(test_sample):
@@ -148,6 +149,7 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
             x_val[val_i] = x[i]
             y_val[val_i] = y[i]
             val_i +=1
+            
 
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -271,7 +273,7 @@ def create_whole_region_unnormalized():
     
 def create_whole_region_normalized():
     
-    whole_region_norm = torch.zeros((27750, 11838))
+    #whole_region_norm = torch.zeros((27750, 11838))
     whole_region_norm_z = torch.zeros((27750, 11838))
     whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
             
@@ -283,10 +285,11 @@ def create_whole_region_normalized():
         
 
     # Normalize the data by dividing all elements by the max of each voxel
-    whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+    # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
     # Save the tensor
-    torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+    torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
+    #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
 def normalization_test():
     
@@ -490,7 +493,7 @@ def predictVector(model, vector, x):
         return out
 
 
-def predictVector_cc3m(model, vector, x):
+def predictVector_cc3m(model, vector, x, device="cuda:1"):
         if(vector == "c_img_0" or vector == "c_text_0"):
             datasize = 768
         elif(vector == "z_img_mixer"):
@@ -501,43 +504,48 @@ def predictVector_cc3m(model, vector, x):
 
         # y = y.detach()
         # x_preds = x_preds.detach()
-        PeC = PearsonCorrCoef(num_outputs=22735).to("cuda")
-        outputPeC = PearsonCorrCoef(num_outputs=620).to("cuda")
-        loss = nn.MSELoss(reduction='none')
+        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
+        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
+        # loss = nn.MSELoss(reduction='none')
         out = torch.zeros((x.shape[0], 5, datasize))
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
-            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to("cuda")
-            batch_max_x = torch.zeros((620, x.shape[1])).to("cuda")
-            batch_max_y = torch.zeros((620, datasize)).to("cuda")
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
+            batch_max_x = torch.zeros((620, x.shape[1])).to(device)
+            batch_max_y = torch.zeros((620, datasize)).to(device)
             for batch in tqdm(range(124), desc="batching sample"):
-                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to("cuda")
+                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to(device)
                 # y_2 = torch.load(prep_path + vector + "/cc3m_batches/" + str(2*batch + 1) + ".pt").to("cuda")
                 # y = torch.concat([y_1, y_2])
                 x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
+                # print(x_preds.shape, batch_max_x.shape, batch_max_y.shape)
                 # x_preds_2 = torch.load(latent_path + model + "/cc3m_batches/" + str(2*batch + 1) + ".pt")
                 # x_preds_t = torch.concat([x_preds_1, x_preds_2]).moveaxis(0, 1).to("cuda")
-                x_preds_t = x_preds.moveaxis(0, 1).to("cuda")
+                x_preds_t = x_preds.moveaxis(0, 1).to(device)
                 # Pearson correlation
                 # pearson = torch.zeros((73000,))
                 # print(x_preds_t.shape, xDup.shape)
-                # pearson = PeC(xDup, x_preds_t)
-                L2 = torch.mean(loss(xDup, x_preds_t), dim=0)
+                pearson = PeC(xDup, x_preds_t)
+                # L2 = torch.mean(loss(xDup, x_preds_t), dim=0)
                 # print("pearson shape: ", pearson.shape)
                 # print("L2 shape: ", L2.shape)
-                top5_ind = torch.topk(L2, 5).indices
+                top5_ind = torch.topk(pearson, 5).indices
                 for j, index in enumerate(top5_ind):
-                    batch_max_x[5*batch + j] = x_preds_t[:,index].to("cuda")
-                    batch_max_y[5*batch + j] = y[index].to("cuda")
-            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to("cuda")
-            batch_max_x = batch_max_x.moveaxis(0, 1).to("cuda")
-            print(xDupOut.shape, batch_max_x.shape)
-            # outPearson = outputPeC(xDupOut, batch_max_x)
-            outL2 = torch.mean(loss(xDupOut, batch_max_x), dim=0)
-            top5_ind_out = torch.topk(outL2, 5).indices
+                    batch_max_x[5*batch + j] = x_preds_t[:,index]
+                    batch_max_y[5*batch + j] = y[index]
+                # del x_preds_t
+                # del x_preds
+                # del y
+                # torch.cuda.empty_cache()
+            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
+            batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
+            # print(xDupOut.shape, batch_max_x.shape)
+            outPearson = outputPeC(xDupOut, batch_max_x)
+            # outL2 = torch.mean(loss(xDupOut, batch_max_x), dim=0)
+            top5_ind_out = torch.topk(outPearson, 5).indices
             for j, index in enumerate(top5_ind_out):
                     out[i, j] = batch_max_y[index] 
             print("max of pred: ", out[i].max())
-        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds_MSE.pt")
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
         return out
     
 def format_clip(c):

@@ -36,11 +36,27 @@ from pearson import PearsonCorrCoef
 # output_z.pt (We made)
 #   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
 #
-# 410_model_c_img_0.pt
+
+# 417_model_c_img_0.pt
+#     - old norm
 #
-# 411_model_c_text_0.pt
+# 419_model_c_text_0.pt
+#     - old norm
 #
-# 412_model_z_img_mixer.pt
+# 420_model_z_img_mixer.pt
+#     - old norm
+# ---------------------------
+# 424_model_c_img_0.pt
+#     - Z score
+#
+# 425_model_c_text_0.pt
+#     - Z score
+#
+# 426_model_z_img_mixer.pt
+#     - Z score
+
+
+
 
 
     
@@ -138,7 +154,7 @@ class Encoder():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "MLP",
+                "architecture": "MLP, pearson loss whole",
                 "vector": self.vector,
                 "dataset": "Whole region visual cortex",
                 "epochs": self.num_epochs,
@@ -155,7 +171,7 @@ class Encoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = PearsonCorrCoef(num_outputs=self.batch_size).to("cuda")
+        # criterion = nn.MSELoss()
         
         # Import gradients to wandb to track loss gradients
         # if(self.log):
@@ -183,8 +199,8 @@ class Encoder():
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                
+                y_data = y_data.moveaxis(0, 1).to(self.device)
+                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
                 
@@ -192,10 +208,10 @@ class Encoder():
                 with torch.set_grad_enabled(True):
                     
                     # Train the x data in the model to get the predicted y value. 
-                    pred_y = self.model(x_data).to(self.device)
+                    pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
-                    loss = torch.mean(criterion(pred_y, y_data))
+                    loss = 1-torch.mean(criterion(pred_y, y_data))
                     
                     # Perform weight updating
                     loss.backward()
@@ -218,13 +234,13 @@ class Encoder():
                 # Loading in the test data
                 y_data, x_data = data
                 x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                
+                y_data = y_data.moveaxis(0, 1).to(self.device)
+                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
                 # Generating predictions based on the current model
-                pred_y = self.model(x_data).to(self.device)
+                pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
                 
                 # Compute the test loss 
-                loss = torch.mean(criterion(pred_y, y_data))
+                loss = 1-torch.mean(criterion(pred_y, y_data))
 
                 running_test_loss += loss.item()
                 
@@ -271,44 +287,51 @@ class Encoder():
                                                 num_workers=self.num_workers, 
                                                 loader=False)
         
-        y_test.to(self.device)
-        x_test.to(self.device)
-        print(x_test.device)
-        print(y_test.device)
-       
+        y_test = y_test.to(self.device)
+        x_test = x_test.to(self.device)
+
         
         loss = 0
+        pearson_corrcoef_loss = 0
         criterion = nn.MSELoss(size_average = False)
         
         for index in range(y_test.shape[0]):
             
             # Generating predictions based on the current model
-            print(self.model.device)
             pred_y = self.model(x_test[index]).to(self.device)
-            print(self.model.device)
             loss += criterion(pred_y, y_test[index])
             
-            out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
-            target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_test[index]
+            out[index] = pred_y
+            target[index] = y_test[index]
+            
+            pearson_corrcoef_loss += pearson_corrcoef(out[index], target[index])
+            #print(pearson_corrcoef(out[index], target[index]))
+            
             
         loss = loss / y_test.shape[0]
+        
+        # Vector correlation for that trial row wise
+        pearson_corrcoef_loss = pearson_corrcoef_loss / y_test.shape[0]
         
         out = out.detach()
         target = target.detach()
         
         r = []
         for p in range(out.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
             r.append(pearson_corrcoef(out[:,p], target[:,p]))
         r = np.array(r)
         
+        print("Vector Correlation: ", float(pearson_corrcoef_loss))
         print("Mean Pearson: ", np.mean(r))
-        print("Loss: ", loss)
+        print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
         
 
 
-    def library_predict(self, model, predict):
+    def predict_73K_coco(self, model, predict):
         
         if(predict):
             prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -349,7 +372,6 @@ class Encoder():
         
         self.generate_hist()
         
-        return out
     
     def predict_cc3m(self, model):
 
@@ -371,17 +393,17 @@ class Encoder():
             out = torch.zeros((22735, 11838))
             preprocessed_data_batch = torch.load(prep_path + self.vector + "/cc3m_batches/" + str(i) + ".pt")
 
-            for index, data in enumerate(preprocessed_data_batch):
+            # for index in range(len(preprocessed_data_batch)):
                 
                 # Loading in the data
-                x_data = data
-                x_data = x_data.to(self.device)
+            x_data = preprocessed_data_batch
+            x_data = x_data.to(self.device)
                 
                 # Generating predictions based on the current model
-                pred_y = self.model(x_data).to(self.device)
-                # if(torch.max(pred_y) < 0.1):
-                #     print(torch.max(pred_y))
-                out[index] = pred_y
+            pred_y = self.model(x_data).to(self.device)
+            # if(torch.max(pred_y) < 0.1):
+            #     print(torch.max(pred_y))
+            out = pred_y.to("cpu")
                 
             torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
         
