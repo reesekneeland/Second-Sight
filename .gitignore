@@ -9,7 +9,7 @@ hash
 /models
 /masks
 /latent_vectors
-/scalar_experiments/wandb
+/legacy_files/scalar_experiments/wandb
 /scripts/wandb
 /stablediffusion
 /charts
