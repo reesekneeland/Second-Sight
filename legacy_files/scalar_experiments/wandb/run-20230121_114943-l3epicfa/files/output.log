@@ -1,0 +1,23 @@
+
+
+
+
+
+
+train loader: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 25500/25500 [00:13<00:00, 1917.29it/s]
+test loader: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2250/2250 [00:01<00:00, 1902.76it/s]
+Traceback (most recent call last):
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_100_LR.py", line 333, in <module>
+    main()
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_100_LR.py", line 330, in main
+    VM.predict_c_seperate(test)
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_100_LR.py", line 278, in predict_c_seperate
+    model.load_state_dict(torch.load("scalar_space_models/model_z_100.pt"))
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/torch/serialization.py", line 699, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/torch/serialization.py", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/torch/serialization.py", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: 'scalar_space_models/model_z_100.pt'
+load_data shapes torch.Size([25500, 4627]) torch.Size([2250, 4627]) torch.Size([25500, 100]) torch.Size([2250, 100])

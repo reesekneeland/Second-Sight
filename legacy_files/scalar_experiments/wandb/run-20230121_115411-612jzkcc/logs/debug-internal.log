@@ -1,0 +1,446 @@
+2023-01-21 11:54:11,586 INFO    StreamThr :93210 [internal.py:wandb_internal():87] W&B internal server running at pid: 93210, started at: 2023-01-21 11:54:11.585439
+2023-01-21 11:54:11,588 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status
+2023-01-21 11:54:11,589 INFO    WriterThread:93210 [datastore.py:open_for_write():85] open: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/run-612jzkcc.wandb
+2023-01-21 11:54:11,591 DEBUG   SenderThread:93210 [sender.py:send():334] send: header
+2023-01-21 11:54:11,628 DEBUG   SenderThread:93210 [sender.py:send():334] send: run
+2023-01-21 11:54:11,788 INFO    SenderThread:93210 [dir_watcher.py:__init__():216] watching files in: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files
+2023-01-21 11:54:11,788 INFO    SenderThread:93210 [sender.py:_start_run_threads():1065] run started: 612jzkcc with start time 1674323651.584499
+2023-01-21 11:54:11,788 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:11,788 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:11,914 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: check_version
+2023-01-21 11:54:11,914 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: check_version
+2023-01-21 11:54:11,966 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: run_start
+2023-01-21 11:54:11,974 DEBUG   HandlerThread:93210 [system_info.py:__init__():31] System info init
+2023-01-21 11:54:11,974 DEBUG   HandlerThread:93210 [system_info.py:__init__():46] System info init done
+2023-01-21 11:54:11,974 INFO    HandlerThread:93210 [system_monitor.py:start():151] Starting system monitor
+2023-01-21 11:54:11,974 INFO    SystemMonitor:93210 [system_monitor.py:_start():116] Starting system asset monitoring threads
+2023-01-21 11:54:11,974 INFO    HandlerThread:93210 [system_monitor.py:probe():172] Collecting system info
+2023-01-21 11:54:11,975 INFO    SystemMonitor:93210 [interfaces.py:start():168] Started cpu
+2023-01-21 11:54:11,975 INFO    SystemMonitor:93210 [interfaces.py:start():168] Started disk
+2023-01-21 11:54:11,975 INFO    SystemMonitor:93210 [interfaces.py:start():168] Started gpu
+2023-01-21 11:54:11,976 INFO    SystemMonitor:93210 [interfaces.py:start():168] Started memory
+2023-01-21 11:54:11,976 INFO    SystemMonitor:93210 [interfaces.py:start():168] Started network
+2023-01-21 11:54:12,025 DEBUG   HandlerThread:93210 [system_info.py:probe():195] Probing system
+2023-01-21 11:54:12,032 DEBUG   HandlerThread:93210 [system_info.py:_probe_git():180] Probing git
+2023-01-21 11:54:12,050 DEBUG   HandlerThread:93210 [system_info.py:_probe_git():188] Probing git done
+2023-01-21 11:54:12,051 DEBUG   HandlerThread:93210 [system_info.py:probe():241] Probing system done
+2023-01-21 11:54:12,051 DEBUG   HandlerThread:93210 [system_monitor.py:probe():181] {'os': 'Linux-3.10.0-1160.45.1.el7.x86_64-x86_64-with-glibc2.17', 'python': '3.9.15', 'heartbeatAt': '2023-01-21T17:54:12.025219', 'startedAt': '2023-01-21T17:54:11.578968', 'docker': None, 'cuda': None, 'args': (), 'state': 'running', 'program': '/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_100_LR.py', 'codePath': 'scalar_experiments/scalar_100_LR.py', 'git': {'remote': 'https://github.com/reesekneeland/Second-Sight', 'commit': 'a0c987a2d050af8b7007fb3c04ba2a3a9c3a5476'}, 'email': 'reesekneeland@gmail.com', 'root': '/export/raid1/home/kneel027/Second-Sight', 'host': 'hypatia.cmrr.umn.edu', 'username': 'kneel027', 'executable': '/export/raid1/home/kneel027/miniconda3/envs/ldm/bin/python', 'cpu_count': 64, 'cpu_count_logical': 128, 'cpu_freq': {'current': 1910.9375, 'min': 1500.0, 'max': 2000.0}, 'cpu_freq_per_core': [{'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}], 'disk': {'total': 774.1999130249023, 'used': 18.619014739990234}, 'gpu': 'NVIDIA A100-PCIE-40GB', 'gpu_count': 4, 'gpu_devices': [{'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}], 'memory': {'total': 503.64343643188477}}
+2023-01-21 11:54:12,051 INFO    HandlerThread:93210 [system_monitor.py:probe():182] Finished collecting system info
+2023-01-21 11:54:12,051 INFO    HandlerThread:93210 [system_monitor.py:probe():185] Publishing system info
+2023-01-21 11:54:12,051 DEBUG   HandlerThread:93210 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-01-21 11:54:12,051 DEBUG   HandlerThread:93210 [system_info.py:_save_pip():67] Saving pip packages done
+2023-01-21 11:54:12,051 DEBUG   HandlerThread:93210 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-01-21 11:54:12,791 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/conda-environment.yaml
+2023-01-21 11:54:12,792 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:12,792 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/requirements.txt
+2023-01-21 11:54:17,681 DEBUG   HandlerThread:93210 [system_info.py:_save_conda():86] Saving conda packages done
+2023-01-21 11:54:17,683 INFO    HandlerThread:93210 [system_monitor.py:probe():187] Finished publishing system info
+2023-01-21 11:54:17,687 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:17,687 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:17,688 DEBUG   SenderThread:93210 [sender.py:send():334] send: files
+2023-01-21 11:54:17,688 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-metadata.json with policy now
+2023-01-21 11:54:17,699 DEBUG   SenderThread:93210 [sender.py:send():334] send: telemetry
+2023-01-21 11:54:17,699 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: stop_status
+2023-01-21 11:54:17,699 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: stop_status
+2023-01-21 11:54:17,791 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/conda-environment.yaml
+2023-01-21 11:54:17,792 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:17,792 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-metadata.json
+2023-01-21 11:54:18,121 INFO    Thread-16 :93210 [upload_job.py:push():143] Uploaded file /tmp/tmpua7eutmuwandb/fi75ooly-wandb-metadata.json
+2023-01-21 11:54:19,792 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:21,793 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:22,013 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:23,793 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:25,794 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:27,061 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:27,794 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:29,795 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:31,798 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:32,086 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:32,340 DEBUG   SenderThread:93210 [sender.py:send():334] send: telemetry
+2023-01-21 11:54:32,698 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:32,698 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:33,587 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:33,589 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:33,590 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:33,590 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:33,799 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:34,229 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:34,231 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:34,231 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:34,231 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:34,799 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:34,799 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:34,888 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:34,888 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:34,889 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:34,889 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:35,590 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:35,591 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:35,591 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:35,591 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:35,799 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:36,313 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:36,314 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:36,314 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:36,314 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:36,800 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:36,800 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:37,021 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:37,022 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:37,022 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:37,023 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:37,496 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:37,728 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:37,728 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:37,729 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:37,729 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:37,765 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:37,800 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:38,394 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:38,395 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:38,395 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:38,396 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:38,801 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:38,801 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:39,093 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:39,093 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:39,094 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:39,094 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:39,774 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:39,775 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:39,775 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:39,776 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:39,801 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:40,446 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:40,447 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:40,448 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:40,448 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:40,802 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:40,802 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:41,117 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:41,118 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:41,119 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:41,119 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:41,802 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:41,804 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:41,827 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:41,827 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:41,828 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:42,508 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:42,509 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:42,602 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:42,602 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:42,603 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:42,766 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:42,802 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:42,803 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/config.yaml
+2023-01-21 11:54:42,803 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:43,204 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:43,205 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:43,205 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:43,206 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:43,803 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:43,878 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:43,879 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:43,879 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:43,879 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:44,565 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:44,565 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:44,566 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:44,566 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:44,803 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:44,803 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:45,250 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:45,251 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:45,251 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:45,251 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:45,804 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:45,931 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:45,932 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:45,932 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:45,932 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:46,625 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:46,626 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:46,626 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:46,626 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:46,804 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:46,804 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:47,318 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:47,319 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:47,320 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:47,320 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:47,780 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:47,804 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:47,809 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:47,975 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:47,976 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:47,976 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:47,977 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:48,645 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:48,646 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:48,646 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:48,646 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:48,805 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:48,805 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:49,347 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:49,348 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:49,349 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:49,349 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:49,805 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:50,037 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:50,038 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:50,038 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:50,039 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:50,702 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:50,703 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:50,703 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:50,704 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:50,806 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:50,806 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:51,364 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:51,365 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:51,365 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:51,365 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:51,541 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:51,541 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:51,806 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:52,044 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:52,046 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:52,046 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:52,047 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:52,696 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:52,697 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:52,697 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:52,698 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:52,806 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:52,807 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:52,841 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:52,988 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:52,989 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:53,182 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:53,412 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:53,413 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:53,414 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:53,415 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:53,807 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:54,134 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:54,136 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:54,136 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:54,137 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:54,807 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:54,807 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:54,819 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:54,820 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:54,820 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:54,821 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:55,526 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:55,528 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:55,528 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:55,529 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:55,807 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:56,183 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:56,184 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:56,185 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:56,186 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:56,808 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:56,808 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:56,869 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:56,869 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:56,870 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:56,870 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:57,566 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:57,568 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:57,568 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:57,569 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:57,808 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:57,856 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:54:58,258 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:54:58,258 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:58,259 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:58,259 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:58,260 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:58,809 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:54:58,809 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:54:58,941 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:58,942 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:58,942 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:58,943 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:59,636 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:54:59,637 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:54:59,637 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:54:59,639 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:54:59,809 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:00,309 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:00,310 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:00,310 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:00,311 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:00,809 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:00,809 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:00,968 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:00,970 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:00,970 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:00,971 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:01,682 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:01,684 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:01,684 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:01,686 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:01,810 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:02,353 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:02,354 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:02,355 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:02,356 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:02,810 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:02,810 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:02,884 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 11:55:03,021 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:03,022 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:03,023 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:03,023 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:03,483 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:55:03,722 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:03,724 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:03,724 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:03,725 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:03,810 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:04,436 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:04,438 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:04,438 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:04,439 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:04,811 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:04,811 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:05,105 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: partial_history
+2023-01-21 11:55:05,106 DEBUG   SenderThread:93210 [sender.py:send():334] send: history
+2023-01-21 11:55:05,106 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 11:55:05,108 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:05,435 DEBUG   SenderThread:93210 [sender.py:send():334] send: exit
+2023-01-21 11:55:05,435 INFO    SenderThread:93210 [sender.py:send_exit():557] handling exit code: 0
+2023-01-21 11:55:05,435 INFO    SenderThread:93210 [sender.py:send_exit():559] handling runtime: 53
+2023-01-21 11:55:05,436 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:05,436 INFO    SenderThread:93210 [sender.py:send_exit():565] send defer
+2023-01-21 11:55:05,436 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:05,436 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 0
+2023-01-21 11:55:05,436 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:05,436 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 0
+2023-01-21 11:55:05,437 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 1
+2023-01-21 11:55:05,437 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:05,437 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 1
+2023-01-21 11:55:05,437 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:05,437 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 1
+2023-01-21 11:55:05,437 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 2
+2023-01-21 11:55:05,437 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:05,437 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 2
+2023-01-21 11:55:05,437 INFO    HandlerThread:93210 [system_monitor.py:finish():161] Stopping system monitor
+2023-01-21 11:55:05,437 DEBUG   SystemMonitor:93210 [system_monitor.py:_start():130] Starting system metrics aggregation loop
+2023-01-21 11:55:05,438 DEBUG   SystemMonitor:93210 [system_monitor.py:_start():137] Finished system metrics aggregation loop
+2023-01-21 11:55:05,438 DEBUG   SystemMonitor:93210 [system_monitor.py:_start():141] Publishing last batch of metrics
+2023-01-21 11:55:05,440 INFO    HandlerThread:93210 [interfaces.py:finish():175] Joined cpu
+2023-01-21 11:55:05,440 INFO    HandlerThread:93210 [interfaces.py:finish():175] Joined disk
+2023-01-21 11:55:05,811 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:06,056 INFO    HandlerThread:93210 [interfaces.py:finish():175] Joined gpu
+2023-01-21 11:55:06,056 INFO    HandlerThread:93210 [interfaces.py:finish():175] Joined memory
+2023-01-21 11:55:06,057 INFO    HandlerThread:93210 [interfaces.py:finish():175] Joined network
+2023-01-21 11:55:06,057 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,058 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 2
+2023-01-21 11:55:06,058 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 3
+2023-01-21 11:55:06,058 DEBUG   SenderThread:93210 [sender.py:send():334] send: stats
+2023-01-21 11:55:06,059 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:06,059 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 3
+2023-01-21 11:55:06,059 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,059 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 3
+2023-01-21 11:55:06,059 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 4
+2023-01-21 11:55:06,059 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:06,059 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 4
+2023-01-21 11:55:06,059 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,059 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 4
+2023-01-21 11:55:06,060 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 5
+2023-01-21 11:55:06,060 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:06,060 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 5
+2023-01-21 11:55:06,060 DEBUG   SenderThread:93210 [sender.py:send():334] send: summary
+2023-01-21 11:55:06,061 INFO    SenderThread:93210 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 11:55:06,061 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,061 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 5
+2023-01-21 11:55:06,061 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 6
+2023-01-21 11:55:06,061 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:06,061 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 6
+2023-01-21 11:55:06,062 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,062 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 6
+2023-01-21 11:55:06,062 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 7
+2023-01-21 11:55:06,062 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 11:55:06,062 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:06,062 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 7
+2023-01-21 11:55:06,062 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:06,062 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 7
+2023-01-21 11:55:06,436 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 11:55:06,812 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:06,812 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:08,385 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 8
+2023-01-21 11:55:08,385 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 11:55:08,385 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:08,385 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 8
+2023-01-21 11:55:08,386 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:08,386 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 8
+2023-01-21 11:55:08,402 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 9
+2023-01-21 11:55:08,402 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:08,403 DEBUG   SenderThread:93210 [sender.py:send():334] send: artifact
+2023-01-21 11:55:08,403 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 9
+2023-01-21 11:55:08,803 INFO    SenderThread:93210 [sender.py:send_artifact():1415] sent artifact job-https___github.com_reesekneeland_Second-Sight_scalar_experiments_scalar_100_LR.py - {'id': 'QXJ0aWZhY3Q6MzM1ODY2NDI4', 'digest': '4c936b46f2a5415849fade4a3b028d84', 'state': 'COMMITTED', 'aliases': [{'artifactCollectionName': 'job-https___github.com_reesekneeland_Second-Sight_scalar_experiments_scalar_100_LR.py', 'alias': 'v1'}], 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjUwMjMzNDE5', 'latestArtifact': {'id': 'QXJ0aWZhY3Q6MzM1ODY2NDI4', 'versionIndex': 1}}, 'version': 'v1'}
+2023-01-21 11:55:08,803 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:08,803 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 9
+2023-01-21 11:55:08,803 INFO    SenderThread:93210 [dir_watcher.py:finish():362] shutting down directory watcher
+2023-01-21 11:55:08,812 INFO    Thread-13 :93210 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:08,812 INFO    SenderThread:93210 [dir_watcher.py:finish():392] scan: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files
+2023-01-21 11:55:08,813 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/config.yaml config.yaml
+2023-01-21 11:55:08,813 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json wandb-summary.json
+2023-01-21 11:55:08,815 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/requirements.txt requirements.txt
+2023-01-21 11:55:08,816 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/conda-environment.yaml conda-environment.yaml
+2023-01-21 11:55:08,818 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-metadata.json wandb-metadata.json
+2023-01-21 11:55:08,819 INFO    SenderThread:93210 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log output.log
+2023-01-21 11:55:08,823 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 10
+2023-01-21 11:55:08,823 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:08,823 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 10
+2023-01-21 11:55:08,825 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:08,826 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 10
+2023-01-21 11:55:08,826 INFO    SenderThread:93210 [file_pusher.py:finish():160] shutting down file pusher
+2023-01-21 11:55:09,215 INFO    Thread-19 :93210 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/requirements.txt
+2023-01-21 11:55:09,222 INFO    Thread-21 :93210 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/output.log
+2023-01-21 11:55:09,226 INFO    Thread-20 :93210 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/conda-environment.yaml
+2023-01-21 11:55:09,274 INFO    Thread-17 :93210 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/config.yaml
+2023-01-21 11:55:09,278 INFO    Thread-18 :93210 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/files/wandb-summary.json
+2023-01-21 11:55:09,479 INFO    Thread-12 :93210 [sender.py:transition_state():585] send defer: 11
+2023-01-21 11:55:09,479 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:09,479 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 11
+2023-01-21 11:55:09,479 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:09,480 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 11
+2023-01-21 11:55:09,480 INFO    SenderThread:93210 [file_pusher.py:join():165] waiting for file pusher
+2023-01-21 11:55:09,480 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 12
+2023-01-21 11:55:09,480 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:09,480 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 12
+2023-01-21 11:55:09,480 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:09,480 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 12
+2023-01-21 11:55:09,532 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 13
+2023-01-21 11:55:09,532 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:09,532 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 13
+2023-01-21 11:55:09,532 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:09,532 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 13
+2023-01-21 11:55:09,532 INFO    SenderThread:93210 [sender.py:transition_state():585] send defer: 14
+2023-01-21 11:55:09,533 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 11:55:09,533 DEBUG   SenderThread:93210 [sender.py:send():334] send: final
+2023-01-21 11:55:09,533 INFO    HandlerThread:93210 [handler.py:handle_request_defer():170] handle defer: 14
+2023-01-21 11:55:09,533 DEBUG   SenderThread:93210 [sender.py:send():334] send: footer
+2023-01-21 11:55:09,533 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: defer
+2023-01-21 11:55:09,533 INFO    SenderThread:93210 [sender.py:send_request_defer():581] handle sender defer: 14
+2023-01-21 11:55:09,534 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 11:55:09,534 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 11:55:09,534 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: server_info
+2023-01-21 11:55:09,535 DEBUG   SenderThread:93210 [sender.py:send_request():361] send_request: server_info
+2023-01-21 11:55:09,537 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: get_summary
+2023-01-21 11:55:09,538 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: sampled_history
+2023-01-21 11:55:09,597 INFO    MainThread:93210 [wandb_run.py:_footer_history_summary_info():3427] rendering history
+2023-01-21 11:55:09,598 INFO    MainThread:93210 [wandb_run.py:_footer_history_summary_info():3459] rendering summary
+2023-01-21 11:55:09,598 INFO    MainThread:93210 [wandb_run.py:_footer_sync_info():3383] logging synced files
+2023-01-21 11:55:09,598 DEBUG   HandlerThread:93210 [handler.py:handle_request():144] handle_request: shutdown
+2023-01-21 11:55:09,599 INFO    HandlerThread:93210 [handler.py:finish():841] shutting down handler
+2023-01-21 11:55:10,535 INFO    WriterThread:93210 [datastore.py:close():299] close: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_115411-612jzkcc/run-612jzkcc.wandb
+2023-01-21 11:55:10,597 INFO    SenderThread:93210 [sender.py:finish():1491] shutting down sender
+2023-01-21 11:55:10,597 INFO    SenderThread:93210 [file_pusher.py:finish():160] shutting down file pusher
+2023-01-21 11:55:10,597 INFO    SenderThread:93210 [file_pusher.py:join():165] waiting for file pusher

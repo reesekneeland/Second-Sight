@@ -1,0 +1,195 @@
+2023-01-21 13:52:23,993 INFO    StreamThr :112004 [internal.py:wandb_internal():87] W&B internal server running at pid: 112004, started at: 2023-01-21 13:52:23.992902
+2023-01-21 13:52:23,996 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status
+2023-01-21 13:52:23,997 INFO    WriterThread:112004 [datastore.py:open_for_write():85] open: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/run-pknygwjv.wandb
+2023-01-21 13:52:23,999 DEBUG   SenderThread:112004 [sender.py:send():334] send: header
+2023-01-21 13:52:24,054 DEBUG   SenderThread:112004 [sender.py:send():334] send: run
+2023-01-21 13:52:24,215 INFO    SenderThread:112004 [dir_watcher.py:__init__():216] watching files in: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files
+2023-01-21 13:52:24,215 INFO    SenderThread:112004 [sender.py:_start_run_threads():1065] run started: pknygwjv with start time 1674330743.991725
+2023-01-21 13:52:24,215 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: summary_record
+2023-01-21 13:52:24,216 INFO    SenderThread:112004 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 13:52:24,324 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: check_version
+2023-01-21 13:52:24,324 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: check_version
+2023-01-21 13:52:24,395 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: run_start
+2023-01-21 13:52:24,404 DEBUG   HandlerThread:112004 [system_info.py:__init__():31] System info init
+2023-01-21 13:52:24,404 DEBUG   HandlerThread:112004 [system_info.py:__init__():46] System info init done
+2023-01-21 13:52:24,404 INFO    HandlerThread:112004 [system_monitor.py:start():151] Starting system monitor
+2023-01-21 13:52:24,404 INFO    SystemMonitor:112004 [system_monitor.py:_start():116] Starting system asset monitoring threads
+2023-01-21 13:52:24,405 INFO    HandlerThread:112004 [system_monitor.py:probe():172] Collecting system info
+2023-01-21 13:52:24,405 INFO    SystemMonitor:112004 [interfaces.py:start():168] Started cpu
+2023-01-21 13:52:24,411 INFO    SystemMonitor:112004 [interfaces.py:start():168] Started disk
+2023-01-21 13:52:24,412 INFO    SystemMonitor:112004 [interfaces.py:start():168] Started gpu
+2023-01-21 13:52:24,413 INFO    SystemMonitor:112004 [interfaces.py:start():168] Started memory
+2023-01-21 13:52:24,413 INFO    SystemMonitor:112004 [interfaces.py:start():168] Started network
+2023-01-21 13:52:24,459 DEBUG   HandlerThread:112004 [system_info.py:probe():195] Probing system
+2023-01-21 13:52:24,468 DEBUG   HandlerThread:112004 [system_info.py:_probe_git():180] Probing git
+2023-01-21 13:52:24,490 DEBUG   HandlerThread:112004 [system_info.py:_probe_git():188] Probing git done
+2023-01-21 13:52:24,490 DEBUG   HandlerThread:112004 [system_info.py:probe():241] Probing system done
+2023-01-21 13:52:24,490 DEBUG   HandlerThread:112004 [system_monitor.py:probe():181] {'os': 'Linux-3.10.0-1160.45.1.el7.x86_64-x86_64-with-glibc2.17', 'python': '3.9.15', 'heartbeatAt': '2023-01-21T19:52:24.459680', 'startedAt': '2023-01-21T19:52:23.985939', 'docker': None, 'cuda': None, 'args': (), 'state': 'running', 'program': '/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_100_LR.py', 'codePath': 'scalar_experiments/scalar_100_LR.py', 'git': {'remote': 'https://github.com/reesekneeland/Second-Sight', 'commit': 'a0c987a2d050af8b7007fb3c04ba2a3a9c3a5476'}, 'email': 'reesekneeland@gmail.com', 'root': '/export/raid1/home/kneel027/Second-Sight', 'host': 'hypatia.cmrr.umn.edu', 'username': 'kneel027', 'executable': '/export/raid1/home/kneel027/miniconda3/envs/ldm/bin/python', 'cpu_count': 64, 'cpu_count_logical': 128, 'cpu_freq': {'current': 1842.96875, 'min': 1500.0, 'max': 2000.0}, 'cpu_freq_per_core': [{'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1800.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 1500.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}, {'current': 2000.0, 'min': 1500.0, 'max': 2000.0}], 'disk': {'total': 774.1999130249023, 'used': 18.622947692871094}, 'gpu': 'NVIDIA A100-PCIE-40GB', 'gpu_count': 4, 'gpu_devices': [{'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}, {'name': 'NVIDIA A100-PCIE-40GB', 'memory_total': 42505273344}], 'memory': {'total': 503.64343643188477}}
+2023-01-21 13:52:24,490 INFO    HandlerThread:112004 [system_monitor.py:probe():182] Finished collecting system info
+2023-01-21 13:52:24,490 INFO    HandlerThread:112004 [system_monitor.py:probe():185] Publishing system info
+2023-01-21 13:52:24,490 DEBUG   HandlerThread:112004 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-01-21 13:52:24,491 DEBUG   HandlerThread:112004 [system_info.py:_save_pip():67] Saving pip packages done
+2023-01-21 13:52:24,491 DEBUG   HandlerThread:112004 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-01-21 13:52:25,218 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-summary.json
+2023-01-21 13:52:25,218 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/conda-environment.yaml
+2023-01-21 13:52:25,218 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/requirements.txt
+2023-01-21 13:52:30,155 DEBUG   HandlerThread:112004 [system_info.py:_save_conda():86] Saving conda packages done
+2023-01-21 13:52:30,157 INFO    HandlerThread:112004 [system_monitor.py:probe():187] Finished publishing system info
+2023-01-21 13:52:30,162 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 13:52:30,162 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 13:52:30,163 DEBUG   SenderThread:112004 [sender.py:send():334] send: files
+2023-01-21 13:52:30,163 INFO    SenderThread:112004 [sender.py:_save_file():1319] saving file wandb-metadata.json with policy now
+2023-01-21 13:52:30,172 DEBUG   SenderThread:112004 [sender.py:send():334] send: telemetry
+2023-01-21 13:52:30,173 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: stop_status
+2023-01-21 13:52:30,173 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: stop_status
+2023-01-21 13:52:30,220 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/conda-environment.yaml
+2023-01-21 13:52:30,220 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-metadata.json
+2023-01-21 13:52:30,579 INFO    Thread-16 :112004 [upload_job.py:push():143] Uploaded file /tmp/tmpfw4wwn64wandb/807bh807-wandb-metadata.json
+2023-01-21 13:52:31,220 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_created():275] file/dir created: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:33,221 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:34,449 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 13:52:35,222 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:37,223 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:39,223 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:39,513 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 13:52:41,224 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:43,225 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:44,545 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 13:52:45,172 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 13:52:45,172 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: keepalive
+2023-01-21 13:52:45,226 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:45,521 DEBUG   SenderThread:112004 [sender.py:send():334] send: exit
+2023-01-21 13:52:45,521 INFO    SenderThread:112004 [sender.py:send_exit():557] handling exit code: 0
+2023-01-21 13:52:45,522 INFO    SenderThread:112004 [sender.py:send_exit():559] handling runtime: 21
+2023-01-21 13:52:45,522 INFO    SenderThread:112004 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 13:52:45,522 INFO    SenderThread:112004 [sender.py:send_exit():565] send defer
+2023-01-21 13:52:45,523 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:45,523 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 0
+2023-01-21 13:52:45,523 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:45,523 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 0
+2023-01-21 13:52:45,523 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 1
+2023-01-21 13:52:45,523 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:45,523 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 1
+2023-01-21 13:52:45,523 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:45,523 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 1
+2023-01-21 13:52:45,523 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 2
+2023-01-21 13:52:45,523 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:45,523 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 2
+2023-01-21 13:52:45,523 INFO    HandlerThread:112004 [system_monitor.py:finish():161] Stopping system monitor
+2023-01-21 13:52:45,524 DEBUG   SystemMonitor:112004 [system_monitor.py:_start():130] Starting system metrics aggregation loop
+2023-01-21 13:52:45,525 INFO    HandlerThread:112004 [interfaces.py:finish():175] Joined cpu
+2023-01-21 13:52:45,525 DEBUG   SystemMonitor:112004 [system_monitor.py:_start():137] Finished system metrics aggregation loop
+2023-01-21 13:52:45,525 INFO    HandlerThread:112004 [interfaces.py:finish():175] Joined disk
+2023-01-21 13:52:45,525 DEBUG   SystemMonitor:112004 [system_monitor.py:_start():141] Publishing last batch of metrics
+2023-01-21 13:52:46,117 INFO    HandlerThread:112004 [interfaces.py:finish():175] Joined gpu
+2023-01-21 13:52:46,117 INFO    HandlerThread:112004 [interfaces.py:finish():175] Joined memory
+2023-01-21 13:52:46,117 INFO    HandlerThread:112004 [interfaces.py:finish():175] Joined network
+2023-01-21 13:52:46,118 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,118 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 2
+2023-01-21 13:52:46,118 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 3
+2023-01-21 13:52:46,118 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,118 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 3
+2023-01-21 13:52:46,135 DEBUG   SenderThread:112004 [sender.py:send():334] send: stats
+2023-01-21 13:52:46,135 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,135 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 3
+2023-01-21 13:52:46,135 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 4
+2023-01-21 13:52:46,136 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,136 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 4
+2023-01-21 13:52:46,136 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,136 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 4
+2023-01-21 13:52:46,136 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 5
+2023-01-21 13:52:46,136 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,136 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 5
+2023-01-21 13:52:46,136 DEBUG   SenderThread:112004 [sender.py:send():334] send: summary
+2023-01-21 13:52:46,137 INFO    SenderThread:112004 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-01-21 13:52:46,137 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,137 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 5
+2023-01-21 13:52:46,137 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 6
+2023-01-21 13:52:46,137 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,137 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 6
+2023-01-21 13:52:46,137 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,137 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 6
+2023-01-21 13:52:46,141 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: status_report
+2023-01-21 13:52:46,226 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-summary.json
+2023-01-21 13:52:46,230 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 7
+2023-01-21 13:52:46,230 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,230 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 7
+2023-01-21 13:52:46,231 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,231 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 7
+2023-01-21 13:52:46,521 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 13:52:46,551 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 8
+2023-01-21 13:52:46,551 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 13:52:46,551 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,551 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 8
+2023-01-21 13:52:46,551 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:46,551 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 8
+2023-01-21 13:52:46,562 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 9
+2023-01-21 13:52:46,562 DEBUG   SenderThread:112004 [sender.py:send():334] send: artifact
+2023-01-21 13:52:46,562 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:46,564 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 9
+2023-01-21 13:52:47,051 INFO    SenderThread:112004 [sender.py:send_artifact():1415] sent artifact job-https___github.com_reesekneeland_Second-Sight_scalar_experiments_scalar_100_LR.py - {'id': 'QXJ0aWZhY3Q6MzM1ODY0MzQ1', 'digest': '1607810c2d9f78bb70c328d4d26fe7f2', 'state': 'COMMITTED', 'aliases': [{'artifactCollectionName': 'job-https___github.com_reesekneeland_Second-Sight_scalar_experiments_scalar_100_LR.py', 'alias': 'v0'}], 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjUwMjMzNDE5', 'latestArtifact': {'id': 'QXJ0aWZhY3Q6MzM1ODY2NDI4', 'versionIndex': 1}}, 'version': 'v0'}
+2023-01-21 13:52:47,051 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:47,051 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 9
+2023-01-21 13:52:47,051 INFO    SenderThread:112004 [dir_watcher.py:finish():362] shutting down directory watcher
+2023-01-21 13:52:47,226 INFO    Thread-13 :112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/config.yaml
+2023-01-21 13:52:47,227 INFO    SenderThread:112004 [dir_watcher.py:_on_file_modified():292] file/dir modified: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:47,227 INFO    SenderThread:112004 [dir_watcher.py:finish():392] scan: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files
+2023-01-21 13:52:47,228 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/config.yaml config.yaml
+2023-01-21 13:52:47,228 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-summary.json wandb-summary.json
+2023-01-21 13:52:47,231 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/requirements.txt requirements.txt
+2023-01-21 13:52:47,233 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/conda-environment.yaml conda-environment.yaml
+2023-01-21 13:52:47,235 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-metadata.json wandb-metadata.json
+2023-01-21 13:52:47,235 INFO    SenderThread:112004 [dir_watcher.py:finish():406] scan save: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log output.log
+2023-01-21 13:52:47,237 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 10
+2023-01-21 13:52:47,237 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:47,239 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 10
+2023-01-21 13:52:47,240 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:47,240 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 10
+2023-01-21 13:52:47,240 INFO    SenderThread:112004 [file_pusher.py:finish():160] shutting down file pusher
+2023-01-21 13:52:47,522 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 13:52:47,522 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 13:52:47,615 INFO    Thread-19 :112004 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/requirements.txt
+2023-01-21 13:52:47,627 INFO    Thread-21 :112004 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/output.log
+2023-01-21 13:52:47,648 INFO    Thread-20 :112004 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/conda-environment.yaml
+2023-01-21 13:52:47,656 INFO    Thread-17 :112004 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/config.yaml
+2023-01-21 13:52:47,660 INFO    Thread-18 :112004 [upload_job.py:push():143] Uploaded file /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/files/wandb-summary.json
+2023-01-21 13:52:47,860 INFO    Thread-12 :112004 [sender.py:transition_state():585] send defer: 11
+2023-01-21 13:52:47,861 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:47,861 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 11
+2023-01-21 13:52:47,861 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:47,861 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 11
+2023-01-21 13:52:47,861 INFO    SenderThread:112004 [file_pusher.py:join():165] waiting for file pusher
+2023-01-21 13:52:47,861 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 12
+2023-01-21 13:52:47,862 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:47,862 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 12
+2023-01-21 13:52:47,862 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:47,862 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 12
+2023-01-21 13:52:48,035 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 13
+2023-01-21 13:52:48,036 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:48,036 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 13
+2023-01-21 13:52:48,036 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:48,036 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 13
+2023-01-21 13:52:48,036 INFO    SenderThread:112004 [sender.py:transition_state():585] send defer: 14
+2023-01-21 13:52:48,037 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: defer
+2023-01-21 13:52:48,037 DEBUG   SenderThread:112004 [sender.py:send():334] send: final
+2023-01-21 13:52:48,037 INFO    HandlerThread:112004 [handler.py:handle_request_defer():170] handle defer: 14
+2023-01-21 13:52:48,037 DEBUG   SenderThread:112004 [sender.py:send():334] send: footer
+2023-01-21 13:52:48,038 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: defer
+2023-01-21 13:52:48,038 INFO    SenderThread:112004 [sender.py:send_request_defer():581] handle sender defer: 14
+2023-01-21 13:52:48,038 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 13:52:48,039 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 13:52:48,039 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: poll_exit
+2023-01-21 13:52:48,040 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: server_info
+2023-01-21 13:52:48,040 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: get_summary
+2023-01-21 13:52:48,040 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: poll_exit
+2023-01-21 13:52:48,041 DEBUG   SenderThread:112004 [sender.py:send_request():361] send_request: server_info
+2023-01-21 13:52:48,045 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: sampled_history
+2023-01-21 13:52:48,106 INFO    MainThread:112004 [wandb_run.py:_footer_history_summary_info():3427] rendering history
+2023-01-21 13:52:48,106 INFO    MainThread:112004 [wandb_run.py:_footer_history_summary_info():3459] rendering summary
+2023-01-21 13:52:48,106 INFO    MainThread:112004 [wandb_run.py:_footer_sync_info():3383] logging synced files
+2023-01-21 13:52:48,106 DEBUG   HandlerThread:112004 [handler.py:handle_request():144] handle_request: shutdown
+2023-01-21 13:52:48,106 INFO    HandlerThread:112004 [handler.py:finish():841] shutting down handler
+2023-01-21 13:52:49,040 INFO    WriterThread:112004 [datastore.py:close():299] close: /export/raid1/home/kneel027/Second-Sight/scalar_experiments/wandb/run-20230121_135223-pknygwjv/run-pknygwjv.wandb
+2023-01-21 13:52:49,106 INFO    SenderThread:112004 [sender.py:finish():1491] shutting down sender
+2023-01-21 13:52:49,106 INFO    SenderThread:112004 [file_pusher.py:finish():160] shutting down file pusher
+2023-01-21 13:52:49,106 INFO    SenderThread:112004 [file_pusher.py:join():165] waiting for file pusher

@@ -1,0 +1,36 @@
+
+
+
+
+
+
+train loader: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 25500/25500 [00:13<00:00, 1923.33it/s]
+test loader: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2250/2250 [00:01<00:00, 1915.60it/s]
+testing models:   1%|█▌                                                                                                                                                    | 1/100 [00:01<01:53,  1.15s/it]
+
+
+
+
+
+
+
+
+
+
+
+testing models: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 100/100 [00:23<00:00,  4.24it/s]
+Traceback (most recent call last):
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_LR.py", line 331, in <module>
+    main()
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_LR.py", line 328, in main
+    VM.predict_c_seperate(test)
+  File "/export/raid1/home/kneel027/Second-Sight/scalar_experiments/scalar_LR.py", line 307, in predict_c_seperate
+    print(np.mean(r))
+  File "<__array_function__ internals>", line 180, in mean
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/numpy/core/fromnumeric.py", line 3432, in mean
+    return _methods._mean(a, axis=axis, dtype=dtype,
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/numpy/core/_methods.py", line 164, in _mean
+    arr = asanyarray(a)
+  File "/export/raid1/home/kneel027/miniconda3/envs/ldm/lib/python3.9/site-packages/torch/_tensor.py", line 757, in __array__
+    return self.numpy()
+RuntimeError: Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead.
