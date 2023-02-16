@@ -58,7 +58,6 @@ from pearson import PearsonCorrCoef
 
 
 
-
     
 # Pytorch model class for Linear regression layer Neural Network
 class LinearRegression(torch.nn.Module):
@@ -78,6 +77,13 @@ class LinearRegression(torch.nn.Module):
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(10000, 12000)
         self.outlayer = nn.Linear(12000, outputSize)
+        
+        # self.linear = nn.Linear(10000, 10000)--> hundred million parameters
+        
+        # self.linear = nn.Linear(11838, 5000)
+        # self.linear2 = nn.Linear(5000, 1000)
+        # self.linear3 = nn.Linear(1000, 5000)
+        # self.linear = nn.Linear(5000, 11838)
     def forward(self, x):
         y_pred = self.relu(self.linear(x))
         y_pred = self.relu(self.linear2(y_pred))

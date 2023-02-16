@@ -173,7 +173,7 @@ def main(decode, encode):
     elif(encode):
         train_encoder()
     else:
-        reconstructNImages(experiment_title="MLP decoder new split",
+        reconstructNImages(experiment_title="MLP decoder z Score",
                        idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
 
@@ -227,7 +227,7 @@ def train_decoder():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "443",
+    Dz = Decoder(hashNum = "446",
                  vector="z_img_mixer", 
                  inpSize = 11838,
                  log=False, 
@@ -235,7 +235,7 @@ def reconstructNImages(experiment_title, idx):
                  parallel=False
                  )
     
-    Dc_i = Decoder(hashNum = "441",
+    Dc_i = Decoder(hashNum = "444",
                  vector="c_img_0", 
                  inpSize = 11838,
                  log=False, 
@@ -243,7 +243,7 @@ def reconstructNImages(experiment_title, idx):
                  parallel=False
                  )
     
-    Dc_t = Decoder(hashNum = "442",
+    Dc_t = Decoder(hashNum = "445",
                  vector="c_text_0", 
                  inpSize = 11838,
                  log=False, 
@@ -382,4 +382,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=True, encode=False)
+    main(decode=False, encode=False)
