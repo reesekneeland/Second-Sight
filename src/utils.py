@@ -148,12 +148,13 @@ def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
 
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
-        testset = torch.utils.data.TensorDataset(x_val, y_val)
-        
+        valset = torch.utils.data.TensorDataset(x_val, y_val)
+        testset = torch.utils.data.TensorDataset(x_test, y_test)
         # Loads the Dataset into a DataLoader
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-        return trainloader, testloader
+        return trainloader, valloader, testloader
     else:
         print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
         return x_train, x_val, x_test, y_train, y_val, y_test, test_trials

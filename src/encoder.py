@@ -10,7 +10,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
-from torchmetrics.functional import pearson_corrcoef
 from pycocotools.coco import COCO
 import h5py
 from utils import *
@@ -146,10 +145,10 @@ class Encoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = load_data(vector=self.vector, 
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers, 
-                                                      loader=True)
+        self.trainLoader, self.valLoader, self.testLoader = load_data(vector=self.vector, 
+                                                                    batch_size=self.batch_size, 
+                                                                    num_workers=self.num_workers, 
+                                                                    loader=True)
 
         
         # Initializes Weights and Biases to keep track of experiments and training runs
@@ -177,7 +176,7 @@ class Encoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss(size_average = False)
+        criterion = nn.MSELoss(reduction='sum')
         
         # Import gradients to wandb to track loss gradients
         if(self.log):
@@ -189,13 +188,12 @@ class Encoder():
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
             
-            # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
             
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            for i, data in enumerate(self.trainloader):
+            for i, data in enumerate(self.trainLoader):
                 
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
@@ -205,8 +203,7 @@ class Encoder():
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                y_data = y_data.moveaxis(0, 1).to(self.device)
-                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
+                y_data = y_data.to(self.device)
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
                 
@@ -214,7 +211,7 @@ class Encoder():
                 with torch.set_grad_enabled(True):
                     
                     # Train the x data in the model to get the predicted y value. 
-                    pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
+                    pred_y = self.model(x_data)
                     
                     # Compute the loss between the predicted y and the y data. 
                     loss = criterion(pred_y, y_data)
@@ -226,37 +223,37 @@ class Encoder():
                 # tqdm.write('train loss: %.3f' %(loss.item()))
                 # Add up the loss for this training round
                 running_loss += loss.item()
-
+                
+            train_loss = running_loss/len(self.trainLoader)
             tqdm.write('[%d] train loss: %.8f' %
-                (epoch + 1, running_loss /len(self.trainloader)))
+                (epoch + 1, train_loss ))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
                 
             # Entering validation stage
             # Set model to evaluation mode
             self.model.eval()
             running_test_loss = 0.0
-            for i, data in enumerate(self.testloader):
+            for i, data in enumerate(self.valLoader):
                 
                 # Loading in the test data
                 y_data, x_data = data
                 x_data = x_data.to(self.device)
-                y_data = y_data.moveaxis(0, 1).to(self.device)
-                criterion = PearsonCorrCoef(num_outputs=y_data.shape[1]).to("cuda")
+                y_data = y_data.to(self.device)
                 # Generating predictions based on the current model
-                pred_y = self.model(x_data).moveaxis(0, 1).to(self.device)
+                pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
                 loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()
                 
-            test_loss = running_test_loss / len(self.testloader)
+            test_loss = running_test_loss / len(self.valLoader)
                 
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
                         (epoch + 1, test_loss))
             if(self.log):
-                wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
+                wandb.log({'test_loss': test_loss})
                     
             # Check if we need to save the model
             # Early stopping
@@ -280,56 +277,75 @@ class Encoder():
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
             
-    def generate_hist(self):
+    def predict(self, x, batch=False, batch_size=750):
+        
+        out = torch.zeros((x.shape[0],11838))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
+
+        for i in range(torch.ceil(x.shape[0]/batch_size)):
+            if i*batch_size < x.shape[0]:
+                x_test = x[i*batch_size:i*batch_size + batch_size]
+            else:
+                x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+            x_test = x_test.to(self.device)                
+
+            # Generating predictions based on the current model
+            pred_y = self.model(x_test).to(self.device)
+            
+            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            
+        return out
+                
+    
+    def benchmark(self):
         
         out = torch.zeros((2770,11838))
         target = torch.zeros((2770, 11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        
-        _, _, y_test, _, _, x_test = load_data(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
-                                                loader=False)
-        
-        y_test = y_test.to(self.device)
-        x_test = x_test.to(self.device)
 
-        
         loss = 0
-        pearson_corrcoef_loss = 0
-        criterion = nn.MSELoss(size_average = False)
+        pearson_loss = 0
         
-        for index in range(y_test.shape[0]):
+        criterion = nn.MSELoss()
+        
+        for index, data in enumerate(self.testLoader):
             
+            y_test, x_test = data
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+            y_test = y_test.to(self.device)
+            x_test = x_test.to(self.device)
             # Generating predictions based on the current model
-            pred_y = self.model(x_test[index]).to(self.device)
-            loss += criterion(pred_y, y_test[index])
+            pred_y = self.model(x_test).to(self.device)
             
-            out[index] = pred_y
-            target[index] = y_test[index]
             
-            pearson_corrcoef_loss += pearson_corrcoef(out[index], target[index])
+            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
+            loss += criterion(pred_y, y_test)
+            pred_y = pred_y.moveaxis(0,1)
+            y_test = y_test.moveaxis(0,1)
+            pearson_loss += torch.mean(PeC(pred_y, y_test))
             #print(pearson_corrcoef(out[index], target[index]))
             
             
-        loss = loss / y_test.shape[0]
+        loss = loss / len(self.testLoader)
         
         # Vector correlation for that trial row wise
-        pearson_corrcoef_loss = pearson_corrcoef_loss / y_test.shape[0]
+        pearson_loss = pearson_loss / len(self.testLoader)
         
         out = out.detach()
-        target = target.detach()
-        
+        PeC = PearsonCorrCoef()
         r = []
         for p in range(out.shape[1]):
             
             # Correlation across voxels for a sample (Taking a column)
-            r.append(pearson_corrcoef(out[:,p], target[:,p]))
+            r.append(PeC(out[:,p], target[:,p]))
         r = np.array(r)
         
-        print("Vector Correlation: ", float(pearson_corrcoef_loss))
+        print("Vector Correlation: ", float(pearson_loss))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
