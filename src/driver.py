@@ -286,7 +286,7 @@ def reconstructNImages(experiment_title, idx):
     R = Reconstructor()
     for i in range(len(idx)):
         print(i)
-        test_i = test_trials[i]
+        test_i = test_trials[i+1]
         print("shape: ", outputs_c_i[i].shape)
         c_combined, c_combined_target = [], []
         c_combined.append(outputs_c_i[i].reshape((1,768)).to("cuda"))
