@@ -213,7 +213,49 @@ def train_decoder():
     print(cosSim(torch.randn_like(outputs_c[0]), targets_c[0]))
     return hashNum
 
+def predictVector_cc3m(model, vector, x, device="cuda:0"):
+        if(vector == "c_img_0" or vector == "c_text_0"):
+            datasize = 768
+        elif(vector == "z_img_mixer"):
+            datasize = 16384
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        # y = torch.load(prep_path + vector + "/vector_cc3m.pt").requires_grad_(False)
 
+        # y = y.detach()
+        # x_preds = x_preds.detach()
+        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
+        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
+        # loss = nn.MSELoss(reduction='none')
+        out = torch.zeros((x.shape[0], 5, datasize))
+        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
+            batch_max_x = torch.zeros((620, x.shape[1])).to(device)
+            batch_max_y = torch.zeros((620, datasize)).to(device)
+            for batch in tqdm(range(124), desc="batching sample"):
+                y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt").to(device)
+                x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
+                x_preds_t = x_preds.moveaxis(0, 1).to(device)
+                # Pearson correlation
+
+                # TODO: Grab the pearson score 
+                pearson = PeC(xDup, x_preds_t)
+
+                # TODO: Get the top five vectors values not indices (Average them and then make a running total and add
+                #  them to a counter variable and then divide by the number of samples)
+                top5_ind = torch.topk(pearson, 5).indices
+                for j, index in enumerate(top5_ind):
+                    batch_max_x[5*batch + j] = x_preds_t[:,index]
+                    batch_max_y[5*batch + j] = y[index]
+            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
+            batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
+            outPearson = outputPeC(xDupOut, batch_max_x)
+            top5_ind_out = torch.topk(outPearson, 5).indices
+            for j, index in enumerate(top5_ind_out):
+                    out[i, j] = batch_max_y[index] 
+            print("max of pred: ", out[i].max())
+        torch.save(out, latent_path + model + "/" + vector + "_cc3m_library_preds.pt")
+        return out
 
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
@@ -236,25 +278,30 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-    _, x_test, _, targets_c_i = load_data_masked("c_img_0")
-    
-    _, _, _, targets_c_t = load_data_masked("c_text_0")
-    _, _, _, targets_z = load_data_masked("z_img_mixer")
-    x_test = x_test[idx]
-    targets_c_i = targets_c_i[idx]
-    targets_c_t = targets_c_t[idx]
-    targets_z = targets_z[idx]
-    outputs_c_i = predictVector_cc3m(model="417_model_c_img_0.pt", vector="c_img_0", x=x_test)
+     _, _, x_test, _, _, targets_c_i, test_trials = load_data(vector="c_img_0", 
+                                                             loader=False)
+    _, _, _, _, _, targets_c_t, _ = load_data(vector="c_text_0", 
+                                              loader=False)
+    _, _, _, _, _, targets_z, _ = load_data(vector="z_img_mixer", 
+                                            loader=False)
+    test_idx = test_trials[idx]
+    # TODO: Run the 20 test x through the autoencoder to feed into predictVector_cc3m
+    x_test = x_test[test_idx]
+    targets_c_i = targets_c_i[test_idx]
+    targets_c_t = targets_c_t[test_idx]
+    targets_z = targets_z[test_idx]
+    # use z score models here not 417
+    outputs_c_i = predictVector_cc3m(model="417_model_c_img_0.pt", vector="c_img_0", x=x_test)[:,0]
     # outputs_c_t = predictVector_cc3m(model="411_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
     # outputs_z = predictVector_cc3m(model="412_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)[:,0]
     # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/410_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
-    outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
-    outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")
+    # outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/411_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
+    # outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/412_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
     for i in range(len(idx)-1):
-        test_i = idx[i] + 25501
+        test_i = test_trials[i+1]
         brain_scan = x_test[idx[i]]
         # index = int(subj1x.loc[(subj1x['subject1_rep0'] == test_i) | (subj1x['subject1_rep1'] == test_i) | (subj1x['subject1_rep2'] == test_i)].nsdId)
         rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/"
@@ -275,7 +322,6 @@ def reconstructNImages(experiment_title, idx):
         
     
         # Make the c reconstrution images. 
-        
         reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         

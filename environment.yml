@@ -1,0 +1,35 @@
+name: SS
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8.10
+  - pip=22.3.1
+  - pytorch==1.12.1
+  - torchvision==0.13.1
+  - cudatoolkit=11.3
+  - pip:
+      - diffusers==0.3.0
+      - einops==0.3.0
+      - omegaconf==2.1.1
+      - img2dataset>=1.41.0
+      - ipython>=8.9.0
+      - kornia==0.6.0
+      - matplotlib>=3.6.3
+      - nibabel>=5.0.0
+      - numpy>=1.23.5
+      - opencv-python==4.5.5.64
+      - opencv-python-headless==4.7.0.68
+      - pandas>=1.5.3
+      - pillow>=9.4.0
+      - pudb==2019.2
+      - pycocotools==2.0.6
+      - pytorch-lightning>=1.4.2
+      - torchmetrics==0.7.0
+      - tqdm>=4.64.1
+      - transformers>=4.22.2
+      - wandb>=0.12.21
+      - webdataset>=0.2.5
+      - git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
+      - git+https://github.com/openai/CLIP.git@main#egg=clip
+      - git+https://github.com/justinpinkney/nomi.git@e9ded23b7e2269cc64d39683e1bf3c0319f552ab#egg=nomi

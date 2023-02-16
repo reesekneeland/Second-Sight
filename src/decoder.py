@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
 from pearson import PearsonCorrCoef
-from pycocotools.coco import COCO
 import h5py
 from utils import *
 import wandb
@@ -132,7 +131,7 @@ class Decoder():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "Linear Regression",
+                "architecture": "MLP",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
                 "dataset": "Z score test",
@@ -194,7 +193,6 @@ class Decoder():
                     pred_y = self.model(x_data).to(self.device)
                     
                     # Compute the loss between the predicted y and the y data. 
-                    # loss = compound_loss(pred_y, y_data)
                     loss = criterion(pred_y, y_data)
                     
                     # Perform weight updating
@@ -223,7 +221,6 @@ class Decoder():
                 pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
-                # loss = compound_loss(pred_y, y_data)
                 loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()

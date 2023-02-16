@@ -1,7 +1,6 @@
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
-from torch.autograd import Variable
 import numpy as np
 from PIL import Image
 from nsd_access import NSDAccess
@@ -11,15 +10,14 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
-import h5py
 from utils import *
-import wandb
 import copy
 from tqdm import tqdm
 from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
-from fracridge_decoder import RidgeDecoder
+from autoencoder  import AutoEncoder
+from ss_decoder import SS_Decoder
 # from diffusers import StableDiffusionImageEncodingPipeline
 
 
@@ -165,38 +163,89 @@ from fracridge_decoder import RidgeDecoder
 #     - Z score
 
 
-def main(decode, encode):
+def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     
-    if(decode):
-        train_decoder()
-    elif(encode):
-        train_encoder()
-    else:
-        reconstructNImages(experiment_title="MLP decoder z Score",
-                       idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # train_decoder()
+
+    # train_encoder()
+
+    # load_cc3m("c_img_0", "410_model_c_img_0.pt")
+
+    reconstructNImages(experiment_title="MLP decoder z Score", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+
+    # train_autoencoder()
+
+    # train_ss_decoder()
+
+def train_autoencoder():
+    
+    hashNum = update_hash()
+    #hashNum = "424"
+    
+    AE = AutoEncoder(hashNum = hashNum,
+                 lr=0.0000001,
+                 vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer
+                 log=True, 
+                 batch_size=750,
+                 parallel=False,
+                 device="cuda:0",
+                 num_workers=16,
+                 epochs=300
+                )
+    
+    AE.train()
+    
+    modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
+    AE.benchmark()
 
 
 def train_encoder():
     # hashNum = update_hash()
-    hashNum = "417"
+    hashNum = "424"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=False, 
                  batch_size=750,
                  parallel=False,
-                 device="cuda:1",
+                 device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
     # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    # outputs = E.predict_73K_coco(model=modelId, predict=False)
-    outputs = E.benchmark()
+    E.predict_cc3m(model=modelId)
+    # _, y = load_data(vector = E.vector, batch_size = E.batch_size, 
+    #                 num_workers = E.num_workers, loader = False, split = False)
+    # outputs = E.predict(y)
+    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/z_img_mixer.pt")
+    # outputs = E.benchmark()
 
     return hashNum
+
+def train_ss_decoder():
+    
+    hashNum = update_hash()
+    #hashNum = "424"
+    SS = SS_Decoder(hashNum = hashNum,
+                    vector="c_img_0",
+                    log=True, 
+                    encoderHash="424",
+                    lr=0.000001,
+                    batch_size=750,
+                    parallel=False,
+                    device="cuda:0",
+                    num_workers=16,
+                    epochs=300
+                )
+    
+    SS.train()
+    
+    # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
+    SS.benchmark()
+
 
 def train_decoder():
     hashNum = update_hash()
@@ -382,4 +431,4 @@ def reconstructNImages(experiment_title, idx):
         plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
     
 if __name__ == "__main__":
-    main(decode=False, encode=True)
+    main()

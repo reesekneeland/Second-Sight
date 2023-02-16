@@ -284,7 +284,7 @@ class Encoder():
         self.model.eval()
         self.model.to(self.device)
 
-        for i in range(torch.ceil(x.shape[0]/batch_size)):
+        for i in range(int(np.ceil(x.shape[0]/batch_size))):
             if i*batch_size < x.shape[0]:
                 x_test = x[i*batch_size:i*batch_size + batch_size]
             else:
@@ -294,7 +294,7 @@ class Encoder():
             # Generating predictions based on the current model
             pred_y = self.model(x_test).to(self.device)
             
-            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
             
         return out
                 
