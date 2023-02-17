@@ -60,9 +60,9 @@ from tqdm import tqdm
 
     
 # Pytorch model class for Linear regression layer Neural Network
-class LinearRegression(torch.nn.Module):
+class MLP(torch.nn.Module):
     def __init__(self, vector, inpSize):
-        super(LinearRegression, self).__init__()
+        super(MLP, self).__init__()
         if(vector == "c_prompt"):
             outSize = 78848
         elif(vector == "c_combined" or vector == "c_img_mixer"):
@@ -111,7 +111,7 @@ class Decoder():
         self.inpSize = inpSize
 
         # Initialize the Pytorch model class
-        self.model = LinearRegression(self.vector, self.inpSize)
+        self.model = MLP(self.vector, self.inpSize)
         
         # Configure multi-gpu training
         if(self.parallel):
@@ -121,7 +121,7 @@ class Decoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainloader, self.testloader = None, None
+        self.trainLoader, self.valLoader, self.testLoader = None, None, None
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -144,7 +144,7 @@ class Decoder():
     
 
     def train(self):
-        self.trainloader, self.testloader = load_data(vector=self.vector, 
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
                                                       batch_size=self.batch_size, 
                                                       num_workers=self.num_workers, 
                                                       loader=True)
@@ -153,7 +153,7 @@ class Decoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss(size_average = False)
+        criterion = nn.MSELoss()
         
         # Import gradients to wandb to track loss gradients
         # if(self.log):
@@ -171,7 +171,7 @@ class Decoder():
             
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            for i, data in enumerate(self.trainloader):
+            for i, data in enumerate(self.trainLoader):
                 
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
@@ -203,14 +203,14 @@ class Decoder():
                 # Add up the loss for this training round
                 running_loss += loss.item()
             tqdm.write('[%d] train loss: %.8f' %
-                (epoch + 1, running_loss /len(self.trainloader)))
+                (epoch + 1, running_loss /len(self.trainLoader)))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
                 
             # Entering validation stage
             # Set model to evaluation mode
             self.model.eval()
             running_test_loss = 0.0
-            for i, data in enumerate(self.testloader):
+            for i, data in enumerate(self.valLoader):
                 
                 # Loading in the test data
                 x_data, y_data = data
@@ -225,7 +225,7 @@ class Decoder():
 
                 running_test_loss += loss.item()
                 
-            test_loss = running_test_loss / len(self.testloader)
+            test_loss = running_test_loss / len(self.valLoader)
                 
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
@@ -318,7 +318,7 @@ class Decoder():
 
 
         PeC = PearsonCorrCoef(num_outputs=x.shape[0]).to(self.device)
-        criterion = nn.MSELoss(size_average = False)
+        criterion = nn.MSELoss()
         
         # Generating predictions based on the current model
         out = self.model(x_test).to(self.device)
@@ -334,52 +334,63 @@ class Decoder():
         print("Loss: ", float(loss))
         return out
     
-    # def predict(self, model):
-    #     if(self.vector == "c_prompt"):
-    #         outSize = 78848
-    #     elif(self.vector == "c_combined" or self.vector == "c_img_mixer"):
-    #         outSize = 3840
-    #     elif(self.vector == "c_img_mixer_0" or self.vector=="c_img_0" or self.vector=="c_text_0"):
-    #         outSize = 768
-    #     elif(self.vector == "z" or self.vector == "z_img_mixer"):
-    #         outSize = 16384
-    #     elif(self.vector == "c_img"):
-    #         outSize = 1536
-    #     out = torch.zeros((2250, outSize))
-    #     target = torch.zeros((2250, outSize))
-    #     print(model)
-    #     os.makedirs("latent_vectors/" + model, exist_ok=True)
-    #     # Load the model into the class to be used for predictions
-    #     if(self.parallel):
-    #         self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     else:
-    #         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     self.model.eval()
+    def benchmark(self):
+        _, _, self.testLoader = load_nsd(vector=self.vector, 
+                                                      batch_size=self.batch_size, 
+                                                      num_workers=self.num_workers, 
+                                                      loader=True)
+        outSize = len(self.testLoader.dataset)
+        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
+            vecSize = 768
+        elif(self.vector == "z" or self.vector == "z_img_mixer"):
+            vecSize = 16384
+        out = torch.zeros((outSize, vecSize))
+        target = torch.zeros((outSize, vecSize))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
 
-    #     for index, data in enumerate(self.testloader):
+        loss = 0
+        pearson_loss = 0
+        
+        criterion = nn.MSELoss()
+        
+        for index, data in enumerate(self.testLoader):
             
-    #         # Loading in the test data
-    #         x_data, y_data = data
-    #         x_data = x_data.to(self.device)
-    #         y_data = y_data.to(self.device)
-    #         # Generating predictions based on the current model
-    #         pred_y = self.model(x_data).to(self.device)
-    #         out[index*self.batch_size:index*self.batch_size+self.batch_size] = pred_y
-    #         target[index*self.batch_size:index*self.batch_size+self.batch_size] = y_data
-        
-    #     # out = out.detach()
-    #     # target = target.detach()
-        
-    
-    #     # Pearson correlation
-    #     # r = []
-    #     # for p in range(out.shape[1]):
-    #     #     r.append(pearson_corrcoef(out[:,p], target[:,p]))
-    #     # r = np.array(r)
-    #     # print(np.mean(r))
+            x_test, y_test = data
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+            y_test = y_test.to(self.device)
+            x_test = x_test.to(self.device)
+            # Generating predictions based on the current model
+            pred_y = self.model(x_test).to(self.device)
             
-    #     # plt.hist(r, bins=40, log=True)
-    #     # plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "2voxels_pearson_histogram_log_applied_decoder.png")
+            
+            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
+            loss += criterion(pred_y, y_test)
+            pred_y = pred_y.moveaxis(0,1)
+            y_test = y_test.moveaxis(0,1)
+            pearson_loss += torch.mean(PeC(pred_y, y_test))
+            #print(pearson_corrcoef(out[index], target[index]))
+            
+            
+        loss = loss / len(self.testLoader)
         
-    #     return out, target
+        # Vector correlation for that trial row wise
+        pearson_loss = pearson_loss / len(self.testLoader)
         
+        out = out.detach()
+        target = target.detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for p in range(out.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(out[:,p], target[:,p]))
+        r = np.array(r)
+        
+        print("Vector Correlation: ", float(pearson_loss))
+        print("Mean Pearson: ", np.mean(r))
+        print("Loss: ", float(loss))
+        plt.hist(r, bins=40, log=True)
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
