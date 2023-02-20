@@ -172,16 +172,16 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="MLP decoder c_img_0 test", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    # reconstructNImages(experiment_title="MLP decoder c_img_0 test", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
-    # train_autoencoder()
+    train_autoencoder()
 
     # train_ss_decoder()
 
 def train_autoencoder():
     
-    hashNum = update_hash()
-    #hashNum = "424"
+    # hashNum = update_hash()
+    hashNum = "507"
     
     AE = AutoEncoder(hashNum = hashNum,
                  lr=0.000001,
@@ -194,7 +194,7 @@ def train_autoencoder():
                  epochs=300
                 )
     
-    AE.train()
+    # AE.train()
     AE.benchmark()
 
 
