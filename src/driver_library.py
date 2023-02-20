@@ -99,15 +99,13 @@ def reconstructNImages(experiment_title, idx):
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
-<<<<<<< HEAD
     # Load in the data
     _, _, x_test, _, _, targets_c_i, test_trials = load_data(vector="c_img_0", 
-=======
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-     _, _, x_test, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", 
+    _, _, x_test, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", 
                                                              loader=False)
     _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", 
                                               loader=False)
