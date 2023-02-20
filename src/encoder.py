@@ -145,7 +145,7 @@ class Encoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = load_data(vector=self.vector, 
+        self.trainLoader, self.valLoader, self.testLoader = load_nsd(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     loader=True)

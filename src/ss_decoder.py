@@ -88,7 +88,7 @@ class SS_Decoder():
                 encoderHash,
                 lr=0.00001,
                 batch_size=750,
-                parallel=True,
+                parallel=False,
                 device="cuda",
                 num_workers=16,
                 epochs=200
@@ -116,12 +116,6 @@ class SS_Decoder():
         # Send model to Pytorch Device 
         self.model.to(self.device)
         
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = load_cc3m(vector=self.vector,
-                                                      modelId = self.encModel,
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers)
-        
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
@@ -143,6 +137,12 @@ class SS_Decoder():
     
 
     def train(self):
+        # Initialize the data loaders
+        self.trainLoader, self.valLoader, _ = load_cc3m(vector=self.vector,
+                                                      modelId = self.encModel,
+                                                      batch_size=self.batch_size, 
+                                                      num_workers=self.num_workers)
+        
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -250,14 +250,20 @@ class SS_Decoder():
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
-def benchmark(self):
+    #Still eating memory
+    def benchmark(self):
+        # Initialize the data loaders
+        _, _, self.testLoader = load_cc3m(vector=self.vector,
+                                                      modelId = self.encModel,
+                                                      batch_size=self.batch_size, 
+                                                      num_workers=self.num_workers)
         outSize = len(self.testLoader.dataset)
-        if(vector=="c_img_0" or vector=="c_text_0"):
+        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768
-        elif(vector == "z" or vector == "z_img_mixer"):
+        elif(self.vector == "z" or self.vector == "z_img_mixer"):
             vecSize = 16384
-        out = torch.zeros((outSize, vecSize)).to(self.device)
-        target = torch.zeros((outSize, vecSize)).to(self.device)
+        out = torch.zeros((outSize, vecSize)).to("cpu")
+        target = torch.zeros((outSize, vecSize)).to("cpu")
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
@@ -267,22 +273,25 @@ def benchmark(self):
         
         criterion = nn.MSELoss()
         
-        for index, data in enumerate(self.testLoader):
+        for index, data in enumerate(tqdm(self.testLoader, desc="benchmarking test set")):
             
-            y_test, x_test = data
-            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
-            y_test = y_test.to(self.device)
+            x_test, y_test = data
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0])
+            y_test = y_test.to("cpu")
             x_test = x_test.to(self.device)
             # Generating predictions based on the current model
-            pred_y = self.model(x_test).to(self.device)
-            
+            pred_y = self.model(x_test)
+            pred_y = pred_y.to("cpu")
             
             out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
             target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
+            out.to("cpu")
+            target.to("cpu")
+            print(out.device, target.device, pred_y.device, y_test.device, PeC.device)
             loss += criterion(pred_y, y_test)
             pred_y = pred_y.moveaxis(0,1)
             y_test = y_test.moveaxis(0,1)
-            pearson_loss += torch.mean(PeC(pred_y, y_test))
+            pearson_loss += torch.mean(PeC(pred_y, y_test)).to("cpu")
             #print(pearson_corrcoef(out[index], target[index]))
             
             
@@ -306,3 +315,31 @@ def benchmark(self):
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        model = self.hashNum + "_model_" + self.vector + ".pt/"
+        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
+        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_out.pt")
+        torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
+        return out, target
+        
+    def predict(self, x, batch=False, batch_size=750):
+        
+        # out = torch.zeros((x.shape[0],768))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
+        # if(batch==False):
+        #     batch_size = 1
+
+        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
+        #     if i*batch_size < x.shape[0]:
+        #         x_test = x[i*batch_size:i*batch_size + batch_size]
+        #     else:
+        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+        #     x_test = x_test.to(self.device)                
+
+        #     # Generating predictions based on the current model
+        #     pred_y = self.model(x_test)
+            
+        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        out = self.model(x.to(self.device))
+        return out

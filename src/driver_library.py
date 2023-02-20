@@ -99,12 +99,20 @@ def reconstructNImages(experiment_title, idx):
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
+<<<<<<< HEAD
     # Load in the data
     _, _, x_test, _, _, targets_c_i, test_trials = load_data(vector="c_img_0", 
+=======
+    # Generating predicted and target vectors
+    # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
+    # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
+    # outputs_c_i = [outputs_c_i[i] for i in idx]
+     _, _, x_test, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", 
+>>>>>>> a2316ab0f25c11b06bf37a7baf82b9f0013ff7f4
                                                              loader=False)
-    _, _, _, _, _, targets_c_t, _ = load_data(vector="c_text_0", 
+    _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", 
                                               loader=False)
-    _, _, _, _, _, targets_z, _ = load_data(vector="z_img_mixer", 
+    _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", 
                                             loader=False)
     
     test_idx = [test_trials[i] for i in idx]
@@ -127,7 +135,7 @@ def reconstructNImages(experiment_title, idx):
     strength_z = 0
     R = Reconstructor()
     for i in range(len(idx)-1):
-        test_i = test_trials[i+1]
+        test_i = test_trials[idx[i+1]]
         brain_scan = x_test[idx[i]]
         # index = int(subj1x.loc[(subj1x['subject1_rep0'] == test_i) | (subj1x['subject1_rep1'] == test_i) | (subj1x['subject1_rep2'] == test_i)].nsdId)
         rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/"
