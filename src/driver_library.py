@@ -19,6 +19,7 @@ from tqdm import tqdm
 from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
+from pearson import PearsonCorrCoef, pearson_corrcoef
 
 
 #   Encoders:
@@ -46,32 +47,30 @@ def predictVector_cc3m(model, vector, x, device="cuda:1"):
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
         latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
         
-        PeC = PearsonCorrCoef(num_outputs=22735)
-        outputPeC = PearsonCorrCoef(num_outputs=620)
+        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
+        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
         
         out = torch.zeros((x.shape[0], 5, datasize))
         average_pearson = 0
         
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
-            xDup = x[i].repeat(22735, 1).moveaxis(0, 1)
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
             batch_max_x = torch.zeros((620, x.shape[1]))
             batch_max_y = torch.zeros((620, datasize))
             for batch in tqdm(range(124), desc="batching sample"):
                 y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
                 x_preds = torch.load(latent_path + model + "/cc3m_batches/" + str(batch) + ".pt")
-                x_preds_t = x_preds.moveaxis(0, 1)
+                x_preds_t = x_preds.moveaxis(0, 1).to(device)
                 
                 # Pearson correlation
                 pearson = PeC(xDup, x_preds_t)
 
                 # Calculating the Average Pearson Across Samples
-                top5_pearson = torch.topk(pearson, 5).values
-                average_pearson += torch.mean(top5_pearson) 
-                
-                top5_ind = torch.topk(pearson, 5).indices
+                top5_pearson = torch.topk(pearson, 5)
+                average_pearson += torch.mean(top5_pearson.values.detach()) 
                 
                 
-                for j, index in enumerate(top5_ind):
+                for j, index in enumerate(top5_pearson.indices):
                     batch_max_x[5*batch + j] = x_preds_t[:,index]
                     batch_max_y[5*batch + j] = y[index]
                     
@@ -87,6 +86,7 @@ def predictVector_cc3m(model, vector, x, device="cuda:1"):
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
         return out
 
+
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
@@ -100,7 +100,6 @@ def reconstructNImages(experiment_title, idx):
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
     # Load in the data
-    _, _, x_test, _, _, targets_c_i, test_trials = load_data(vector="c_img_0", 
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
