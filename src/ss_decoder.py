@@ -262,8 +262,8 @@ class SS_Decoder():
             vecSize = 768
         elif(self.vector == "z" or self.vector == "z_img_mixer"):
             vecSize = 16384
-        out = torch.zeros((outSize, vecSize))
-        target = torch.zeros((outSize, vecSize))
+        out = torch.zeros((outSize, vecSize)).to("cpu")
+        target = torch.zeros((outSize, vecSize)).to("cpu")
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
@@ -287,7 +287,7 @@ class SS_Decoder():
             target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
             out.to("cpu")
             target.to("cpu")
-            print(out.device, target.device, pred_y.device, y_test.device)
+            print(out.device, target.device, pred_y.device, y_test.device, PeC.device)
             loss += criterion(pred_y, y_test)
             pred_y = pred_y.moveaxis(0,1)
             y_test = y_test.moveaxis(0,1)
@@ -315,24 +315,31 @@ class SS_Decoder():
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        model = self.hashNum + "_model_" + self.vector + ".pt/"
+        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
+        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_out.pt")
+        torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
+        return out, target
         
     def predict(self, x, batch=False, batch_size=750):
         
-        out = torch.zeros((x.shape[0],11838))
+        # out = torch.zeros((x.shape[0],768))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
+        # if(batch==False):
+        #     batch_size = 1
 
-        for i in range(int(np.ceil(x.shape[0]/batch_size))):
-            if i*batch_size < x.shape[0]:
-                x_test = x[i*batch_size:i*batch_size + batch_size]
-            else:
-                x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-            x_test = x_test.to(self.device)                
+        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
+        #     if i*batch_size < x.shape[0]:
+        #         x_test = x[i*batch_size:i*batch_size + batch_size]
+        #     else:
+        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+        #     x_test = x_test.to(self.device)                
 
-            # Generating predictions based on the current model
-            pred_y = self.model(x_test).to(self.device)
+        #     # Generating predictions based on the current model
+        #     pred_y = self.model(x_test)
             
-            out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
-            
+        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        out = self.model(x.to(self.device))
         return out

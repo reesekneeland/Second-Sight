@@ -18,50 +18,34 @@ import copy
 from tqdm import tqdm
 from pearson import PearsonCorrCoef
 
-
-# Encoder for the autoencoder. 
-class Encoder(torch.nn.Module):
-    def __init__(self):
-        super(Encoder, self).__init__()
-        
-        self.relu = nn.ReLU()
-        self.linear = nn.Linear(11838, 5000)
-        self.linear2 = nn.Linear(5000, 1000)
     
-    def forward(self, x):
-        y_pred = self.relu(self.linear(x))
-        y_pred = self.linear2(y_pred)
-        return y_pred
-
-# Decoder for the autoencoder.     
-class Decoder(torch.nn.Module):
-    def __init__(self):
-        super(Decoder, self).__init__()     
-    
-        self.relu = nn.ReLU()
-        self.linear = nn.Linear(1000, 5000)
-        self.linear2 = nn.Linear(5000, 11838) 
-    
-    def forward(self, x):
-        y_pred = self.relu(self.linear(x))
-        y_pred = self.linear2(y_pred)
-        return y_pred
-
-    
-# Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
     def __init__(self):
-        super(MLP, self).__init__()
-        
-        self.firstlayer  = Encoder()
-        self.secondlayer = Decoder() 
-        self.relu = nn.ReLU()
-        
+        super().__init__()
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(11838, 5000),
+            torch.nn.ReLU(),
+            # torch.nn.Linear(5000, 2500),
+            # torch.nn.ReLU(),
+            torch.nn.Linear(5000, 1000),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1000, 500)
+        )
+         
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(500, 1000),
+            torch.nn.ReLU(),
+            # torch.nn.Linear(1000, 2500),
+            # torch.nn.ReLU(),
+            torch.nn.Linear(1000, 5000),
+            torch.nn.ReLU(),
+            torch.nn.Linear(5000, 11838)
+        )
+ 
     def forward(self, x):
-        y_pred = self.firstlayer(x)
-        y_pred = self.secondlayer(y_pred)
-        return y_pred
-    
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
 
 # Main Class    
 class AutoEncoder():
@@ -99,7 +83,7 @@ class AutoEncoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = load_data(vector=self.vector, 
+        self.trainLoader, self.valLoader, self.testLoader = load_nsd(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     ae=True)
@@ -130,7 +114,7 @@ class AutoEncoder():
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss()
+        criterion = nn.MSELoss(reduction="sum")
         
         # Import gradients to wandb to track loss gradients
         if(self.log):
@@ -223,7 +207,7 @@ class AutoEncoder():
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 5):
+                if(loss_counter >= 10):
                     break
                 
         # Load our best model into the class to be used for predictions
@@ -234,22 +218,25 @@ class AutoEncoder():
             
     def predict(self, x, batch=False, batch_size=750):
         
-        out = torch.zeros((x.shape[0],11838))
+        # out = torch.zeros((x.shape[0],11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
+        # if(batch==False):
+        #     batch_size = 1
 
-        for i in range(int(np.ceil(x.shape[0]/batch_size))):
-            if i*batch_size < x.shape[0]:
-                x_test = x[i*batch_size:i*batch_size + batch_size]
-            else:
-                x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-            x_test = x_test.to(self.device)                
+        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
+        #     if i*batch_size < x.shape[0]:
+        #         x_test = x[i*batch_size:i*batch_size + batch_size]
+        #     else:
+        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+        #     x_test = x_test.to(self.device)                
 
-            # Generating predictions based on the current model
-            pred_y = self.model(x_test).to(self.device)
+        #     # Generating predictions based on the current model
+        #     pred_y = self.model(x_test)
             
-            out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        out = self.model(x.to(self.device))
             
         return out
                 

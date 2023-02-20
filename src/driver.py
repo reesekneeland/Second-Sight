@@ -172,7 +172,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="SS decoder c_img_0 autoencoded", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    reconstructNImages(experiment_title="MLP decoder c_img_0 test", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
     # train_autoencoder()
 
@@ -184,8 +184,8 @@ def train_autoencoder():
     #hashNum = "424"
     
     AE = AutoEncoder(hashNum = hashNum,
-                 lr=0.0000001,
-                 vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer
+                 lr=0.000001,
+                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -225,8 +225,8 @@ def train_encoder():
 
 def train_ss_decoder():
     
-    hashNum = update_hash()
-    # hashNum = "484"
+    # hashNum = update_hash()
+    hashNum = "493"
     SS = SS_Decoder(hashNum = hashNum,
                     vector="c_img_0",
                     log=True, 
@@ -234,7 +234,7 @@ def train_ss_decoder():
                     lr=0.000005,
                     batch_size=750,
                     parallel=False,
-                    device="cuda:0",
+                    device="cuda:1",
                     num_workers=16,
                     epochs=300
                 )
@@ -298,7 +298,7 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    AE = AutoEncoder(hashNum = "470",
+    AE = AutoEncoder(hashNum = "507",
                  lr=0.0000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=False, 
@@ -329,40 +329,41 @@ def reconstructNImages(experiment_title, idx):
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     ae_x_test = AE.predict(x_test)
-    outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
-    
-    test_idx = [test_trials[i] for i in idx]
-    
-    outputs_c_i = [outputs_c_i[i] for i in test_idx]
-    targets_c_i = [targets_c_i[i] for i in test_idx]
-    outputs_c_t = Dc_t.predict(model=c_text_modelId, x=x_test, y=targets_c_t)
-    outputs_c_t = [outputs_c_t[i] for i in test_idx]
-    targets_c_t = [targets_c_t[i] for i in test_idx]
-    outputs_z = Dz.predict(model=z_modelId, x=x_test, y=targets_z)
-    outputs_z = [outputs_z[i] for i in test_idx]
-    targets_z = [targets_z[i] for i in test_idx]
+    # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
+    outputs_c_i = Dc_i.predict(x=x_test)
+    # outputs_c_i, targets_c_i = SS_Dc_i.benchmark()
+    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_out.pt")
+    # targets_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_targets.pt")
+    print("shapes", outputs_c_i.shape, targets_c_i.shape, targets_c_t.shape, targets_z.shape)
+    outputs_z = Dz.predict(x=x_test)
+    # outputs_z = [outputs_z[i] for i in test_idx]
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
     for i in range(len(idx)):
         print(i)
-        test_i = test_trials[i+1]
-        print("shape: ", outputs_c_i[i].shape)
-        c_combined = format_clip(outputs_c_i[i])
-        print(targets_c_i.shape, targets_c_i[0].shape)
-        c_combined_target = format_clip(targets_c_i[i])
+        test_i = test_trials[idx[i]-1]
         
-    
+        output_c_i = outputs_c_i[i]
+        target_c_i = targets_c_i[i]
+        # target_c_t = targets_c_t[test_i]
+        target_z = targets_z[i]
+        print("shape: ", output_c_i.shape)
+        print(target_c_i.shape)
+        c_combined = format_clip(output_c_i)
+        c_combined_target = format_clip(target_c_i)
+        
+        
         # Make the c reconstrution images. 
         reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
         # # Make the z reconstrution images. 
         reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
-        reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
+        reconstructed_target_z = R.reconstruct(z=target_z, strength=strength_z)
         
         # # Make the z and c reconstrution images. 
-        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.8)
+        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.85)
         
         index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 

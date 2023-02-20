@@ -30,6 +30,6 @@ dependencies:
       - transformers>=4.22.2
       - wandb>=0.12.21
       - webdataset>=0.2.5
-      - git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
-      - git+https://github.com/openai/CLIP.git@main#egg=clip
-      - git+https://github.com/justinpinkney/nomi.git@e9ded23b7e2269cc64d39683e1bf3c0319f552ab#egg=nomi
+      - "--editable=git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers"
+      - "--editable=git+https://github.com/openai/CLIP.git@main#egg=clip"
+      - "--editable=git+https://github.com/justinpinkney/nomi.git@e9ded23b7e2269cc64d39683e1bf3c0319f552ab#egg=nomi"

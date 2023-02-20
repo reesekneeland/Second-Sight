@@ -110,7 +110,7 @@ def embed_dict(fd):
 #    - Returns the train and test data loader
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
-def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False):
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + vector + ".pt").requires_grad_(False)
         y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)

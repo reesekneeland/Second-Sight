@@ -295,43 +295,30 @@ class Decoder():
     #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_log_applied_decoder.png")
     #     return outputs, targets
     
-    def predict(self, model, x, y):
-        
-        if(self.vector == "c_prompt"):
-            outSize = 78848
-        elif(self.vector == "c_combined" or self.vector == "c_img_mixer"):
-            outSize = 3840
-        elif(self.vector == "c_img_mixer_0" or self.vector=="c_img_0" or self.vector=="c_text_0"):
-            outSize = 768
-        elif(self.vector == "z" or self.vector == "z_img_mixer"):
-            outSize = 16384
-        elif(self.vector == "c_img"):
-            outSize = 1536
-            
+    def predict(self, x, batch=False, batch_size=750):
+        # if(self.vector=="c_img_0" or self.vector=="c_text_0"):
+        #     vecSize = 768
+        # elif(self.vector == "z" or self.vector == "z_img_mixer"):
+        #     vecSize = 16384
+        # out = torch.zeros((x.shape[0],vecSize))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
+        # if(batch==False):
+        #     batch_size = 1
 
-        
-        y_test = y.to(self.device)
-        x_test = x.to(self.device)
+        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
+        #     if i*batch_size < x.shape[0]:
+        #         x_test = x[i*batch_size:i*batch_size + batch_size]
+        #     else:
+        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+        #     x_test = x_test.to(self.device)                
 
-
-        PeC = PearsonCorrCoef(num_outputs=x.shape[0]).to(self.device)
-        criterion = nn.MSELoss()
-        
-        # Generating predictions based on the current model
-        out = self.model(x_test).to(self.device)
-        loss = criterion(out, y_test)/ y_test.shape[0]
-        
-        # Vector correlation for that trial row wise
-        pearson_corrcoef_loss = torch.mean(PeC(out.moveaxis(0,1), y_test.moveaxis(0,1)))
-          
-        
-        out = out.detach()
-        
-        print("Vector Correlation: ", float(pearson_corrcoef_loss)) 
-        print("Loss: ", float(loss))
+        #     # Generating predictions based on the current model
+        #     pred_y = self.model(x_test)
+            
+        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        out = self.model(x.to(self.device))
         return out
     
     def benchmark(self):
