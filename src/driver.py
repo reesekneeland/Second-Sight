@@ -174,9 +174,9 @@ def main():
 
     # reconstructNImages(experiment_title="MLP decoder c_img_0 test", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
 
-    train_autoencoder()
+    # train_autoencoder()
 
-    # train_ss_decoder()
+    train_ss_decoder()
 
 def train_autoencoder():
     
@@ -229,7 +229,7 @@ def train_ss_decoder():
     hashNum = "493"
     SS = SS_Decoder(hashNum = hashNum,
                     vector="c_img_0",
-                    log=True, 
+                    log=False, 
                     encoderHash="424",
                     lr=0.000005,
                     batch_size=750,

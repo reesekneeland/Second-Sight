@@ -276,22 +276,20 @@ class SS_Decoder():
         for index, data in enumerate(tqdm(self.testLoader, desc="benchmarking test set")):
             
             x_test, y_test = data
-            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0])
-            y_test = y_test.to("cpu")
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+            y_test = y_test.to(self.device)
             x_test = x_test.to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_test)
-            pred_y = pred_y.to("cpu")
+            pred_y = pred_y.to(self.device)
             
             out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
             target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
-            out.to("cpu")
-            target.to("cpu")
-            print(out.device, target.device, pred_y.device, y_test.device, PeC.device)
+
             loss += criterion(pred_y, y_test)
             pred_y = pred_y.moveaxis(0,1)
             y_test = y_test.moveaxis(0,1)
-            pearson_loss += torch.mean(PeC(pred_y, y_test)).to("cpu")
+            pearson_loss += torch.mean(PeC(pred_y, y_test).detach())
             #print(pearson_corrcoef(out[index], target[index]))
             
             
