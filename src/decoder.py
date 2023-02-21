@@ -60,6 +60,26 @@ from tqdm import tqdm
 
     
 # Pytorch model class for Linear regression layer Neural Network
+# class MLP(torch.nn.Module):
+#     def __init__(self, vector, inpSize):
+#         super(MLP, self).__init__()
+#         if(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
+#             self.linear = nn.Linear(inpSize, 10000)
+#             self.linear2 = nn.Linear(10000, 12000)
+#             self.outlayer = nn.Linear(12000, 768)
+#         elif(vector == "z" or vector == "z_img_mixer"):
+#             # self.linear = nn.Linear(inpSize, 15000)
+#             # self.linear2 = nn.Linear(15000, 25000)
+#             # self.outlayer = nn.Linear(25000, 16384)
+#             self.linear = nn.Linear(inpSize, 10000)
+#             self.linear2 = nn.Linear(10000, 12000)
+#             self.outlayer = nn.Linear(12000, 16384)
+#         self.relu = nn.ReLU()
+#     def forward(self, x):
+#         y_pred = self.relu(self.linear(x))
+#         y_pred = self.relu(self.linear2(y_pred))
+#         y_pred = self.outlayer(y_pred)
+#         return y_pred
 class MLP(torch.nn.Module):
     def __init__(self, vector, inpSize):
         super(MLP, self).__init__()
@@ -144,16 +164,17 @@ class Decoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers, 
-                                                      loader=True)
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+                                                                    batch_size=self.batch_size, 
+                                                                    num_workers=self.num_workers, 
+                                                                    loader=True,
+                                                                    average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss()
+        criterion = nn.MSELoss(reduction='sum')
         
         # Import gradients to wandb to track loss gradients
         # if(self.log):
@@ -301,6 +322,7 @@ class Decoder():
         # elif(self.vector == "z" or self.vector == "z_img_mixer"):
         #     vecSize = 16384
         # out = torch.zeros((x.shape[0],vecSize))
+        print(self.hashNum)
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
@@ -322,10 +344,11 @@ class Decoder():
         return out
     
     def benchmark(self):
-        _, _, self.testLoader = load_nsd(vector=self.vector, 
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers, 
-                                                      loader=True)
+        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=True,
+                                                average=True)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768

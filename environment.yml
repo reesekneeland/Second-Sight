@@ -29,6 +29,7 @@ dependencies:
       - tqdm>=4.64.1
       - transformers>=4.22.2
       - wandb>=0.12.21
+      - seaborn
       - webdataset>=0.2.5
       - "--editable=git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers"
       - "--editable=git+https://github.com/openai/CLIP.git@main#egg=clip"

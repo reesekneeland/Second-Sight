@@ -1,6 +1,6 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 from torch.autograd import Variable
 from torch.optim import Adam
@@ -126,10 +126,7 @@ class Encoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainLoader, self.valLoader, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    loader=True)
+        self.trainLoader, self.valLoader, self.testLoader = None, None, None
 
         
         # Initializes Weights and Biases to keep track of experiments and training runs
@@ -152,6 +149,11 @@ class Encoder():
     
 
     def train(self):
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+                                                                    batch_size=self.batch_size, 
+                                                                    num_workers=self.num_workers, 
+                                                                    loader=True,
+                                                                    average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -281,7 +283,11 @@ class Encoder():
                 
     
     def benchmark(self):
-        
+        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=True,
+                                                average=False)
         out = torch.zeros((1656,11838))
         target = torch.zeros((1656, 11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
@@ -406,7 +412,7 @@ class Encoder():
             pred_y = self.model(x_data).to(self.device)
             # if(torch.max(pred_y) < 0.1):
             #     print(torch.max(pred_y))
-            out = pred_y.to("cpu")
+            out = pred_y.to(self.device)
                 
             torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
         

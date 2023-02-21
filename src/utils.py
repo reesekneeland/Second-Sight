@@ -1,5 +1,6 @@
 import sys
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import struct
 import time
 import numpy as np
@@ -168,9 +169,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
             return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
-def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False):
+def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False):
     if(ae):
-        x = torch.load(prep_path + "x_encoded/" + vector + ".pt").requires_grad_(False)
+        x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
         y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
     else:
         x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
@@ -192,51 +193,122 @@ def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True,
         # y are the vectors
         # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
         test_trials = []
-        for i in range(7500):
-            for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    x_train.append(x[scanId])
-                    y_train.append(y[scanId])
+        for i in tqdm(range(7500), desc="loading training samples"):
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_train.append(torch.mean(avx, dim=0))
+                    y_train.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_train.append(x[scanId-1])
+                        y_train.append(y[scanId-1])
         for i in range(7500, 9000):
-            for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    x_val.append(x[scanId])
-                    y_val.append(y[scanId])
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_val.append(torch.mean(avx, dim=0))
+                    y_val.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_val.append(x[scanId-1])
+                        y_val.append(y[scanId-1])
         
         for i in range(200):
-            for j in range(3):
-                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    x_voxelSelection.append(x[scanId])
-                    y_voxelSelection.append(y[scanId])
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_voxelSelection.append(torch.mean(avx, dim=0))
+                    y_voxelSelection.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_voxelSelection.append(x[scanId-1])
+                        y_voxelSelection.append(y[scanId-1])
                     
         for i in range(200, 400):
-            for j in range(3):
-                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    x_thresholdSelection.append(x[scanId])
-                    y_thresholdSelection.append(y[scanId])
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_thresholdSelection.append(torch.mean(avx, dim=0))
+                    y_thresholdSelection.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_thresholdSelection.append(x[scanId-1])
+                        y_thresholdSelection.append(y[scanId-1])
                     
         for i in range(400, 1000):
-            for j in range(3):
-                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    x_test.append(x[scanId])
-                    y_test.append(y[scanId])
-                    test_trials.append(scanId)
-        x_train = torch.stack(x_train)
-        x_val = torch.stack(x_val)
-        x_voxelSelection = torch.stack(x_voxelSelection)
-        x_thresholdSelection = torch.stack(x_thresholdSelection)
-        x_test = torch.stack(x_test)
+            nsdId = subj1_train.iloc[i]['nsdId']
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_test.append(torch.mean(avx, dim=0))
+                    y_test.append(avy[0])
+                    test_trials.append(nsdId)
+            else:
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_test.append(x[scanId-1])
+                        y_test.append(y[scanId-1])
+                        test_trials.append(nsdId)
+        x_train = torch.stack(x_train).to("cpu")
+        x_val = torch.stack(x_val).to("cpu")
+        x_voxelSelection = torch.stack(x_voxelSelection).to("cpu")
+        x_thresholdSelection = torch.stack(x_thresholdSelection).to("cpu")
+        x_test = torch.stack(x_test).to("cpu")
         y_train = torch.stack(y_train)
         y_val = torch.stack(y_val)
         y_voxelSelection = torch.stack(y_voxelSelection)
         y_thresholdSelection = torch.stack(y_thresholdSelection)
         y_test = torch.stack(y_test)
-        
+        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
 
         if(loader):
             trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -252,7 +324,6 @@ def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True,
             testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
             return trainloader, valloader, voxelloader, threshloader, testloader
         else:
-            print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
             return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
 
 
@@ -341,65 +412,6 @@ def create_whole_region_normalized():
     torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
     #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
-def normalization_test():
-    
-    whole_region_norm = torch.zeros((27750, 11838))
-    whole_region_norm_z = torch.zeros((27750, 11838))
-    whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
-
-    unnormalized = torch.var(whole_region, dim=0)
-    print("unnormalized: ", unnormalized.shape, unnormalized)
-    plt.figure(0)
-    plt.hist(whole_region[0].numpy(), bins=40, log=True)
-        #plt.yscale('log')
-    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_unnormalized.png")
-    # TODO: Look at the betas before z score and max. 
-    # Whitening: Normalize the output c and z vector and then unnormalize them before going back into the decoder. 
-    # Learn the noramiziation maybe a two layer network
-        # With a relu use two a positive one and a negative one
-    # Action list
-    #   Look at the actual effect of these normalization
-    #   Look at the histogram of beta values and then apply normalization
-    #   Add simple non linearities to improve decoders
-    #   Start with the encoding model and then do bayes theory inversion with prior information (Clip to brain)
-    #         - Create priors on the image  
-    #         - Select the 100 tops ones that can 
-    #         - Get an enormus library of clip vectos 
-    #  
-            
-    # Normalize the data using Z scoring method for each voxel
-    for i in range(whole_region.shape[1]):
-        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
-        normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-        whole_region_norm_z[:, i] = normalized_voxel
-        
-    normalized_z = torch.mean(whole_region_norm_z, dim=0)
-    print("normalized_z: ", normalized_z.shape, normalized_z)
-    plt.figure(1)
-    plt.hist(whole_region_norm_z[0].numpy(), bins=40, log=True)
-        #plt.yscale('log')
-    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_z.png")
-    # Normalize the data by dividing all elements by the max of each voxel
-    whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
-    normalized_max = torch.mean(whole_region_norm, dim=0)
-    print("normalized_max: ", normalized_max.shape, normalized_max)
-    plt.figure(2)
-    plt.hist(whole_region_norm[0].numpy(), bins=40, log=True)
-        #plt.yscale('log')
-    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_max.png")
-    voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
-    voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
-    voxel_data_dict = embed_dict({k: np.copy(d) for k,d in voxel_data_set.items()})
-    voxel_data_set.close()
-    voxel_data = voxel_data_dict['voxel_data']["1"]
-    g_normalized = torch.mean(torch.from_numpy(voxel_data), dim=0)
-    plt.figure(3)
-    print("g_normalized: ", g_normalized.shape, g_normalized)
-    plt.hist(voxel_data[0], bins=40, log=True)
-        #plt.yscale('log')
-    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/norm_testing_ghislain.png")
-    # Save the tensor
-    # torch.save(whole_region_norm, prep_path + "x/whole_region_11838.pt")
     
 def process_data(vector):
     

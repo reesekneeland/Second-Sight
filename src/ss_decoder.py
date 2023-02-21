@@ -254,9 +254,9 @@ class SS_Decoder():
     def benchmark(self):
         # Initialize the data loaders
         _, _, self.testLoader = load_cc3m(vector=self.vector,
-                                                      modelId = self.encModel,
-                                                      batch_size=self.batch_size, 
-                                                      num_workers=self.num_workers)
+                                        modelId = self.encModel,
+                                        batch_size=self.batch_size, 
+                                        num_workers=self.num_workers)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768

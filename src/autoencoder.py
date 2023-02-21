@@ -52,6 +52,7 @@ class AutoEncoder():
     def __init__(self, 
                  hashNum,
                  vector, 
+                 encoderHash,
                  log, 
                  lr=0.00001,
                  batch_size=750,
@@ -64,6 +65,8 @@ class AutoEncoder():
         # Set the parameters for pytorch model training
         self.hashNum     = hashNum
         self.vector      = vector
+        self.encoderModel = encoderHash + "_model_" + self.vector + ".pt"
+        
         self.device      = torch.device(device)
         self.lr          = lr
         self.batch_size  = batch_size
@@ -83,12 +86,19 @@ class AutoEncoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = load_nsd(vector=self.vector, 
+        # _, _, _ = load_nsd(vector=self.vector, 
+        #                                                             batch_size=self.batch_size, 
+        #                                                             num_workers=self.num_workers, 
+        #                                                             ae=True,
+        #                                                             encoderModel=self.encoderModel)
+        
+        self.trainLoader, self.valLoader, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
-                                                                    ae=True)
-
-        
+                                                                    ae=True,
+                                                                    encoderModel=self.encoderModel,
+                                                                    average=False)
+        self.trainLoader, self.valLoader, self.testLoader = None, None, None
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
@@ -109,6 +119,12 @@ class AutoEncoder():
     
 
     def train(self):
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+                                                                    batch_size=self.batch_size, 
+                                                                    num_workers=self.num_workers, 
+                                                                    ae=True,
+                                                                    encoderModel=self.encoderModel,
+                                                                    average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -242,10 +258,17 @@ class AutoEncoder():
                 
     
     def benchmark(self):
-        
+        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                ae=True,
+                                                encoderModel=self.encoderModel,
+                                                average=False)
         out = torch.zeros((2770,11838))
         target = torch.zeros((2770, 11838))
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        modelId = self.hashNum + "_model_" + self.vector + ".pt"
+        print(modelId)
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + modelId))
         self.model.eval()
         self.model.to(self.device)
 

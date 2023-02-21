@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -17,8 +17,9 @@ from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
-from mask import Masker
 from ss_decoder import SS_Decoder
+from mask import Masker
+
 # from diffusers import StableDiffusionImageEncodingPipeline
 
 
@@ -166,8 +167,9 @@ from ss_decoder import SS_Decoder
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
+    # _, _, _, _, _, _, _, _, _, _, _ = load_nsd_vs(vector="c_img_0", loader=False, average=True)
     
-    mask_voxels()
+    # mask_voxels()
     
     # train_decoder()
 
@@ -175,26 +177,46 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImages(experiment_title="MLP decoder c_img_0 test", idx=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    reconstructNImages(experiment_title="MLP decoder c_combined big Z averaged", idx=[i for i in range(21)])
+
+    # test_reconstruct()
 
     # train_autoencoder()
 
     # train_ss_decoder()
 
 def mask_voxels():
-    M = Masker(encoderHash="517",
+    M = Masker(encoderHash="521",
                  vector="c_img_0",
-                 device="cuda:0")
-    M.get_percentile(0.9)
+                 device="cuda:2")
+    #run 1 gpu 1
+    
+    # M.get_percentile(0.8)
+    # M.get_percentile(0.85)
+    # M.get_percentile(0.9)
+    
+    # run 2 gpu 2
+    # M.get_percentile(0.3)
+    # M.get_percentile(0.4)
+    # M.get_percentile(0.5)
+    # M.get_percentile(0.55)
+    
+    #run 3 gpu 3
+    M.get_percentile(0.6)
+    M.get_percentile(0.65)
+    M.get_percentile(0.7)
+    M.get_percentile(0.75)
+    
     
 def train_autoencoder():
     
     # hashNum = update_hash()
-    hashNum = "507"
+    hashNum = "526"
     
     AE = AutoEncoder(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+                 encoderHash="521",
                  log=True, 
                  batch_size=750,
                  parallel=False,
@@ -208,28 +230,30 @@ def train_autoencoder():
 
 
 def train_encoder():
-    hashNum = update_hash()
-    # hashNum = "424"
+    # hashNum = update_hash()
+    hashNum = "521"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=True, 
                  batch_size=750,
                  parallel=False,
-                 device="cuda:0",
+                 device="cuda:1",
                  num_workers=16,
                  epochs=300
                 )
-    E.train()
+    # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
     E.benchmark()
-    E.predict_cc3m(model=modelId)
-    # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
+    
+    # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
+    # _, y = load_nsd_vs(vector = E.vector, batch_size = E.batch_size, 
     #                 num_workers = E.num_workers, loader = False, split = False)
     # outputs = E.predict(y)
-    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/z_img_mixer.pt")
-    # outputs = E.benchmark()
+    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
+
+    E.predict_cc3m(model=modelId)
 
     return hashNum
 
@@ -261,11 +285,11 @@ def train_decoder():
     D = Decoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="z_img_mixer", #c_img_0 , c_text_0, z_img_mixer
-                 log=True, 
+                 log=False, 
                  inpSize = 11838,
                  batch_size=750,
                  parallel=False,
-                 device="cuda:0",
+                 device="cuda:1",
                  num_workers=16,
                  epochs=300
                 )
@@ -275,6 +299,19 @@ def train_decoder():
     D.benchmark()
     
     return hashNum
+
+def test_reconstruct():
+    R = Reconstructor()
+    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_0.pt"))
+    R.reconstruct(c=c, strength=1.0)
+    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_1.pt"))
+    R.reconstruct(c=c, strength=1.0)
+    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_2.pt"))
+    R.reconstruct(c=c, strength=1.0)
+    
+    ground_truth_np_array = nsda.read_images([13], show=True)
+    ground_truth = Image.fromarray(ground_truth_np_array[0])
+    ground_truth.save("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_gt.png")
 
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
@@ -287,7 +324,7 @@ def reconstructNImages(experiment_title, idx):
                  parallel=False
                  )
     
-    Dc_i = Decoder(hashNum = "444",
+    Dc_i = Decoder(hashNum = "528",
                  vector="c_img_0", 
                  inpSize = 11838,
                  log=False, 
@@ -301,16 +338,17 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda:1"
                  )
     
-    Dc_t = Decoder(hashNum = "445",
+    Dc_t = Decoder(hashNum = "529",
                  vector="c_text_0", 
                  inpSize = 11838,
                  log=False, 
                  device="cuda",
                  parallel=False
                  )
-    AE = AutoEncoder(hashNum = "507",
+    AE = AutoEncoder(hashNum = "526",
                  lr=0.0000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+                 encoderHash="521",
                  log=False, 
                  batch_size=750,
                  parallel=False,
@@ -321,47 +359,51 @@ def reconstructNImages(experiment_title, idx):
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-    _, _, x_test, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", 
-                                                             loader=False)
-    _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", 
-                                              loader=False)
-    _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", 
-                                            loader=False)
+    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd_vs(vector="c_img_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd_vs(vector="c_text_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd_vs(vector="z_img_mixer", loader=False, average=True)
+    # _, _, x_test_z, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", 
+    #                                         loader=False)
     # Retriving the ground truth image. 
-    subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+    # subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         
 
     # Grabbing the models for a hash
-    z_modelId = Dz.hashNum + "_model_" + Dz.vector + ".pt"
-    c_img_modelId = Dc_i.hashNum + "_model_" + Dc_i.vector + ".pt"
-    c_text_modelId = Dc_t.hashNum + "_model_" + Dc_t.vector + ".pt"
+    # z_modelId = Dz.hashNum + "_model_" + Dz.vector + ".pt"
+    # c_img_modelId = Dc_i.hashNum + "_model_" + Dc_i.vector + ".pt"
+    # c_text_modelId = Dc_t.hashNum + "_model_" + Dc_t.vector + ".pt"
     
     # Generating predicted and target vectors
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
-    ae_x_test = AE.predict(x_test)
+    # ae_x_test = AE.predict(x_test)
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
+    outputs_z = Dz.predict(x=x_test)
     outputs_c_i = Dc_i.predict(x=x_test)
+    outputs_c_t = Dc_t.predict(x=x_test)
+    
     # outputs_c_i, targets_c_i = SS_Dc_i.benchmark()
     # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_out.pt")
     # targets_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_targets.pt")
-    print("shapes", outputs_c_i.shape, targets_c_i.shape, targets_c_t.shape, targets_z.shape)
-    outputs_z = Dz.predict(x=x_test)
+    
+    print("shapes", outputs_c_i.shape, outputs_z.shape, targets_c_i.shape, targets_c_t.shape, targets_z.shape)
     # outputs_z = [outputs_z[i] for i in test_idx]
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
-    for i in range(len(idx)):
+    for i in idx:
         print(i)
-        test_i = test_trials[idx[i]-1]
+        nsdId = test_trials[i]
         
-        output_c_i = outputs_c_i[i]
-        target_c_i = targets_c_i[i]
+        # output_c_i = outputs_c_i[i]
+        # output_c_t = outputs_c_t[i]
+        # target_c_i = targets_c_i[i]
+        # target_c_t = targets_c_t[i]
         # target_c_t = targets_c_t[test_i]
-        target_z = targets_z[i]
-        print("shape: ", output_c_i.shape)
-        print(target_c_i.shape)
-        c_combined = format_clip(output_c_i)
-        c_combined_target = format_clip(target_c_i)
+        # target_z = targets_z[i]
+        # print("shape: ", output_c_i.shape)
+        # print(target_c_i.shape)
+        c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
+        c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
         
         
         # Make the c reconstrution images. 
@@ -370,15 +412,15 @@ def reconstructNImages(experiment_title, idx):
         
         # # Make the z reconstrution images. 
         reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
-        reconstructed_target_z = R.reconstruct(z=target_z, strength=strength_z)
+        reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
         
         # # Make the z and c reconstrution images. 
         z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.85)
         
-        index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
+        # index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
 
         # returns a numpy array 
-        ground_truth_np_array = nsda.read_images([index], show=True)
+        ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         
         # Create figure
