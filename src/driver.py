@@ -17,6 +17,7 @@ from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
+from mask import Masker
 from ss_decoder import SS_Decoder
 # from diffusers import StableDiffusionImageEncodingPipeline
 
@@ -166,6 +167,8 @@ from ss_decoder import SS_Decoder
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     
+    mask_voxels()
+    
     # train_decoder()
 
     # train_encoder()
@@ -176,8 +179,14 @@ def main():
 
     # train_autoencoder()
 
-    train_ss_decoder()
+    # train_ss_decoder()
 
+def mask_voxels():
+    M = Masker(encoderHash="517",
+                 vector="c_img_0",
+                 device="cuda:0")
+    M.get_percentile(0.9)
+    
 def train_autoencoder():
     
     # hashNum = update_hash()
@@ -199,21 +208,22 @@ def train_autoencoder():
 
 
 def train_encoder():
-    # hashNum = update_hash()
-    hashNum = "424"
+    hashNum = update_hash()
+    # hashNum = "424"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 log=False, 
+                 log=True, 
                  batch_size=750,
                  parallel=False,
                  device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
-    # E.train()
+    E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
+    E.benchmark()
     E.predict_cc3m(model=modelId)
     # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
     #                 num_workers = E.num_workers, loader = False, split = False)

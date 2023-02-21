@@ -58,10 +58,10 @@ from pearson import PearsonCorrCoef
 
 
     
-# Pytorch model class for Linear regression layer Neural Network
-class LinearRegression(torch.nn.Module):
+# Pytorch model class for MLP Neural Network
+class MLP(torch.nn.Module):
     def __init__(self, vector, outputSize):
-        super(LinearRegression, self).__init__()
+        super(MLP, self).__init__()
         if(vector == "c_prompt"):
             inpSize = 78848
         elif(vector == "c_combined" or vector == "c_img_mixer"):
@@ -88,26 +88,7 @@ class LinearRegression(torch.nn.Module):
         y_pred = self.relu(self.linear2(y_pred))
         y_pred = self.outlayer(y_pred)
         return y_pred
-    
-# -------------- 
-# class LinearRegression(torch.nn.Module):
-#     def __init__(self, vector, outputSize):
-#         super(LinearRegression, self).__init__()
-#         if(vector == "c_prompt"):
-#             inpSize = 78848
-#         elif(vector == "c_combined" or vector == "c_img_mixer"):
-#             inpSize = 3840
-#         elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
-#             inpSize = 768
-#         elif(vector == "z" or vector == "z_img_mixer"):
-#             inpSize = 16384
-#         elif(vector == "c_img"):
-#             inpSize = 1536
-#         self.linear = nn.Linear(inpSize, outputSize)
-#     def forward(self, x):
-#         y_pred = self.linear(x)
-#         return y_pred
-    
+
 # Main Class    
 class Encoder():
     def __init__(self, 
@@ -116,7 +97,7 @@ class Encoder():
                  log, 
                  lr=0.00001,
                  batch_size=750,
-                 parallel=True,
+                 parallel=False,
                  device="cuda",
                  num_workers=16,
                  epochs=200
@@ -135,7 +116,7 @@ class Encoder():
         self.outputSize  = 11838
     
         # Initialize the Pytorch model class
-        self.model = LinearRegression(self.vector, self.outputSize)
+        self.model = MLP(self.vector, self.outputSize)
         
         # Configure multi-gpu training
         if(self.parallel):
@@ -145,7 +126,7 @@ class Encoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = load_nsd(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     loader=True)
@@ -279,30 +260,30 @@ class Encoder():
             
     def predict(self, x, batch=False, batch_size=750):
         
-        out = torch.zeros((x.shape[0],11838))
+        # out = torch.zeros((x.shape[0],11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
 
-        for i in range(int(np.ceil(x.shape[0]/batch_size))):
-            if i*batch_size < x.shape[0]:
-                x_test = x[i*batch_size:i*batch_size + batch_size]
-            else:
-                x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-            x_test = x_test.to(self.device)                
+        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
+        #     if i*batch_size < x.shape[0]:
+        #         x_test = x[i*batch_size:i*batch_size + batch_size]
+        #     else:
+        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
+        #     x_test = x_test.to(self.device)                
 
-            # Generating predictions based on the current model
-            pred_y = self.model(x_test).to(self.device)
+        #     # Generating predictions based on the current model
+        #     pred_y = self.model(x_test).to(self.device)
             
-            out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
-            
+        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
+        out = self.model(x.to(self.device))
         return out
                 
     
     def benchmark(self):
         
-        out = torch.zeros((2770,11838))
-        target = torch.zeros((2770, 11838))
+        out = torch.zeros((1656,11838))
+        target = torch.zeros((1656, 11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)

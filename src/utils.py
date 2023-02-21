@@ -168,6 +168,94 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
             return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
+def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False):
+    if(ae):
+        x = torch.load(prep_path + "x_encoded/" + vector + ".pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+    else:
+        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+    
+    if(not split): 
+        return x, y
+    
+    else: 
+        x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test = [], [], [], [], []
+        y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test = [], [], [], [], []
+        subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
+        subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+        # Loads the raw tensors into a Dataset object
+
+        # TensorDataset takes in two tensors of equal size and then maps 
+        # them to one dataset. 
+        # x is the brain data 
+        # y are the vectors
+        # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
+        test_trials = []
+        for i in range(7500):
+            for j in range(3):
+                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                if(scanId < 27750):
+                    x_train.append(x[scanId])
+                    y_train.append(y[scanId])
+        for i in range(7500, 9000):
+            for j in range(3):
+                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                if(scanId < 27750):
+                    x_val.append(x[scanId])
+                    y_val.append(y[scanId])
+        
+        for i in range(200):
+            for j in range(3):
+                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                if(scanId < 27750):
+                    x_voxelSelection.append(x[scanId])
+                    y_voxelSelection.append(y[scanId])
+                    
+        for i in range(200, 400):
+            for j in range(3):
+                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                if(scanId < 27750):
+                    x_thresholdSelection.append(x[scanId])
+                    y_thresholdSelection.append(y[scanId])
+                    
+        for i in range(400, 1000):
+            for j in range(3):
+                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                if(scanId < 27750):
+                    x_test.append(x[scanId])
+                    y_test.append(y[scanId])
+                    test_trials.append(scanId)
+        x_train = torch.stack(x_train)
+        x_val = torch.stack(x_val)
+        x_voxelSelection = torch.stack(x_voxelSelection)
+        x_thresholdSelection = torch.stack(x_thresholdSelection)
+        x_test = torch.stack(x_test)
+        y_train = torch.stack(y_train)
+        y_val = torch.stack(y_val)
+        y_voxelSelection = torch.stack(y_voxelSelection)
+        y_thresholdSelection = torch.stack(y_thresholdSelection)
+        y_test = torch.stack(y_test)
+        
+
+        if(loader):
+            trainset = torch.utils.data.TensorDataset(x_train, y_train)
+            valset = torch.utils.data.TensorDataset(x_val, y_val)
+            voxelset = torch.utils.data.TensorDataset(x_voxelSelection, y_voxelSelection)
+            thresholdset = torch.utils.data.TensorDataset(x_thresholdSelection, y_thresholdSelection)
+            testset = torch.utils.data.TensorDataset(x_test, y_test)
+            # Loads the Dataset into a DataLoader
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+            voxelloader = torch.utils.data.DataLoader(voxelset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            threshloader = torch.utils.data.DataLoader(thresholdset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            return trainloader, valloader, voxelloader, threshloader, testloader
+        else:
+            print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
+            return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
+
+
 def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     x_path = latent_path + modelId + "/cc3m_batches/"
     y_path = prep_path + vector + "/cc3m_batches/"
