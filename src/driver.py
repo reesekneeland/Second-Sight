@@ -280,12 +280,12 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    # hashNum = update_hash()
-    hashNum = "446"
+    hashNum = update_hash()
+    hashNum = "533"
     D = Decoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="z_img_mixer", #c_img_0 , c_text_0, z_img_mixer
-                 log=False, 
+                 log=True, 
                  inpSize = 11838,
                  batch_size=750,
                  parallel=False,
@@ -293,7 +293,7 @@ def train_decoder():
                  num_workers=16,
                  epochs=300
                 )
-    # D.train()
+    D.train()
     modelId = D.hashNum + "_model_" + D.vector + ".pt"
     
     D.benchmark()
@@ -302,12 +302,11 @@ def train_decoder():
 
 def test_reconstruct():
     R = Reconstructor()
-    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_0.pt"))
-    R.reconstruct(c=c, strength=1.0)
-    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_1.pt"))
-    R.reconstruct(c=c, strength=1.0)
-    c= format_clip(torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/y_clip_2.pt"))
-    R.reconstruct(c=c, strength=1.0)
+    z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/outputs_z_broken.pt").to("cuda")
+    print(z.shape)
+    R.reconstruct(z=z[0], strength=0.0)
+    R.reconstruct(z=z[1], strength=0.0)
+    R.reconstruct(z=z[20], strength=0.0)
     
     ground_truth_np_array = nsda.read_images([13], show=True)
     ground_truth = Image.fromarray(ground_truth_np_array[0])
@@ -316,7 +315,7 @@ def test_reconstruct():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "446",
+    Dz = Decoder(hashNum = "385",
                  vector="z_img_mixer", 
                  inpSize = 11838,
                  log=False, 
@@ -362,8 +361,8 @@ def reconstructNImages(experiment_title, idx):
     _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd_vs(vector="c_img_0", loader=False, average=True)
     _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd_vs(vector="c_text_0", loader=False, average=True)
     _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd_vs(vector="z_img_mixer", loader=False, average=True)
-    # _, _, x_test_z, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", 
-    #                                         loader=False)
+    _, _, x_test_z, _, _, targets_z, _ = load_data(vector="z_img_mixer", 
+                                            loader=False)
     # Retriving the ground truth image. 
     # subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         
@@ -377,10 +376,10 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # ae_x_test = AE.predict(x_test)
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
-    outputs_z = Dz.predict(x=x_test)
+    outputs_z = Dz.predict(x=x_test_z)
     outputs_c_i = Dc_i.predict(x=x_test)
     outputs_c_t = Dc_t.predict(x=x_test)
-    
+    # torch.save(outputs_z, "outputs_z_broken.pt")
     # outputs_c_i, targets_c_i = SS_Dc_i.benchmark()
     # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_out.pt")
     # targets_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_targets.pt")

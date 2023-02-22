@@ -1,8 +1,5 @@
 import os
-print(os.environ['CUDA_VISIBLE_DEVICES'])
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
-print(os.environ['CUDA_VISIBLE_DEVICES'])
 import torch
 import numpy as np
 from nsd_access import NSDAccess
@@ -14,6 +11,7 @@ import wandb
 from tqdm import tqdm
 from encoder import Encoder
 from pearson import PearsonCorrCoef, pearson_corrcoef
+
 class Masker():
     def __init__(self, 
                  encoderHash,
@@ -115,7 +113,7 @@ class Masker():
             tqdm.write(str(percentile))
         final_percentile = average_percentile/masked_threshold_x.shape[0]
         print("final percentile: ", str(final_percentile))
-        file = open(mask_path + "results.txt", 'w+')
+        file = open(mask_path + "results.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile))
         file.close()
         

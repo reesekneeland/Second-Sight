@@ -164,11 +164,10 @@ class Decoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    loader=True,
-                                                                    average=False)
+        self.trainLoader, self.valLoader, _ = load_data(vector=self.vector, 
+                                                        batch_size=self.batch_size, 
+                                                        num_workers=self.num_workers, 
+                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -348,7 +347,7 @@ class Decoder():
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
-                                                average=True)
+                                                average=False)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768
