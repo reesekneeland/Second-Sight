@@ -167,7 +167,7 @@ from mask import Masker
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # _, _, _, _, _, _, _, _, _, _, _ = load_nsd_vs(vector="c_img_0", loader=False, average=True)
+    # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
     # mask_voxels()
     
@@ -248,7 +248,7 @@ def train_encoder():
     E.benchmark()
     
     # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
-    # _, y = load_nsd_vs(vector = E.vector, batch_size = E.batch_size, 
+    # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
     #                 num_workers = E.num_workers, loader = False, split = False)
     # outputs = E.predict(y)
     # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
@@ -315,7 +315,7 @@ def test_reconstruct():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "385",
+    Dz = Decoder(hashNum = "531",
                  vector="z_img_mixer", 
                  inpSize = 11838,
                  log=False, 
@@ -330,12 +330,12 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    SS_Dc_i = SS_Decoder(hashNum = "484",
-                 vector="c_img_0",
-                 encoderHash="424",
-                 log=False, 
-                 device="cuda:1"
-                 )
+    # SS_Dc_i = SS_Decoder(hashNum = "484",
+    #              vector="c_img_0",
+    #              encoderHash="424",
+    #              log=False, 
+    #              device="cuda:1"
+    #              )
     
     Dc_t = Decoder(hashNum = "529",
                  vector="c_text_0", 
@@ -344,63 +344,37 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda",
                  parallel=False
                  )
-    AE = AutoEncoder(hashNum = "526",
-                 lr=0.0000001,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="521",
-                 log=False, 
-                 batch_size=750,
-                 parallel=False,
-                 device="cuda"
-                )
+    # AE = AutoEncoder(hashNum = "526",
+    #              lr=0.0000001,
+    #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+    #              encoderHash="521",
+    #              log=False, 
+    #              batch_size=750,
+    #              parallel=False,
+    #              device="cuda"
+    #             )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd_vs(vector="c_img_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd_vs(vector="c_text_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd_vs(vector="z_img_mixer", loader=False, average=True)
-    _, _, x_test_z, _, _, targets_z, _ = load_data(vector="z_img_mixer", 
-                                            loader=False)
-    # Retriving the ground truth image. 
-    # subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-        
-
-    # Grabbing the models for a hash
-    # z_modelId = Dz.hashNum + "_model_" + Dz.vector + ".pt"
-    # c_img_modelId = Dc_i.hashNum + "_model_" + Dc_i.vector + ".pt"
-    # c_text_modelId = Dc_t.hashNum + "_model_" + Dc_t.vector + ".pt"
+    # Load test data and targets
+    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
     
     # Generating predicted and target vectors
-    # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # ae_x_test = AE.predict(x_test)
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
-    outputs_z = Dz.predict(x=x_test_z)
+    outputs_z = Dz.predict(x=x_test)
     outputs_c_i = Dc_i.predict(x=x_test)
     outputs_c_t = Dc_t.predict(x=x_test)
-    # torch.save(outputs_z, "outputs_z_broken.pt")
-    # outputs_c_i, targets_c_i = SS_Dc_i.benchmark()
-    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_out.pt")
-    # targets_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/484_model_c_img_0.pt/test_targets.pt")
-    
-    print("shapes", outputs_c_i.shape, outputs_z.shape, targets_c_i.shape, targets_c_t.shape, targets_z.shape)
-    # outputs_z = [outputs_z[i] for i in test_idx]
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
     for i in idx:
         print(i)
-        nsdId = test_trials[i]
         
-        # output_c_i = outputs_c_i[i]
-        # output_c_t = outputs_c_t[i]
-        # target_c_i = targets_c_i[i]
-        # target_c_t = targets_c_t[i]
-        # target_c_t = targets_c_t[test_i]
-        # target_z = targets_z[i]
-        # print("shape: ", output_c_i.shape)
-        # print(target_c_i.shape)
         c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
         c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
         
@@ -416,15 +390,14 @@ def reconstructNImages(experiment_title, idx):
         # # Make the z and c reconstrution images. 
         z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.85)
         
-        # index = int(subj1.loc[(subj1['subject1_rep0'] == test_i) | (subj1['subject1_rep1'] == test_i) | (subj1['subject1_rep2'] == test_i)].nsdId)
-
         # returns a numpy array 
+        nsdId = test_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         
         # Create figure
-        fig = plt.figure(figsize=(10, 7))
-        plt.title(str(i) + ": " + experiment_title)
+        fig = plt.figure(figsize=(7, 7))
+        plt.title(str(i) + ": " + experiment_title + "\n")
         
         # Setting values to rows and column variables
         rows = 3

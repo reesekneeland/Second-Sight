@@ -149,7 +149,7 @@ class Encoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     loader=True,
@@ -283,7 +283,7 @@ class Encoder():
                 
     
     def benchmark(self):
-        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,

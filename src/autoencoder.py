@@ -86,19 +86,8 @@ class AutoEncoder():
         self.model.to(self.device)
         
         # Initialize the data loaders
-        # _, _, _ = load_nsd(vector=self.vector, 
-        #                                                             batch_size=self.batch_size, 
-        #                                                             num_workers=self.num_workers, 
-        #                                                             ae=True,
-        #                                                             encoderModel=self.encoderModel)
-        
-        self.trainLoader, self.valLoader, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    ae=True,
-                                                                    encoderModel=self.encoderModel,
-                                                                    average=False)
         self.trainLoader, self.valLoader, self.testLoader = None, None, None
+        
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
@@ -119,7 +108,7 @@ class AutoEncoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     ae=True,
@@ -258,7 +247,7 @@ class AutoEncoder():
                 
     
     def benchmark(self):
-        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 ae=True,

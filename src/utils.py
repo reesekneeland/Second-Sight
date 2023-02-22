@@ -111,65 +111,8 @@ def embed_dict(fd):
 #    - Returns the train and test data loader
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False):
-    if(ae):
-        x = torch.load(prep_path + "x_encoded/" + vector + ".pt").requires_grad_(False)
-        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
-    else:
-        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
-        y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
-    
-    if(not split): 
-        return x, y
-    
-    else: 
-        x_train = torch.zeros((20480, 11838))
-        x_val = torch.zeros((4500, 11838))
-        x_test = torch.zeros((2770, 11838))
-        y_train = torch.zeros((20480, y.shape[1]))
-        y_val = torch.zeros((4500, y.shape[1]))
-        y_test = torch.zeros((2770, y.shape[1]))
-        subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
 
-        # Loads the raw tensors into a Dataset object
-
-        # TensorDataset takes in two tensors of equal size and then maps 
-        # them to one dataset. 
-        # x is the brain data 
-        # y are the vectors
-        train_i, test_i, val_i = 0,0,0
-        test_trials = []
-        for i in range(x.shape[0]):
-            test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
-            if(test_sample):
-                x_test[test_i] = x[i]
-                y_test[test_i] = y[i]
-                test_i +=1
-                test_trials.append(i+1)
-            elif train_i<20480:
-                x_train[train_i] = x[i]
-                y_train[train_i] = y[i]
-                train_i+=1
-            else:
-                x_val[val_i] = x[i]
-                y_val[val_i] = y[i]
-                val_i +=1
-                
-
-        if(loader):
-            trainset = torch.utils.data.TensorDataset(x_train, y_train)
-            valset = torch.utils.data.TensorDataset(x_val, y_val)
-            testset = torch.utils.data.TensorDataset(x_test, y_test)
-            # Loads the Dataset into a DataLoader
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-            return trainloader, valloader, testloader
-        else:
-            print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
-            return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
-
-def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False):
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
         y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
@@ -326,55 +269,6 @@ def load_nsd_vs(vector, batch_size=375, num_workers=16, loader=True, split=True,
         else:
             return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
 
-def load_data(vector, batch_size=375, num_workers=16, loader=True, split=True):
-    
-    y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
-    x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
-    x_train = torch.zeros((20480, 11838))
-    x_val = torch.zeros((4500, 11838))
-    x_test = torch.zeros((2770, 11838))
-    y_train = torch.zeros((20480, y.shape[1]))
-    y_val = torch.zeros((4500, y.shape[1]))
-    y_test = torch.zeros((2770, y.shape[1]))
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-    
-    # Loads the raw tensors into a Dataset object
-    
-    # TensorDataset takes in two tensors of equal size and then maps 
-    # them to one dataset. 
-    # x is the brain data 
-    # y are the vectors
-    train_i, test_i, val_i = 0,0,0
-    test_trials = []
-    for i in range(x.shape[0]):
-        test_sample = bool(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1), "shared1000"].item())
-        if(test_sample):
-            x_test[test_i] = x[i]
-            y_test[test_i] = y[i]
-            test_i +=1
-            test_trials.append(i+1)
-        elif train_i<20480:
-            x_train[train_i] = x[i]
-            y_train[train_i] = y[i]
-            train_i+=1
-        else:
-            x_val[val_i] = x[i]
-            y_val[val_i] = y[i]
-            val_i +=1
-            
-
-    if(loader):
-        trainset = torch.utils.data.TensorDataset(x_train, y_train)
-        valset = torch.utils.data.TensorDataset(x_val, y_val)
-        testset = torch.utils.data.TensorDataset(x_test, y_test)
-        # Loads the Dataset into a DataLoader
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-        return trainloader, valloader, testloader
-    else:
-        print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
-        return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
 def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     x_path = latent_path + modelId + "/cc3m_batches/"
