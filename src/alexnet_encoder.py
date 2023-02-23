@@ -11,6 +11,14 @@ from src.load_nsd import ordering_split
 from config import *
 import torch
 import matplotlib.pyplot as plt
+from nsd_access import NSDAccess
+from PIL import Image
+
+
+# First URL: This is the original read-only NSD file path (The actual data)
+# Second URL: Local files that we are adding to the dataset and need to access as part of the data
+# Object for the NSDAccess package
+nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
 
 use_device = "cuda:1"
 print ('#device:', torch.cuda.device_count())
@@ -55,24 +63,52 @@ ordering = exp_design['masterordering'].flatten() - 1 # zero-indexed ordering of
 
 from src.load_nsd import image_feature_fn
 
+
+# 9000 samples in validation and training set. 
+subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
+
 image_data = {}
-for s in subjects: 
-    image_data_set = h5py.File(stim_dir + "S%d_stimuli_227.h5py"%s, 'r')
-    image_data[s] = image_feature_fn(np.copy(image_data_set['stimuli']))
-    image_data_set.close()
-    print ('--------  subject %d  -------' % s)
-    print ('block size:', image_data[s].shape, ', dtype:', image_data[s].dtype, ', value range:',\
-           np.min(image_data[s]), np.max(image_data[s]))
+data = []
+w, h = 227, 227  # resize to integer multiple of 64
+for i in tqdm(range(9000), desc="loading in images"):
+    
+    nsdId = subj1_train.iloc[i]['nsdId']
+    ground_truth_np_array = nsda.read_images([nsdId], show=True)
+    ground_truth = Image.fromarray(ground_truth_np_array[0])
+    
+    imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
+    image = np.array(imagePil).astype(np.float32) / 255.0
+    
+    # testing = Image.fromarray((image * 255).astype(np.uint8))
+    # testing.save("test.png")
+    data.append(image)
     
     
-n = 1000
-plt.figure(figsize=(6,2*len(subjects)))
-for k,s in enumerate(subjects): 
-    for i in range(3):
-        plt.subplot(len(subjects), 3, 3*k+i+1)
-        plt.imshow(image_data[s][n+i].transpose((1,2,0)), cmap='gray', interpolation='None')
-        plt.gca().get_xaxis().set_visible(False)
-        plt.gca().get_yaxis().set_visible(False)
+image_data[0] = np.moveaxis(np.array(data), 3, 1)
+print ('block size:', image_data[0].shape, ', dtype:', image_data[0].dtype, ', value range:',\
+           np.min(image_data[0]), np.max(image_data[0]))
+
+
+# image_data = {}
+# for s in subjects: 
+#     image_data_set = h5py.File(stim_dir + "S%d_stimuli_227.h5py"%s, 'r')
+#     image_data[s] = image_feature_fn(np.copy(image_data_set['stimuli']))
+#     image_data_set.close()
+#     print ('--------  subject %d  -------' % s)
+#     print ('block size:', image_data[s].shape, ', dtype:', image_data[s].dtype, ', value range:',\
+#            np.min(image_data[s]), np.max(image_data[s]))
+    
+# print(image_data)
+    
+    
+# n = 1000
+# plt.figure(figsize=(6,2*len(subjects)))
+# for k,s in enumerate(subjects): 
+#     for i in range(3):
+#         plt.subplot(len(subjects), 3, 3*k+i+1)
+#         plt.imshow(image_data[s][n+i].transpose((1,2,0)), cmap='gray', interpolation='None')
+#         plt.gca().get_xaxis().set_visible(False)
+#         plt.gca().get_yaxis().set_visible(False)
         
         
         
