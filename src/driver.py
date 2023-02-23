@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -169,15 +169,15 @@ def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    # mask_voxels()
-    
     # train_decoder()
 
     # train_encoder()
+    
+    mask_voxels()
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="MLP decoder c_combined big Z averaged", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="MLP decoder c_combined big Z averaged", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -188,24 +188,11 @@ def main():
 def mask_voxels():
     M = Masker(encoderHash="521",
                  vector="c_img_0",
-                 device="cuda:2")
-    #run 1 gpu 1
-    
-    # M.get_percentile(0.8)
-    # M.get_percentile(0.85)
-    # M.get_percentile(0.9)
-    
-    # run 2 gpu 2
-    # M.get_percentile(0.3)
-    # M.get_percentile(0.4)
-    # M.get_percentile(0.5)
-    # M.get_percentile(0.55)
-    
-    #run 3 gpu 3
-    M.get_percentile(0.6)
-    M.get_percentile(0.65)
-    M.get_percentile(0.7)
-    M.get_percentile(0.75)
+                 device="cuda:0")
+    thresholds = list(torch.arange(0.01, 1, 0.01))
+    for t in tqdm(thresholds, desc="thresholds"): 
+        M.get_percentile_coco(t)
+    M.make_histogram()
     
     
 def train_autoencoder():
@@ -231,11 +218,11 @@ def train_autoencoder():
 
 def train_encoder():
     # hashNum = update_hash()
-    hashNum = "521"
+    hashNum = "417"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 log=True, 
+                 log=False, 
                  batch_size=750,
                  parallel=False,
                  device="cuda:1",
@@ -245,7 +232,7 @@ def train_encoder():
     # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    E.benchmark()
+    # E.benchmark()
     
     # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
     # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
@@ -253,8 +240,8 @@ def train_encoder():
     # outputs = E.predict(y)
     # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
 
-    E.predict_cc3m(model=modelId)
-
+    # E.predict_cc3m(model=modelId)
+    E.predict_73K_coco(model=modelId)
     return hashNum
 
 def train_ss_decoder():
