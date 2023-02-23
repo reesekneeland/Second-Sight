@@ -1,6 +1,6 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torch.autograd import Variable
 from torch.optim import Adam
@@ -149,7 +149,7 @@ class Encoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, _ = load_nsdr(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     loader=True,
@@ -283,7 +283,7 @@ class Encoder():
                 
     
     def benchmark(self):
-        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
@@ -314,14 +314,14 @@ class Encoder():
             loss += criterion(pred_y, y_test)
             pred_y = pred_y.moveaxis(0,1)
             y_test = y_test.moveaxis(0,1)
-            pearson_loss += torch.mean(PeC(pred_y, y_test))
+            pearson_loss += torch.sum(PeC(pred_y, y_test))
             #print(pearson_corrcoef(out[index], target[index]))
             
             
         loss = loss / len(self.testLoader)
         
         # Vector correlation for that trial row wise
-        pearson_loss = pearson_loss / len(self.testLoader)
+        pearson_loss = pearson_loss / len(self.testLoader.dataset)
         
         out = out.detach()
         PeC = PearsonCorrCoef()
@@ -340,7 +340,7 @@ class Encoder():
         
 
 
-    def predict_73K_coco(self, model, predict):
+    def predict_73K_coco(self, model, predict=True):
         
         if(predict):
             prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -364,10 +364,10 @@ class Encoder():
             #     preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
                 
             # elif(model == "c_img_0"):
-            preprocessed_data = torch.load(prep_path + "c_img_0/vector_73k.pt")
+            preprocessed_data = torch.load(prep_path + self.vector + "/vector_73k.pt")
             print(preprocessed_data.shape)
 
-            for index, data in enumerate(preprocessed_data):
+            for index, data in tqdm(enumerate(preprocessed_data), desc="predicting coco data"):
                 
                 # Loading in the data
                 x_data = data
@@ -377,9 +377,8 @@ class Encoder():
                 pred_y = self.model(x_data).to(self.device)
                 out[index] = pred_y
                 
-            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "brain_preds.pt")
+            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "coco_brain_preds.pt")
         
-        self.generate_hist()
         
     
     def predict_cc3m(self, model):

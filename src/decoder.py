@@ -16,92 +16,29 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-
-
-# You decode brain data into clip then you encode the clip into an image. 
-
-
-# target_c.pt (Ground Truth)
-#   - Correct c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the correct image)
-
-# target_z.pt (Ground Truth)
-#   - Correct z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the correct image)
-
-
-# output_c.pt (We made)
-#   - Wrong c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the wrong image)
-
-# output_z.pt (We made)
-#   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
-
-
-# Environments:
-# 
-#  Most environments are named the same folder they should be used in. 
-#  
-#  ldm (Main Environment): 
-#   - Run's stable diffusion (Perfectly configured on this environment)
-#   - NSD access (access to data)
-#   - xformers (Library for memory purposes)
-#       
-#  ldm-custom-clip:
-#    - stable diffusion environment configured with custom open-clip install from source
-#
-#  image-modification: 
-#    - For the iamge modification folder
-#    - Older statble diffusion without any special packages
-#
-#  mind-reader:
-#    - For the mind reader folder which is the mind reader paper
-#
-#  ss:
-#    - For the (deprecated) SelfSupervisedReconstr folder which is the self-supervised learning paper
-
-
     
 # Pytorch model class for Linear regression layer Neural Network
-# class MLP(torch.nn.Module):
-#     def __init__(self, vector, inpSize):
-#         super(MLP, self).__init__()
-#         if(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
-#             self.linear = nn.Linear(inpSize, 10000)
-#             self.linear2 = nn.Linear(10000, 12000)
-#             self.outlayer = nn.Linear(12000, 768)
-#         elif(vector == "z" or vector == "z_img_mixer"):
-#             # self.linear = nn.Linear(inpSize, 15000)
-#             # self.linear2 = nn.Linear(15000, 25000)
-#             # self.outlayer = nn.Linear(25000, 16384)
-#             self.linear = nn.Linear(inpSize, 10000)
-#             self.linear2 = nn.Linear(10000, 12000)
-#             self.outlayer = nn.Linear(12000, 16384)
-#         self.relu = nn.ReLU()
-#     def forward(self, x):
-#         y_pred = self.relu(self.linear(x))
-#         y_pred = self.relu(self.linear2(y_pred))
-#         y_pred = self.outlayer(y_pred)
-#         return y_pred
 class MLP(torch.nn.Module):
     def __init__(self, vector, inpSize):
         super(MLP, self).__init__()
-        if(vector == "c_prompt"):
-            outSize = 78848
-        elif(vector == "c_combined" or vector == "c_img_mixer"):
-            outSize = 3840
-        elif(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
-            outSize = 768
+        if(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
+            self.linear = nn.Linear(inpSize, 10000)
+            self.linear2 = nn.Linear(10000, 12000)
+            self.outlayer = nn.Linear(12000, 768)
         elif(vector == "z" or vector == "z_img_mixer"):
-            outSize = 16384
-        elif(vector == "c_img"):
-            outSize = 1536
-        self.linear = nn.Linear(inpSize, 10000)
+            self.linear = nn.Linear(inpSize, 15000)
+            self.linear2 = nn.Linear(15000, 25000)
+            self.outlayer = nn.Linear(25000, 16384)
+            # self.linear = nn.Linear(inpSize, 10000)
+            # self.linear2 = nn.Linear(10000, 12000)
+            # self.outlayer = nn.Linear(12000, 16384)
         self.relu = nn.ReLU()
-        self.linear2 = nn.Linear(10000, 12000)
-        self.outlayer = nn.Linear(12000, outSize)
     def forward(self, x):
         y_pred = self.relu(self.linear(x))
         y_pred = self.relu(self.linear2(y_pred))
         y_pred = self.outlayer(y_pred)
         return y_pred
+
     
 # Main Class    
 class Decoder():
@@ -154,7 +91,7 @@ class Decoder():
                 "architecture": "MLP",
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
-                "dataset": "Z score test",
+                "dataset": "Z scored",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -164,11 +101,10 @@ class Decoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd_vs(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    loader=True,
-                                                                    average=False)
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+                                                        batch_size=self.batch_size, 
+                                                        num_workers=self.num_workers, 
+                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -276,79 +212,19 @@ class Decoder():
         else:
             self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
 
-
-    # def predict(self, model, indices=[0]):
-    #     print(model)
-    #     os.makedirs("latent_vectors/" + model, exist_ok=True)
-    #     # Load the model into the class to be used for predictions
-    #     if(self.parallel):
-    #         self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     else:
-    #         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-    #     self.model.eval()
-    #     outputs, targets = [], []
-    #     x, y = next(iter(self.testloader))
-    #     for x in self.testloader:
-    #         for i in indices:
-    #             # Loading in the test data
-    #             x_data = x[i]
-    #             y_data = y[i]
-    #             x_data = x_data[None,:].to(self.device)
-    #             y_data = y_data[None,:].to(self.device)
-    #             # Generating predictions based on the current model
-    #             pred_y = self.model(x_data).to(self.device)
-    #             outputs.append(pred_y)
-    #             targets.append(y_data)
-    #             torch.save(pred_y, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "output_" + str(i) + "_" + self.vector + ".pt")
-    #             torch.save(y_data, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "target_" + str(i) + "_" + self.vector + ".pt")
-            
-                
-            
-    #     # Pearson correlation
-    #     out = torch.Tensor(outputs)
-    #     target = torch.Tensor(target)
-    #     r = []
-    #     for p in range(out[0].shape[1]):
-    #         r.append(pearson_corrcoef(out[:,p], target[:,p]))
-    #     r = np.array(r)
-    #     print(np.mean(r))
-    #     plt.hist(r, bins=40, log=True)
-    #     plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_log_applied_decoder.png")
-    #     return outputs, targets
-    
     def predict(self, x, batch=False, batch_size=750):
-        # if(self.vector=="c_img_0" or self.vector=="c_text_0"):
-        #     vecSize = 768
-        # elif(self.vector == "z" or self.vector == "z_img_mixer"):
-        #     vecSize = 16384
-        # out = torch.zeros((x.shape[0],vecSize))
-        print(self.hashNum)
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        # if(batch==False):
-        #     batch_size = 1
-
-        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
-        #     if i*batch_size < x.shape[0]:
-        #         x_test = x[i*batch_size:i*batch_size + batch_size]
-        #     else:
-        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-        #     x_test = x_test.to(self.device)                
-
-        #     # Generating predictions based on the current model
-        #     pred_y = self.model(x_test)
-            
-        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
         out = self.model(x.to(self.device))
         return out
     
     def benchmark(self):
-        _, _, _, _, self.testLoader = load_nsd_vs(vector=self.vector, 
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
-                                                average=True)
+                                                average=False)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768

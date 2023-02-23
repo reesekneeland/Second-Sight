@@ -1,5 +1,5 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import PIL
 import torch
 import numpy as np
@@ -169,4 +169,3 @@ class Reconstructor():
 if __name__ == "__main__":
     E = Reconstructor()
     E.main()
-    

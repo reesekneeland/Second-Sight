@@ -208,3 +208,36 @@ def run_fr_decoder():
                  )
     hashNum, outputs, target = D.train()
     return hashNum, outputs, target
+
+
+ def get_percentile(self, threshold):
+        print(self.device)
+        print("finding percentile for " + str(threshold))
+        masked_threshold_x = self.mask_voxels(threshold, self.x_thresh.to(self.device))
+        masked_threshold_encoded_x = self.mask_voxels(threshold, self.x_thresh_encoded.to(self.device))
+        
+        mask = torch.load(mask_path + str(threshold) + ".pt", map_location=self.device)
+        PeC = PearsonCorrCoef(num_outputs=22735).to(self.device)
+        PeC2 = PearsonCorrCoef().to(self.device)
+        average_percentile = 0
+        for i in tqdm(range(masked_threshold_x.shape[0]), desc="scanning library for threshold " + str(threshold)):
+            
+            xDup = masked_threshold_x[i].repeat(22735, 1).moveaxis(0, 1).to(self.device)
+            scores = torch.zeros((2819141,))
+            for batch in tqdm(range(124), desc="batching sample"):
+                x_preds = torch.load(latent_path + "/cc3m_batches/" + str(batch) + ".pt", map_location=self.device)
+                x_preds_m = x_preds[:, mask]
+                x_preds_t = x_preds_m.moveaxis(0, 1)
+                
+                # Pearson correlation
+                scores[22735*batch:22735*batch+22735] = PeC(xDup, x_preds_t).detach()
+            scores[-1] = PeC2(masked_threshold_x[i], masked_threshold_encoded_x[i]).detach()
+            sorted_scores, sorted_indices = torch.sort(scores, descending=True)
+            percentile = 1-float(sorted_indices[-1]/2819141)
+            average_percentile += percentile
+            tqdm.write(str(percentile))
+        final_percentile = average_percentile/masked_threshold_x.shape[0]
+        print("final percentile: ", str(final_percentile))
+        file = open(mask_path + "results.txt", 'a+')
+        file.write(str(threshold) + ": " + str(final_percentile))
+        file.close()
