@@ -301,17 +301,28 @@ def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
     return trainLoader, valLoader, testLoader
     
-def create_whole_region_unnormalized():
     
-    whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
-    nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_data()
+
+
+def create_whole_region_unnormalized(whole=False):
+    
+    if(whole):
+        data = 41
+        file = "x/whole_region_11838_unnormalized_all.pt"
+        whole_region = torch.zeros((30000, 11838))
+    else:
+        data = 38
+        file = "x/whole_region_11838_unnormalized.pt"
+        whole_region = torch.zeros((27750, 11838))
+
+    nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_fdata()
     print(nsd_general.shape)
 
     nsd_general_mask = np.nan_to_num(nsd_general)
     nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
         
     # Loads the full collection of beta sessions for subject 1
-    for i in tqdm(range(1,38), desc="Loading Voxels"):
+    for i in tqdm(range(1,data), desc="Loading Voxels"):
         beta = nsda.read_betas(subject='subj01', 
                             session_index=i, 
                             trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
@@ -332,28 +343,48 @@ def create_whole_region_unnormalized():
             whole_region[j + (i-1)*750] = single_scan[nsd_mask]
             
     # Save the tensor
-    torch.save(whole_region, prep_path + "x/whole_region_11838_unnormalized.pt")
+    torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized():
+def create_whole_region_normalized(whole=False):
     
-    #whole_region_norm = torch.zeros((27750, 11838))
-    whole_region_norm_z = torch.zeros((27750, 11838))
-    whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+    if(whole):
+        #whole_region_norm = torch.zeros((27750, 11838))
+        whole_region_norm_z = torch.zeros((30000, 11838))
+        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized_all.pt")
+                
+        # Normalize the data using Z scoring method for each voxel
+        for i in range(whole_region.shape[1]):
+            voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+            normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+            whole_region_norm_z[:, i] = normalized_voxel
             
-    # Normalize the data using Z scoring method for each voxel
-    for i in range(whole_region.shape[1]):
-        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
-        normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-        whole_region_norm_z[:, i] = normalized_voxel
-        
 
-    # Normalize the data by dividing all elements by the max of each voxel
-    # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+        # Normalize the data by dividing all elements by the max of each voxel
+        # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
-    # Save the tensor
-    torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
-    #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+        # Save the tensor
+        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838_all.pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+    
+    else:
+        #whole_region_norm = torch.zeros((27750, 11838))
+        whole_region_norm_z = torch.zeros((27750, 11838))
+        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+                
+        # Normalize the data using Z scoring method for each voxel
+        for i in range(whole_region.shape[1]):
+            voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+            normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+            whole_region_norm_z[:, i] = normalized_voxel
+            
+
+        # Normalize the data by dividing all elements by the max of each voxel
+        # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+
+        # Save the tensor
+        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
     
 def process_data(vector):
