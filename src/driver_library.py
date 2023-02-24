@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 from torch.autograd import Variable
 import numpy as np
@@ -37,7 +37,7 @@ def main():
                        idx=[i for i in range(22)])
 
 
-def predictVector_cc3m(model, vector, x, device="cuda:1"):
+def predictVector_cc3m(model, vector, x, device="cuda:0"):
         
         if(vector == "c_img_0" or vector == "c_text_0"):
             datasize = 768
@@ -95,7 +95,7 @@ def reconstructNImages(experiment_title, idx):
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-    
+    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
@@ -119,7 +119,7 @@ def reconstructNImages(experiment_title, idx):
     targets_z = targets_z[test_idx]
     
     
-    outputs_c_i = predictVector_cc3m(model="424_model_c_img_0.pt", vector="c_img_0", x=x_test)[:,0]
+    outputs_c_i = predictVector_cc3m(model="521_model_c_img_0.pt", vector="c_img_0", x=x_test)[:,0]
     # outputs_c_t = predictVector_cc3m(model="425_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
     # outputs_z = predictVector_cc3m(model="426_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)[:,0]
     # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/424_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
@@ -173,83 +173,78 @@ def reconstructNImages(experiment_title, idx):
         # returns a numpy array 
         ground_truth_np_array = nsda.read_images([index], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
-        
-        # Create figure
-        fig = plt.figure(figsize=(10, 7))
-        plt.title(str(i) + ": " + experiment_title)
-        
-        # Setting values to rows and column variables
+        ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
         rows = 4
         columns = 2
-        
-        # Adds a subplot at the 1st position
-        fig.add_subplot(rows, columns, 1)
-        
-        # Showing image
-        plt.imshow(ground_truth)
-        plt.axis('off')
-        plt.title("Ground Truth")
-        
-        # Adds a subplot at the 2nd position
-        fig.add_subplot(rows, columns, 2)
-        
-        # Showing image
-        plt.imshow(reconstructed_target_c)
-        plt.axis('off')
-        plt.title("Target C")
-        
-        # Adds a subplot at the 1st position
-        fig.add_subplot(rows, columns, 3)
-        
-        # Showing image
-        plt.imshow(reconstructed_output_c)
-        plt.axis('off')
-        plt.title("Output 5 Cs")
-        
-        # Adds a subplot at the 2nd position
-        fig.add_subplot(rows, columns, 4)
-        
-       # Showing image
-        plt.imshow(reconstructed_output_c_0)
-        plt.axis('off')
-        plt.title("C_0")
-        
-        # Adds a subplot at the 1st position
-        fig.add_subplot(rows, columns, 5)
-        
-        # Showing image
-        plt.imshow(reconstructed_output_c_1)
-        plt.axis('off')
-        plt.title("C_1")
+        images = [ground_truth, reconstructed_target_c, reconstructed_output_c, reconstructed_output_c_0, reconstructed_output_c_1, reconstructed_output_c_2, reconstructed_output_c_3, reconstructed_output_c_4]
+        captions = ["Ground Truth", "Target C", "Output 5 Cs", "C_0", "C_1","C_2","C_3","C_4"]
+        figure = tileImages(experiment_title, images, captions, rows, columns)
         
         
-        # Adds a subplot at the 2nd position
-        fig.add_subplot(rows, columns, 6)
+        figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
         
-        # Showing image
-        plt.imshow(reconstructed_output_c_2)
-        plt.axis('off')
-        plt.title("C_2")
-        
-        # Adds a subplot at the 3rd position
-        fig.add_subplot(rows, columns, 7)
-        
-        # Showing image
-        plt.imshow(reconstructed_output_c_3)
-        plt.axis('off')
-        plt.title("C_3")
     
-        # Adds a subplot at the 4th position
-        fig.add_subplot(rows, columns, 8)
+def benchmark_library():
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=True,
+                                                average=True)
+        outSize = len(self.testLoader.dataset)
+        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
+            vecSize = 768
+        elif(self.vector == "z" or self.vector == "z_img_mixer"):
+            vecSize = 16384
+        out = torch.zeros((outSize, vecSize))
+        target = torch.zeros((outSize, vecSize))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
+
+        loss = 0
+        pearson_loss = 0
         
-        # Showing image
-        plt.imshow(reconstructed_output_c_4)
-        plt.axis('off')
-        plt.title("C_4")
+        criterion = nn.MSELoss()
         
+        for index, data in enumerate(self.testLoader):
+            
+            x_test, y_test = data
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+            y_test = y_test.to(self.device)
+            x_test = x_test.to(self.device)
+            # Generating predictions based on the current model
+            pred_y = self.model(x_test).to(self.device)
+            
+            
+            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
+            loss += criterion(pred_y, y_test)
+            pred_y = pred_y.moveaxis(0,1)
+            y_test = y_test.moveaxis(0,1)
+            pearson_loss += torch.mean(PeC(pred_y, y_test))
+            #print(pearson_corrcoef(out[index], target[index]))
+            
+            
+        loss = loss / len(self.testLoader)
         
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
-        plt.savefig('reconstructions/' + experiment_title + '/' + str(i) + '.png', dpi=400)
-    
+        # Vector correlation for that trial row wise
+        pearson_loss = pearson_loss / len(self.testLoader)
+        
+        out = out.detach()
+        target = target.detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for p in range(out.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(out[:,p], target[:,p]))
+        r = np.array(r)
+        
+        print("Vector Correlation: ", float(pearson_loss))
+        print("Mean Pearson: ", np.mean(r))
+        print("Loss: ", float(loss))
+        plt.hist(r, bins=40, log=True)
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")
+
 if __name__ == "__main__":
     main()

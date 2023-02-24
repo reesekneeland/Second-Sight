@@ -1,7 +1,6 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
-import torch
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 from torch.autograd import Variable
 from torch.optim import Adam
 import numpy as np
@@ -149,7 +148,7 @@ class Encoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsdr(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, _ = load_nsd(vector=self.vector, 
                                                                     batch_size=self.batch_size, 
                                                                     num_workers=self.num_workers, 
                                                                     loader=True,
@@ -287,7 +286,7 @@ class Encoder():
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
-                                                average=False)
+                                                average=True)
         out = torch.zeros((1656,11838))
         target = torch.zeros((1656, 11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))

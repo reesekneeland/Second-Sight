@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 import numpy as np
 from nsd_access import NSDAccess
@@ -16,7 +16,7 @@ class Masker():
     def __init__(self, 
                  encoderHash,
                  vector, 
-                 device="cuda:1"
+                 device="cuda:0"
                  ):
 
         # Set the parameters for pytorch model training
@@ -44,21 +44,21 @@ class Masker():
         if(not os.path.isfile(self.latent_path + "avg_encoded_threshold_selection.pt")):
             torch.save(self.E.predict(x=self.y_thresh), self.latent_path + "avg_encoded_threshold_selection.pt")
             
-        self.x_vox_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt")
-        self.x_thresh_encoded = torch.load(self.latent_path + "avg_encoded_threshold_selection.pt")
+        self.x_vox_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt", map_location=self.device)
+        self.x_thresh_encoded = torch.load(self.latent_path + "avg_encoded_threshold_selection.pt", map_location=self.device)
         
         subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         nsdIds = set(subj1['nsdId'].tolist())
         
         x_preds_full = torch.load(self.latent_path + "coco_brain_preds.pt", map_location=self.device)
-        self.x_preds = torch.zeros((63000,11838))
+        self.x_preds = torch.zeros((10500,11838))
         count = 0
         for pred in range(73000):
-            if pred not in nsdIds:
+            if pred not in nsdIds and count <10500:
                 self.x_preds[count] = x_preds_full[pred]
                 count+=1
         
-        self.PeC = PearsonCorrCoef(num_outputs=21000).to(self.device)
+        self.PeC = PearsonCorrCoef(num_outputs=10500).to(self.device)
         self.PeC2 = PearsonCorrCoef().to(self.device)
     
     def orderVoxels(self):
@@ -73,6 +73,16 @@ class Masker():
     def create_mask(self, threshold):
         if(self.sorted_indices is None):
             self.orderVoxels()
+        if(threshold==-1):
+            print("grabbing negative threshold")
+            lowestPearson = -(self.pearson_scores[-1])
+            print(lowestPearson)
+            num_voxels = next(x for x, val in enumerate(self.pearson_scores)
+                                  if val < lowestPearson)
+            # threshold = (self.pearson_scores>=lowestPearson).nonzero(as_tuple=True)[1][-1]
+            print(num_voxels)
+        else:
+            num_voxels = int(11838*threshold)
         print("creating mask")
         # threshold = round((min(r) * -1), 6)
         # print("threshold: ", threshold)
@@ -81,7 +91,7 @@ class Masker():
         #     threshmask = np.where(np.array(r) > threshold, mask, False)
         #     print(threshmask.shape)
         #     np.save("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + self.vector + "2voxels_pearson_thresh" + str(threshold), threshmask)
-        num_voxels = int(threshold * 11838)
+        
         masked_indices = self.sorted_indices[0:num_voxels]
         mask[masked_indices] = True
         mask = mask.to(self.device)
@@ -99,7 +109,7 @@ class Masker():
         return masked_x
         
     def get_percentile_coco(self, threshold):
-        threshold = round(float(threshold),3)
+        threshold = float(threshold)
         if(not os.path.isfile(self.mask_path + str(threshold) + ".pt")):
             self.create_mask(threshold)
         mask = torch.load(self.mask_path + str(threshold) + ".pt", map_location=self.device)
@@ -110,42 +120,45 @@ class Masker():
         x_preds_t = x_preds_m.moveaxis(0, 1).to(self.device)
         average_percentile = 0
         for i in tqdm(range(masked_threshold_x.shape[0]), desc="scanning library for threshold " + str(threshold)):
-            xDup = masked_threshold_x[i].repeat(21000, 1).moveaxis(0, 1).to(self.device)
-            scores = torch.zeros((63001,))
-            for batch in range(3):
+            xDup = masked_threshold_x[i].repeat(10500, 1).moveaxis(0, 1).to(self.device)
+            scores = torch.zeros((10501,))
+            # for batch in range(3):
             # for j in tqdm(range(73000), desc="batching sample"):
                 # Pearson correlation
             # print(xDup.shape, masked_threshold_encoded_x[i].shape)
-                x_preds_t_b = x_preds_t[:,21000*batch:21000*batch+21000]
-                scores[21000*batch:21000*batch+21000] = self.PeC(xDup, x_preds_t_b).detach()
+                # x_preds_t_b = x_preds_t[:,21000*batch:21000*batch+21000]
+                # scores[21000*batch:21000*batch+21000] = self.PeC(xDup, x_preds_t_b).detach()
+            scores = self.PeC(xDup, x_preds_t)
             scores[-1] = self.PeC2(masked_threshold_x[i], masked_threshold_encoded_x[i])
             scores.detach()
             sorted_scores, sorted_indices = torch.sort(scores, descending=True)
+            rank = ((sorted_indices==10499).nonzero(as_tuple=True)[0])
             sorted_scores.detach()
             sorted_indices.detach()
-            percentile = 1-float(sorted_indices[-1]/63001)
+            percentile = 1-float(rank/10501)
             average_percentile += percentile
             # tqdm.write(str(percentile))
         final_percentile = average_percentile/masked_threshold_x.shape[0]
-        file = open(self.mask_path + "results_coco.txt", 'a+')
+        file = open(self.mask_path + "results_coco_inc.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile) + "\n")
         file.close()
         del scores
         del x_preds_t
         del x_preds_m
-        del x_preds_t_b
+        # del x_preds_t_b
         torch.cuda.empty_cache()
         
     def make_histogram(self):
         x, y = [], []
-        file = open(self.mask_path + "results_coco.txt", 'r')
+        file = open(self.mask_path + "results_coco_inc.txt", 'r')
         for i, line in enumerate(file.readlines()):
             vals = line.split(": ")
             x.append(float(vals[0]))
             y.append(float(vals[1][:-2]))
         print(x[0:5], y[0:5])
         plt.plot(np.array(x), np.array(y))  # Plot the chart
-        plt.savefig("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/charts/" + self.encoderModel + "_threshold_plot.png")
+        plt.savefig("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/charts/" + self.encoderModel + "_threshold_plot_avg_inc.png")
+        print("best thresh: " + str(x[np.argmax(np.array(y))]))
         # #print(r)
         # #r = np.log(r)
         # plt.hist(r, bins=40, log=True)
