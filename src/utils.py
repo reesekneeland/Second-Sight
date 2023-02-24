@@ -135,7 +135,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         # x is the brain data 
         # y are the vectors
         # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
-        train_trails = []
         val_trails   = []
         test_trials  = []
         for i in tqdm(range(7500), desc="loading training samples"):
@@ -158,7 +157,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if(scanId < 27750):
                         x_train.append(x[scanId-1])
                         y_train.append(y[scanId-1])
-                        train_trails.append(scanId)
+                        
                         
         for i in tqdm(range(7500, 9000), desc="loading validation samples"):
             if(average==True):
@@ -174,6 +173,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     avx = torch.stack(avx)
                     x_val.append(torch.mean(avx, dim=0))
                     y_val.append(avy[0])
+                    val_trails.append(i)
             else:
                 for j in range(3):
                     scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
@@ -273,7 +273,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             return trainloader, valloader, voxelloader, threshloader, testloader
         else:
             if(return_trial): 
-                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, train_trails, val_trails, test_trials
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, val_trails, test_trials
             else:
                 return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
 
