@@ -112,7 +112,7 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False):
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
         y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
@@ -135,7 +135,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         # x is the brain data 
         # y are the vectors
         # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
-        test_trials = []
+        train_trails = []
+        val_trails   = []
+        test_trials  = []
         for i in tqdm(range(7500), desc="loading training samples"):
             if(average==True):
                 avx = []
@@ -156,7 +158,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if(scanId < 27750):
                         x_train.append(x[scanId-1])
                         y_train.append(y[scanId-1])
-        for i in range(7500, 9000):
+                        train_trails.append(scanId)
+                        
+        for i in tqdm(range(7500, 9000), desc="loading validation samples"):
             if(average==True):
                 avx = []
                 avy = []
@@ -176,6 +180,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if(scanId < 27750):
                         x_val.append(x[scanId-1])
                         y_val.append(y[scanId-1])
+                        val_trails.append(i)
         
         for i in range(200):
             if(average==True):
@@ -267,7 +272,10 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
             return trainloader, valloader, voxelloader, threshloader, testloader
         else:
-            return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
+            if(return_trial): 
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, train_trails, val_trails, test_trials
+            else:
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
 
 
 def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
