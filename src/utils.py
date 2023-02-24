@@ -1,6 +1,5 @@
 import sys
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import struct
 import time
 import numpy as np
@@ -522,14 +521,12 @@ def format_clip(c):
 def tileImages(title, images, captions, h, w):
     bigH = 576 * h
     bigW = 512 * w 
-    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
-    line = Image.new('RGB', (bigW, 8), color='black')
-    canvas.paste(line, (0,120))
+    canvas = Image.new('RGB', (bigW, bigH+96), color='white')
     font = ImageFont.truetype("arial.ttf", 36)
     titleFont = ImageFont.truetype("arial.ttf", 48)
     textLabeler = ImageDraw.Draw(canvas)
     _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
-    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    textLabeler.text(((bigW-w)/2, 24), title, font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(512,64), color="white")
     count = 0
     for j in range(128, bigH, 576):

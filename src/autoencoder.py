@@ -1,6 +1,5 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 from torch.optim import Adam
 import numpy as np
@@ -98,6 +97,7 @@ class AutoEncoder():
                 config={
                 "hash": self.hashNum,
                 "architecture": "Autoencoder",
+                "encoder Hash": encoderHash,
                 "vector": self.vector,
                 "dataset": "Whole region visual cortex",
                 "epochs": self.num_epochs,
@@ -227,7 +227,7 @@ class AutoEncoder():
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device))
+        out = self.model(x.to(self.device)).to(self.device)
             
         return out
                 

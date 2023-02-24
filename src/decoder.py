@@ -1,6 +1,5 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 from torch.autograd import Variable
 from torch.optim import Adam
@@ -224,7 +223,7 @@ class Decoder():
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
-                                                average=True)
+                                                average=False)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768

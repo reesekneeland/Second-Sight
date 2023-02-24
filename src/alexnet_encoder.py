@@ -1,5 +1,4 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 sys.path.append('/home/naxos2-raid25/ojeda040/local/styvesg/code/nsd_gnet8x/')
 
 from IPython.core.display import display, HTML

@@ -1,6 +1,5 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torch.autograd import Variable
 from torch.optim import Adam
