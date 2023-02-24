@@ -1,6 +1,6 @@
 # Only GPU's in use
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 from torch.optim import Adam
 import numpy as np
@@ -52,8 +52,8 @@ class AutoEncoder():
     def __init__(self, 
                  hashNum,
                  vector, 
-                 encoderHash,
-                 log, 
+                 log=False, 
+                 encoderHash=None,
                  lr=0.00001,
                  batch_size=750,
                  parallel=True,
@@ -65,7 +65,8 @@ class AutoEncoder():
         # Set the parameters for pytorch model training
         self.hashNum     = hashNum
         self.vector      = vector
-        self.encoderModel = encoderHash + "_model_" + self.vector + ".pt"
+        if(encoderHash):
+            self.encoderModel = encoderHash + "_model_" + self.vector + ".pt"
         
         self.device      = torch.device(device)
         self.lr          = lr
@@ -223,24 +224,9 @@ class AutoEncoder():
             
     def predict(self, x, batch=False, batch_size=750):
         
-        # out = torch.zeros((x.shape[0],11838))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        # if(batch==False):
-        #     batch_size = 1
-
-        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
-        #     if i*batch_size < x.shape[0]:
-        #         x_test = x[i*batch_size:i*batch_size + batch_size]
-        #     else:
-        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-        #     x_test = x_test.to(self.device)                
-
-        #     # Generating predictions based on the current model
-        #     pred_y = self.model(x_test)
-            
-        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
         out = self.model(x.to(self.device))
             
         return out
@@ -252,7 +238,7 @@ class AutoEncoder():
                                                 num_workers=self.num_workers, 
                                                 ae=True,
                                                 encoderModel=self.encoderModel,
-                                                average=False)
+                                                average=True)
         out = torch.zeros((2770,11838))
         target = torch.zeros((2770, 11838))
         modelId = self.hashNum + "_model_" + self.vector + ".pt"
@@ -303,7 +289,7 @@ class AutoEncoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_autoencoder.png")
         
 
     

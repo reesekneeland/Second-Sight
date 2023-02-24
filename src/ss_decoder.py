@@ -17,6 +17,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
+from autoencoder  import AutoEncoder
 
 
 # You decode brain data into clip then you encode the clip into an image. 
@@ -127,7 +128,7 @@ class SS_Decoder():
                 "encoder model": self.encModel,
                 "architecture": "MLP",
                 "vector": self.vector,
-                "dataset": "Z scored B', predicted brain data on CC3M",
+                "dataset": "old norm B', predicted brain data on CC3M",
                 "epochs": self.num_epochs,
                 "learning_rate": self.lr,
                 "batch_size:": self.batch_size,
@@ -276,10 +277,90 @@ class SS_Decoder():
             
             x_test, y_test = data
             PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
-            y_test = y_test.to(self.device)
             x_test = x_test.to(self.device)
             # Generating predictions based on the current model
             pred_y = self.model(x_test)
+            pred_y = pred_y.detach()
+            out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
+            target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
+            pred_y = pred_y.to(self.device)
+            y_test = y_test.to(self.device)
+            
+            loss += criterion(pred_y, y_test)
+            pred_y = pred_y.moveaxis(0,1)
+            y_test = y_test.moveaxis(0,1)
+            pearson = PeC(pred_y, y_test).to("cpu")
+            pearson_loss += torch.mean(pearson)
+            
+            #print(pearson_corrcoef(out[index], target[index]))
+            
+            
+        loss = loss / len(self.testLoader)
+        
+        # Vector correlation for that trial row wise
+        pearson_loss = pearson_loss / len(self.testLoader)
+        
+        out = out.detach()
+        target = target.detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for p in range(out.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(out[:,p], target[:,p]))
+        r = np.array(r)
+        
+        print("Vector Correlation: ", float(pearson_loss))
+        print("Mean Pearson: ", np.mean(r))
+        print("Loss: ", float(loss))
+        plt.hist(r, bins=40, log=True)
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        model = self.hashNum + "_model_" + self.vector + ".pt/"
+        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
+        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_out.pt")
+        torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
+        return out, target
+        
+    def benchmark_nsd(self, AEhash):
+        # Initialize the data loaders
+        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+                                            batch_size=self.batch_size, 
+                                            num_workers=self.num_workers, 
+                                            loader=True,
+                                            average=True)
+        AE = AutoEncoder(hashNum = AEhash,
+                 lr=0.0000001,
+                 vector=self.vector,
+                 log=False, 
+                 batch_size=750,
+                 parallel=False,
+                 device=self.device
+                )
+        outSize = len(self.testLoader.dataset)
+        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
+            vecSize = 768
+        elif(self.vector == "z" or self.vector == "z_img_mixer"):
+            vecSize = 16384
+        out = torch.zeros((outSize, vecSize)).to("cpu")
+        target = torch.zeros((outSize, vecSize)).to("cpu")
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.eval()
+        self.model.to(self.device)
+
+        loss = 0
+        pearson_loss = 0
+        
+        criterion = nn.MSELoss()
+        
+        for index, data in enumerate(tqdm(self.testLoader, desc="benchmarking test set")):
+            
+            x_test, y_test = data
+            x_test_ae = AE.predict(x_test)
+            PeC = PearsonCorrCoef(num_outputs=x_test_ae.shape[0]).to(self.device)
+            y_test = y_test.to(self.device)
+            x_test_ae = x_test_ae.to(self.device)
+            # Generating predictions based on the current model
+            pred_y = self.model(x_test_ae)
             pred_y = pred_y.to(self.device)
             
             out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
@@ -311,32 +392,15 @@ class SS_Decoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_ss_decoder_AE.png")
         model = self.hashNum + "_model_" + self.vector + ".pt/"
         os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
-        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_out.pt")
-        torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
         return out, target
-        
+    
     def predict(self, x, batch=False, batch_size=750):
         
-        # out = torch.zeros((x.shape[0],768))
         self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        # if(batch==False):
-        #     batch_size = 1
-
-        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
-        #     if i*batch_size < x.shape[0]:
-        #         x_test = x[i*batch_size:i*batch_size + batch_size]
-        #     else:
-        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-        #     x_test = x_test.to(self.device)                
-
-        #     # Generating predictions based on the current model
-        #     pred_y = self.model(x_test)
-            
-        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
         out = self.model(x.to(self.device))
         return out

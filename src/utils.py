@@ -1,6 +1,6 @@
 import sys
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import struct
 import time
 import numpy as np
@@ -13,7 +13,7 @@ import pickle
 import math
 import matplotlib.pyplot as plt
 import torch.nn as nn
-import PIL.Image as Image
+from PIL import Image, ImageDraw, ImageFont
 import nibabel as nib
 from nsd_access import NSDAccess
 import torch
@@ -487,3 +487,24 @@ def format_clip(c):
     c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
     c_combined = c_combined.tile(1, 1, 1)
     return c_combined
+
+def tileImages(title, images, captions, h, w):
+    bigH = 576 * h
+    bigW = 512 * w 
+    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
+    line = Image.new('RGB', (bigW, 8), color='black')
+    canvas.paste(line, (0,120))
+    font = ImageFont.truetype("arial.ttf", 36)
+    titleFont = ImageFont.truetype("arial.ttf", 48)
+    textLabeler = ImageDraw.Draw(canvas)
+    _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
+    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    label = Image.new(mode="RGBA", size=(512,64), color="white")
+    count = 0
+    for j in range(128, bigH, 576):
+        for i in range(0, bigW, 512):
+            canvas.paste(images[count], (i,j))
+            canvas.paste(label, (i, j+512))
+            textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
+            count+=1
+    return canvas
