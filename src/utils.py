@@ -114,9 +114,9 @@ def embed_dict(fd):
 def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False):
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
-        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
     else:
-        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        x = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
     
     if(not split): 
@@ -255,7 +255,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         y_voxelSelection = torch.stack(y_voxelSelection)
         y_thresholdSelection = torch.stack(y_thresholdSelection)
         y_test = torch.stack(y_test)
-        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
+        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape, len(test_trials))
 
         if(loader):
             trainset = torch.utils.data.TensorDataset(x_train, y_train)

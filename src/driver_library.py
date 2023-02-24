@@ -33,8 +33,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:1")
-    reconstructNImages(experiment_title="cc3m top 5 comparison new split 536 tiled", idx=[i for i in range(3)])
+    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:1")
+    # reconstructNImages(experiment_title="cc3m top 5 comparison new split 536 tiled", idx=[i for i in range(3)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -55,31 +55,33 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
         
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
             xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
-            batch_max_x = torch.zeros((620, x.shape[1]))
-            batch_max_y = torch.zeros((620, datasize))
+            scores = torch.zeros((2819141,))
+            preds = torch.zeros((2819141,768))
+            # batch_max_x = torch.zeros((620, x.shape[1]))
+            # batch_max_y = torch.zeros((620, datasize))
             for batch in tqdm(range(124), desc="batching sample"):
                 y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
                 x_preds = torch.load(latent_path + encModel + "/cc3m_batches/" + str(batch) + ".pt")
                 x_preds_t = x_preds.moveaxis(0, 1).to(device)
-                
+                preds[22735*batch:22735*batch+22735] = y.detach()
                 # Pearson correlation
-                pearson = PeC(xDup, x_preds_t)
+                scores[22735*batch:22735*batch+22735] = PeC(xDup, x_preds_t).detach()
                 # Calculating the Average Pearson Across Samples
-                top5_pearson = torch.topk(pearson, 5)
-                average_pearson += torch.mean(top5_pearson.values.detach()) 
+            top5_pearson = torch.topk(scores, 5)
+            average_pearson += torch.mean(top5_pearson.values.detach()) 
+            print(top5_pearson.indices, top5_pearson.values, scores[0:5])
                 
-                
-                for j, index in enumerate(top5_pearson.indices):
-                    batch_max_x[5*batch + j] = x_preds_t[:,index].detach()
-                    batch_max_y[5*batch + j] = y[index].detach()
+                # for j, index in enumerate(top5_pearson.indices):
+                #     batch_max_x[5*batch + j] = x_preds_t[:,index].detach()
+                #     batch_max_y[5*batch + j] = y[index].detach()
                     
                 
-            xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
-            batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
-            outPearson = outputPeC(xDupOut, batch_max_x).to("cpu")
-            top5_ind_out = torch.topk(outPearson, 5).indices
-            for j, index in enumerate(top5_ind_out):
-                    out[i, j] = batch_max_y[index]
+            # xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
+            # batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
+            # outPearson = outputPeC(xDupOut, batch_max_x).to("cpu")
+            # top5_ind_out = torch.topk(outPearson, 5).indices
+            for j, index in enumerate(top5_pearson.indices):
+                    out[i, j] = preds[index]
             
         torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
@@ -103,9 +105,9 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=False)
-    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=False)
-    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=False)
+    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
     AE = AutoEncoder(hashNum = "540",
                  lr=0.0000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
@@ -119,9 +121,9 @@ def reconstructNImages(experiment_title, idx):
 
     # TODO: Run the 20 test x through the autoencoder to feed into predictVector_cc3m
     x_test = ae_x_test.to("cuda:0")
-    targets_c_i = targets_c_i
-    targets_c_t = targets_c_t
-    targets_z = targets_z
+    # targets_c_i = targets_c_i
+    # targets_c_t = targets_c_t
+    # targets_z = targets_z
     
     
     # outputs_c_t = predictVector_cc3m(model="425_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
