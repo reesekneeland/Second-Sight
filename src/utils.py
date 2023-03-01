@@ -1,6 +1,5 @@
 import sys
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import struct
 import time
 import numpy as np
@@ -263,7 +262,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         y_voxelSelection = torch.stack(y_voxelSelection)
         y_thresholdSelection = torch.stack(y_thresholdSelection)
         y_test = torch.stack(y_test)
-        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
+        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape, len(test_trials))
 
         if(loader):
             trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -537,17 +536,15 @@ def format_clip(c):
 def tileImages(title, images, captions, h, w):
     bigH = 576 * h
     bigW = 512 * w 
-    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
-    line = Image.new('RGB', (bigW, 8), color='black')
-    canvas.paste(line, (0,120))
+    canvas = Image.new('RGB', (bigW, bigH+96), color='white')
     font = ImageFont.truetype("arial.ttf", 36)
     titleFont = ImageFont.truetype("arial.ttf", 48)
     textLabeler = ImageDraw.Draw(canvas)
     _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
-    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    textLabeler.text(((bigW-w)/2, 24), title, font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(512,64), color="white")
     count = 0
-    for j in range(128, bigH, 576):
+    for j in range(96, bigH, 576):
         for i in range(0, bigW, 512):
             canvas.paste(images[count], (i,j))
             canvas.paste(label, (i, j+512))

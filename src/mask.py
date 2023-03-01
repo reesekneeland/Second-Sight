@@ -1,5 +1,4 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import torch
 import numpy as np
 from nsd_access import NSDAccess
