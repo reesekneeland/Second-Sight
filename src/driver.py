@@ -169,7 +169,7 @@ def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    train_decoder()
+    # train_decoder()
 
     # train_encoder()
     
@@ -177,7 +177,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImages(experiment_title="Image Tiler Test", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="Tiled MLP", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -200,22 +200,21 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    # hashNum = update_hash()
-    hashNum = "540"
+    hashNum = update_hash()
+    # hashNum = "540"
     
     AE = AutoEncoder(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="536",
+                 encoderHash="521",
                  log=True, 
-                 batch_size=750,
                  parallel=False,
-                 device="cuda:0",
+                 device="cuda:2",
                  num_workers=16,
                  epochs=300
                 )
     
-    # AE.train()
+    AE.train()
     AE.benchmark()
 
 

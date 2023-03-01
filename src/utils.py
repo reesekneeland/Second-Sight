@@ -114,9 +114,9 @@ def embed_dict(fd):
 def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False):
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
-        y = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
     else:
-        x = torch.load(prep_path + "x/whole_region_11838_old_norm.pt").requires_grad_(False)
+        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
     
     if(not split): 
@@ -537,7 +537,7 @@ def tileImages(title, images, captions, h, w):
     textLabeler.text(((bigW-w)/2, 24), title, font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(512,64), color="white")
     count = 0
-    for j in range(128, bigH, 576):
+    for j in range(96, bigH, 576):
         for i in range(0, bigW, 512):
             canvas.paste(images[count], (i,j))
             canvas.paste(label, (i, j+512))

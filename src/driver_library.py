@@ -33,7 +33,7 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:1")
+    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0")
     # reconstructNImages(experiment_title="cc3m top 5 comparison new split 536 tiled", idx=[i for i in range(3)])
 
 
@@ -87,7 +87,51 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
         return out
 
+def predict_73K_coco(self, model):
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        # Save to latent vectors
+        out = torch.zeros((63000, 11838))
+        subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+        nsdIds = set(subj1['nsdId'].tolist())
+        
+        x_preds_full = torch.load(self.latent_path + "coco_brain_preds.pt", map_location=self.device)
+        count = 0
+        for pred in range(73000):
+            if pred not in nsdIds and count <10500:
+                self.x_preds[count] = x_preds_full[pred]
+                count+=1
+        print(model)
+        os.makedirs("latent_vectors/" + model, exist_ok=True)
+        # Load the model into the class to be used for predictions
+        if(self.parallel):
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        else:
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+        self.model.eval()
 
+        # preprocessed_data = torch.zeros()
+        # if(model == "z_img_mixer"):
+        #     preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
+            
+        # elif(model == "c_text_0"):
+        #     preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
+            
+        # elif(model == "c_img_0"):
+        preprocessed_data = torch.load(prep_path + self.vector + "/vector_73k.pt")
+        print(preprocessed_data.shape)
+
+        for index, data in tqdm(enumerate(preprocessed_data), desc="predicting coco data"):
+            
+            # Loading in the data
+            x_data = data
+            x_data = x_data.to(self.device)
+            
+            # Generating predictions based on the current model
+            pred_y = self.model(x_data).to(self.device)
+            out[index] = pred_y
+            
+        torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "coco_brain_preds.pt")
+            
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
@@ -187,13 +231,13 @@ def reconstructNImages(experiment_title, idx):
     
 def benchmark_library(encModel, vector, device="cuda:0"):
     _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, 
-                                                        loader=False, average=False)
-    if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
-        out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
-        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")
+                                                        loader=False, average=True)
+    # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
+    out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
         
-    else:
-        out = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")
+    # else:
+        # out = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt", map_location=device)
     
     criterion = nn.MSELoss()
     
@@ -202,13 +246,13 @@ def benchmark_library(encModel, vector, device="cuda:0"):
     out = out.to(device)
 
     loss = criterion(out, target)
-    out = out.moveaxis(0,1)
-    target = target.moveaxis(0,1)
-    pearson_loss = torch.mean(PeC(out, target))
+    out = out.moveaxis(0,1).to(device)
+    target = target.moveaxis(0,1).to(device)
+    pearson_loss = torch.mean(PeC(out, target).detach())
     
-    out = out.detach()
-    target = target.detach()
-    PeC = PearsonCorrCoef()
+    out = out.detach().cpu()
+    target = target.detach().cpu()
+    PeC = PearsonCorrCoef().to("cpu")
     r = []
     for p in range(out.shape[1]):
         
