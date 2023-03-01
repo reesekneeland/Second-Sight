@@ -135,8 +135,8 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         # x is the brain data 
         # y are the vectors
         # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
-        val_trails   = []
-        test_trials  = []
+        alexnet_stimuli_ordering  = []
+        test_trials = []
         for i in tqdm(range(7500), desc="loading training samples"):
             if(average==True):
                 avx = []
@@ -173,14 +173,14 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     avx = torch.stack(avx)
                     x_val.append(torch.mean(avx, dim=0))
                     y_val.append(avy[0])
-                    val_trails.append(i)
+            
             else:
                 for j in range(3):
                     scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
                     if(scanId < 27750):
                         x_val.append(x[scanId-1])
                         y_val.append(y[scanId-1])
-                        val_trails.append(i)
+                        
         
         for i in range(200):
             if(average==True):
@@ -200,8 +200,11 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                 for j in range(3):
                     scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
                     if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
                         x_voxelSelection.append(x[scanId-1])
                         y_voxelSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(i)
                     
         for i in range(200, 400):
             if(average==True):
@@ -221,8 +224,11 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                 for j in range(3):
                     scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
                     if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
                         x_thresholdSelection.append(x[scanId-1])
                         y_thresholdSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(i)
                     
         for i in range(400, 1000):
             nsdId = subj1_train.iloc[i]['nsdId']
@@ -246,6 +252,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         x_test.append(x[scanId-1])
                         y_test.append(y[scanId-1])
                         test_trials.append(nsdId)
+                        alexnet_stimuli_ordering.append(i)
         x_train = torch.stack(x_train).to("cpu")
         x_val = torch.stack(x_val).to("cpu")
         x_voxelSelection = torch.stack(x_voxelSelection).to("cpu")
@@ -273,7 +280,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             return trainloader, valloader, voxelloader, threshloader, testloader
         else:
             if(return_trial): 
-                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, val_trails, test_trials
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, alexnet_stimuli_ordering, test_trials
             else:
                 return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
 
