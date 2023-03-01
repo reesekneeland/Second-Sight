@@ -48,7 +48,6 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
         latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
         
         PeC = PearsonCorrCoef(num_outputs=22735).to(device)
-        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
         
         out = torch.zeros((x.shape[0], 5, datasize))
         average_pearson = 0
@@ -56,7 +55,7 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
             xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
             scores = torch.zeros((2819141,))
-            preds = torch.zeros((2819141,768))
+            preds = torch.zeros((2819141,datasize))
             # batch_max_x = torch.zeros((620, x.shape[1]))
             # batch_max_y = torch.zeros((620, datasize))
             for batch in tqdm(range(124), desc="batching sample"):
@@ -66,6 +65,57 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
                 preds[22735*batch:22735*batch+22735] = y.detach()
                 # Pearson correlation
                 scores[22735*batch:22735*batch+22735] = PeC(xDup, x_preds_t).detach()
+                # Calculating the Average Pearson Across Samples
+            top5_pearson = torch.topk(scores, 5)
+            average_pearson += torch.mean(top5_pearson.values.detach()) 
+            print(top5_pearson.indices, top5_pearson.values, scores[0:5])
+            for j, index in enumerate(top5_pearson.indices):
+                    out[i, j] = preds[index]
+            
+        torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
+        print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
+        return out
+
+def predictVector_coco(encModel, vector, x, device="cuda:0"):
+        if(vector == "c_img_0" or vector == "c_text_0"):
+            datasize = 768
+        elif(vector == "z_img_mixer"):
+            datasize = 16384
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        # Save to latent vectors
+        x_preds = torch.zeros((63000, 11838))
+        y = torch.zeros((63000, datasize))
+        subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+        nsdIds = set(subj1['nsdId'].tolist())
+        
+        x_preds_full = torch.load(latent_path + encModel + "/coco_brain_preds.pt", map_location=device)
+        y_full = torch.load(prep_path + vector + "/vector_73k.pt")
+        count = 0
+        for pred in range(73000):
+            if pred not in nsdIds:
+                x_preds[count] = x_preds_full[pred]
+                y[count] = y_full[pred]
+                count+=1
+        PeC = PearsonCorrCoef(num_outputs=21000).to(device)
+        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
+        
+        out = torch.zeros((x.shape[0], 5, datasize))
+        average_pearson = 0
+        
+        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(21000, 1).moveaxis(0, 1).to(device)
+            scores = torch.zeros((63000,))
+            preds = torch.zeros((63000,datasize))
+            # batch_max_x = torch.zeros((620, x.shape[1]))
+            # batch_max_y = torch.zeros((620, datasize))
+            for batch in tqdm(range(3), desc="batching sample"):
+                y_batch = y[21000*batch:21000*batch+21000]
+                x_preds_batch = x_preds[21000*batch:21000*batch+21000]
+                x_preds_t = x_preds_batch.moveaxis(0, 1).to(device)
+                preds[21000*batch:21000*batch+21000] = y_batch.detach()
+                # Pearson correlation
+                scores[21000*batch:21000*batch+21000] = PeC(xDup, x_preds_t).detach()
                 # Calculating the Average Pearson Across Samples
             top5_pearson = torch.topk(scores, 5)
             average_pearson += torch.mean(top5_pearson.values.detach()) 
@@ -83,54 +133,11 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
             for j, index in enumerate(top5_pearson.indices):
                     out[i, j] = preds[index]
             
-        torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
+        torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
         return out
-
-def predict_73K_coco(self, model):
-        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        # Save to latent vectors
-        out = torch.zeros((63000, 11838))
-        subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-        nsdIds = set(subj1['nsdId'].tolist())
-        
-        x_preds_full = torch.load(self.latent_path + "coco_brain_preds.pt", map_location=self.device)
-        count = 0
-        for pred in range(73000):
-            if pred not in nsdIds and count <10500:
-                self.x_preds[count] = x_preds_full[pred]
-                count+=1
-        print(model)
-        os.makedirs("latent_vectors/" + model, exist_ok=True)
-        # Load the model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
-        self.model.eval()
-
-        # preprocessed_data = torch.zeros()
-        # if(model == "z_img_mixer"):
-        #     preprocessed_data = torch.load(prep_path + "z_img_mixer/vector.pt")
-            
-        # elif(model == "c_text_0"):
-        #     preprocessed_data = torch.load(prep_path + "c_text_0/vector.pt")
-            
-        # elif(model == "c_img_0"):
-        preprocessed_data = torch.load(prep_path + self.vector + "/vector_73k.pt")
-        print(preprocessed_data.shape)
-
-        for index, data in tqdm(enumerate(preprocessed_data), desc="predicting coco data"):
-            
-            # Loading in the data
-            x_data = data
-            x_data = x_data.to(self.device)
-            
-            # Generating predictions based on the current model
-            pred_y = self.model(x_data).to(self.device)
-            out[index] = pred_y
-            
-        torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "coco_brain_preds.pt")
+       
+       
             
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
@@ -231,10 +238,10 @@ def reconstructNImages(experiment_title, idx):
     
 def benchmark_library(encModel, vector, device="cuda:0"):
     _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, 
-                                                        loader=False, average=True)
+                                                        loader=False, average=False, old_norm=True)
     # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
-    out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
-    torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
+    out = predictVector_coco(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    # torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
         
     # else:
         # out = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt", map_location=device)

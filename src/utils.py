@@ -1,5 +1,6 @@
 import sys
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
 import struct
 import time
 import numpy as np
@@ -111,12 +112,16 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False):
+    if(old_norm):
+        region_name = "whole_region_11838_old_norm.pt"
+    else:
+        region_name = "whole_region_11838.pt"
     if(ae):
         x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
-        y = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
     else:
-        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
     
     if(not split): 
@@ -127,6 +132,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test = [], [], [], [], []
         subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
         subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+        subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
+        alexnet_stimuli_order_list = np.where(subj1_full["shared1000"] == True)[0]
+        
         # Loads the raw tensors into a Dataset object
 
         # TensorDataset takes in two tensors of equal size and then maps 
@@ -146,7 +154,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if(scanId < 27750):
                         avx.append(x[scanId-1])
                         avy.append(y[scanId-1])
-                if(len(avx)>0):
+                if(len(avx) > 0):
                     avx = torch.stack(avx)
                     x_train.append(torch.mean(avx, dim=0))
                     y_train.append(avy[0])
@@ -182,6 +190,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         
         
         for i in range(200):
+            nsdId = subj1_train.iloc[i]['nsdId']
             if(average==True):
                 avx = []
                 avy = []
@@ -203,10 +212,11 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                             x_test.append(x[scanId-1])
                         x_voxelSelection.append(x[scanId-1])
                         y_voxelSelection.append(y[scanId-1])
-                        alexnet_stimuli_ordering.append(i)
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
                     
         for i in range(200, 400):
-            if(average==True):
+            nsdId = subj1_train.iloc[i]['nsdId']
+            if(average==True): 
                 avx = []
                 avy = []
                 for j in range(3):
@@ -227,7 +237,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                             x_test.append(x[scanId-1])
                         x_thresholdSelection.append(x[scanId-1])
                         y_thresholdSelection.append(y[scanId-1])
-                        alexnet_stimuli_ordering.append(i)
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
                     
         for i in range(400, 1000):
             nsdId = subj1_train.iloc[i]['nsdId']
@@ -251,7 +261,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         x_test.append(x[scanId-1])
                         y_test.append(y[scanId-1])
                         test_trials.append(nsdId)
-                        alexnet_stimuli_ordering.append(i)
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
         x_train = torch.stack(x_train).to("cpu")
         x_val = torch.stack(x_val).to("cpu")
         x_voxelSelection = torch.stack(x_voxelSelection).to("cpu")
@@ -262,7 +272,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         y_voxelSelection = torch.stack(y_voxelSelection)
         y_thresholdSelection = torch.stack(y_thresholdSelection)
         y_test = torch.stack(y_test)
-        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape, len(test_trials))
+        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
 
         if(loader):
             trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -536,15 +546,17 @@ def format_clip(c):
 def tileImages(title, images, captions, h, w):
     bigH = 576 * h
     bigW = 512 * w 
-    canvas = Image.new('RGB', (bigW, bigH+96), color='white')
+    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
+    line = Image.new('RGB', (bigW, 8), color='black')
+    canvas.paste(line, (0,120))
     font = ImageFont.truetype("arial.ttf", 36)
     titleFont = ImageFont.truetype("arial.ttf", 48)
     textLabeler = ImageDraw.Draw(canvas)
     _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
-    textLabeler.text(((bigW-w)/2, 24), title, font=titleFont, fill='black')
+    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(512,64), color="white")
     count = 0
-    for j in range(96, bigH, 576):
+    for j in range(128, bigH, 576):
         for i in range(0, bigW, 512):
             canvas.paste(images[count], (i,j))
             canvas.paste(label, (i, j+512))
