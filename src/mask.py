@@ -141,11 +141,6 @@ class Masker():
         file = open(self.mask_path + "results_coco_inc.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile) + "\n")
         file.close()
-        del scores
-        del x_preds_t
-        del x_preds_m
-        # del x_preds_t_b
-        torch.cuda.empty_cache()
         
     def make_histogram(self):
         x, y = [], []

@@ -26,12 +26,12 @@ def load_img(im_array):
 
 
 class Reconstructor():
-    def __init__(self):
+    def __init__(self, device="cuda:0"):
         torch.cuda.empty_cache()
         self.ckpt = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-full.ckpt")
         self.config = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-config.yaml")
 
-        self.device = "cuda"
+        self.device = device
         self.model = load_model_from_config(self.config, self.ckpt, device=self.device, verbose=False)
         self.model = self.model.to(self.device).half()
 
