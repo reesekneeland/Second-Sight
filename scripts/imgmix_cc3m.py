@@ -41,6 +41,7 @@ for folder in folder_list:
     for file in tqdm(sorted(os.scandir(rootdir + folder), key=lambda e: e.name)):
         try:
             if file.name.endswith(".jpg"):
+                
                 im_tensor, im = load_img(rootdir + folder + "/" + file.name)
                 image_embed = R.get_im_c(im).reshape((768,))
                 latent_vector = R.encode_latents(im_tensor).reshape((16384,))
