@@ -41,7 +41,7 @@ class Alexnet():
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device("cuda:1") #cuda
+        self.device = torch.device("cuda:0") #cuda
         torch.backends.cudnn.enabled=True
         
         # File locations
@@ -115,41 +115,39 @@ class Alexnet():
         else:
             
             # ----------- Load Stimuli Whole COCO ------------
-            # image_data = {}
-            # data = []
-            # w, h = 227, 227  # resize to integer multiple of 64
-            # for i in tqdm(range(73000), desc="loading in images"):
+            self.image_data = {}
+            data = []
+            w, h = 227, 227  # resize to integer multiple of 64
+            for i in tqdm(range(73000), desc="loading in images"):
                 
-            #     ground_truth_np_array = nsda.read_images([i], show=False)
-            #     ground_truth = Image.fromarray(ground_truth_np_array[0])
+                ground_truth_np_array = nsda.read_images([i], show=False)
+                ground_truth = Image.fromarray(ground_truth_np_array[0])
                 
-            #     imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
-            #     image = np.array(imagePil).astype(np.float32) / 255.0
-                
-            #     # testing = Image.fromarray((image * 255).astype(np.uint8))
-            #     # testing.save("test.png")
-            #     data.append(image)
-                
-                
-            # imgs = []
-            # subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-            # nsdIds = set(subj1['nsdId'].tolist())
-                    
-            # imgs_full = # load 73k images in for loop
-            # count = 0
-            # for pred in tqdm(range(73000), desc="loading in images"):
-            #     if pred not in nsdIds:
-            #         imgs.append(imgs_full[pred])
-            #         count += 1
-            print()
+                imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
+                image = np.array(imagePil).astype(np.float32) / 255.0
             
-            # image_data[1] = np.moveaxis(np.array(data), 3, 1)
-            # print(image_data.keys())
-            # print ('block size:', image_data[1].shape, ', dtype:', image_data[1].dtype, ', value range:',\
-            #         np.min(image_data[1]), np.max(image_data[1]))
+                data.append(image)
+                
+                
+            imgs = []
+            subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+            nsdIds = set(subj1['nsdId'].tolist())
+            
+            # load 73k images in for loop        
+            imgs_full = data 
+            count = 0
+            for pred in tqdm(range(73000), desc="loading in images"):
+                 if pred not in nsdIds:
+                     imgs.append(imgs_full[pred])
+                     count += 1
+            
+            self.image_data[1] = np.moveaxis(np.array(imgs), 3, 1)
+            print(self.image_data.keys())
+            print ('block size:', self.image_data[1].shape, ', dtype:', self.image_data[1].dtype, ', value range:',\
+                    np.min(self.image_data[1]), np.max(self.image_data[1]))
         
         
-    def predict(self):
+    def predict_normal(self):
         
         voxel_batch_size = 500 # 200
         _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
@@ -163,8 +161,6 @@ class Alexnet():
 
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            # print(bp)
-            # print(s)
             subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
             break
         
@@ -183,14 +179,66 @@ class Alexnet():
         print(np.mean(subject_val_cc[1]))
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/alexnet_hist.png")
         
+    def predict_73k_coco(self):
+        
+        voxel_batch_size = 500 # 200
+        _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
+
+        _fmaps_fn = Alexnet_fmaps().to(self.device)
+        _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
+        _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
+                                        _nonlinearity=_log_act_func, input_shape=self.image_data[self.subjects[0]].shape, aperture=1.0)
+        
+        sample_batch_size = 1000
+
+        subject_image_pred = {}
+        for s,bp in self.model_params.items():
+            subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
+            break
+        
+        print(subject_image_pred[1].shape)
+        
+        torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_73k.pt")
+        
+    def predict(self, images):
+        
+        self.image_data = {}
+        data = []
+        w, h = 227, 227  # resize to integer multiple of 64
+        for i in range(len(images)):
+            
+            imagePil = images[i].resize((w, h), resample=Image.Resampling.LANCZOS)
+            image = np.array(imagePil).astype(np.float32) / 255.0
+            
+            data.append(image)
+            
+        self.image_data[1] = np.moveaxis(np.array(data), 3, 1)
+        
+        voxel_batch_size = 500 # 200
+        _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
+
+        _fmaps_fn = Alexnet_fmaps().to(self.device)
+        _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
+        _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
+                                        _nonlinearity=_log_act_func, input_shape=self.image_data[self.subjects[0]].shape, aperture=1.0)
+        
+        sample_batch_size = 1000
+
+        subject_image_pred = {}
+        for s,bp in self.model_params.items():
+            subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
+            break
+        
+        print(subject_image_pred[1].shape)
+        return torch.from_numpy(subject_image_pred[1])
         
 
 def main():
     
-    AN = Alexnet(normal_predict = True)
+    AN = Alexnet(normal_predict = False)
     
     AN.load_data()
-    AN.predict()
+    AN.predict_73k_coco()
            
         
 if __name__ == "__main__":
