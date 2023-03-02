@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 from torch.autograd import Variable
 import numpy as np
@@ -16,8 +16,6 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-from decoder import Decoder
-from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
 from pearson import PearsonCorrCoef, pearson_corrcoef
@@ -33,8 +31,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0")
-    # reconstructNImages(experiment_title="cc3m top 5 comparison new split 536 tiled", idx=[i for i in range(3)])
+    benchmark_library(encModel="521_model_c_img_0.pt", vector="c_img_0", device="cuda:1", average=True, ae=True, old_norm=False)
+    # reconstructNImages(experiment_title="cc3m top 5 comparison z_img_mixer 543", idx=[i for i in range(1,20)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -61,6 +59,7 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
             for batch in tqdm(range(124), desc="batching sample"):
                 y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
                 x_preds = torch.load(latent_path + encModel + "/cc3m_batches/" + str(batch) + ".pt")
+                # print(x_preds.device)
                 x_preds_t = x_preds.moveaxis(0, 1).to(device)
                 preds[22735*batch:22735*batch+22735] = y.detach()
                 # Pearson correlation
@@ -104,22 +103,24 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
         average_pearson = 0
         
         for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            # print(torch.sum(torch.count_nonzero(x[i])))
             xDup = x[i].repeat(21000, 1).moveaxis(0, 1).to(device)
             scores = torch.zeros((63000,))
             preds = torch.zeros((63000,datasize))
             # batch_max_x = torch.zeros((620, x.shape[1]))
             # batch_max_y = torch.zeros((620, datasize))
-            for batch in tqdm(range(3), desc="batching sample"):
+            for batch in range(3):
                 y_batch = y[21000*batch:21000*batch+21000]
                 x_preds_batch = x_preds[21000*batch:21000*batch+21000]
                 x_preds_t = x_preds_batch.moveaxis(0, 1).to(device)
                 preds[21000*batch:21000*batch+21000] = y_batch.detach()
                 # Pearson correlation
                 scores[21000*batch:21000*batch+21000] = PeC(xDup, x_preds_t).detach()
+                # print(torch.sum(torch.count_nonzero(xDup)), torch.sum(torch.count_nonzero(x_preds_t)))
                 # Calculating the Average Pearson Across Samples
             top5_pearson = torch.topk(scores, 5)
             average_pearson += torch.mean(top5_pearson.values.detach()) 
-            print(top5_pearson.indices, top5_pearson.values, scores[0:5])
+            # print(top5_pearson.indices, top5_pearson.values, scores[0:5])
                 
                 # for j, index in enumerate(top5_pearson.indices):
                 #     batch_max_x[5*batch + j] = x_preds_t[:,index].detach()
@@ -156,22 +157,22 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
-    AE = AutoEncoder(hashNum = "540",
-                 lr=0.0000001,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="536",
-                 log=False, 
-                 batch_size=750,
-                 parallel=False,
-                 device="cuda"
-                )
-    ae_x_test = AE.predict(x_test)
+    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True, old_norm=True)
+    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True, old_norm=True)
+    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True, old_norm=True)
+    # AE = AutoEncoder(hashNum = "540",
+    #              lr=0.0000001,
+    #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+    #              encoderHash="536",
+    #              log=False, 
+    #              batch_size=750,
+    #              parallel=False,
+    #              device="cuda"
+    #             )
+    # ae_x_test = AE.predict(x_test)
 
     # TODO: Run the 20 test x through the autoencoder to feed into predictVector_cc3m
-    x_test = ae_x_test.to("cuda:0")
+    # x_test = ae_x_test.to("cuda:0")
     # targets_c_i = targets_c_i
     # targets_c_t = targets_c_t
     # targets_z = targets_z
@@ -186,7 +187,7 @@ def reconstructNImages(experiment_title, idx):
     
     strength_c = 1
     strength_z = 0
-    R = Reconstructor()
+    R = Reconstructor(device="cuda:0")
     for i in idx:
         # index = int(subj1x.loc[(subj1x['subject1_rep0'] == test_i) | (subj1x['subject1_rep1'] == test_i) | (subj1x['subject1_rep2'] == test_i)].nsdId)
         # rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/"
@@ -194,26 +195,43 @@ def reconstructNImages(experiment_title, idx):
         # outputs_c_t[i] = torch.load(rootdir + "c_text_0/" + str(i) + ".pt")
         # outputs_z[i] = torch.load(rootdir + "z_img_mixer/" + str(i) + ".pt")
         print(i)
-        outputs_c_i = predictVector_cc3m(encModel="536_model_c_img_0.pt", vector="c_img_0", x=x_test[i].reshape((1,11838)))
-        outputs_c_i = outputs_c_i.reshape((5, 768))
-        c_combined = format_clip(outputs_c_i)
-        c_combined_target = format_clip(targets_c_i[i])
-        c_0 = format_clip(outputs_c_i[0])
-        c_1 = format_clip(outputs_c_i[1])
-        c_2 = format_clip(outputs_c_i[2])
-        c_3 = format_clip(outputs_c_i[3])
-        c_4 = format_clip(outputs_c_i[4])
-        
+        # outputs_c_i = predictVector_cc3m(encModel="521_model_c_img_0.pt", vector="c_img_0", x=x_test[i].reshape((1,11838)))
+        outputs_z = predictVector_cc3m(encModel="543_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test[i].reshape((1,11838)))
+        # outputs_c_i = outputs_c_i.reshape((5, 768))
+        # c_combined = format_clip(outputs_c_i)
+        # c_combined_target = format_clip(targets_c_i[i])
+        # c_0 = format_clip(outputs_c_i[0])
+        # c_1 = format_clip(outputs_c_i[1])
+        # c_2 = format_clip(outputs_c_i[2])
+        # c_3 = format_clip(outputs_c_i[3])
+        # c_4 = format_clip(outputs_c_i[4])
+        outputs_z = outputs_z.reshape((5, 16384))
+        z_combined = torch.mean(outputs_z, dim=0)
+        print(z_combined.shape)
+        z_0 = outputs_z[0]
+        z_1 = outputs_z[1]
+        z_2 = outputs_z[2]
+        z_3 = outputs_z[3]
+        z_4 = outputs_z[4]
     
         # Make the c reconstrution images. 
-        reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
-        reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
+        # reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
+        # reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
-        reconstructed_output_c_0 = R.reconstruct(c=c_0, strength=strength_c)
-        reconstructed_output_c_1 = R.reconstruct(c=c_1, strength=strength_c)
-        reconstructed_output_c_2 = R.reconstruct(c=c_2, strength=strength_c)
-        reconstructed_output_c_3 = R.reconstruct(c=c_3, strength=strength_c)
-        reconstructed_output_c_4 = R.reconstruct(c=c_4, strength=strength_c)
+        # reconstructed_output_c_0 = R.reconstruct(c=c_0, strength=strength_c)
+        # reconstructed_output_c_1 = R.reconstruct(c=c_1, strength=strength_c)
+        # reconstructed_output_c_2 = R.reconstruct(c=c_2, strength=strength_c)
+        # reconstructed_output_c_3 = R.reconstruct(c=c_3, strength=strength_c)
+        # reconstructed_output_c_4 = R.reconstruct(c=c_4, strength=strength_c)
+        #make the z reconstruction images
+        reconstructed_output_c = R.reconstruct(z=z_combined, strength=strength_z)
+        reconstructed_target_c = R.reconstruct(z=targets_z[i], strength=strength_z)
+        
+        reconstructed_output_c_0 = R.reconstruct(z=z_0, strength=strength_z)
+        reconstructed_output_c_1 = R.reconstruct(z=z_1, strength=strength_z)
+        reconstructed_output_c_2 = R.reconstruct(z=z_2, strength=strength_z)
+        reconstructed_output_c_3 = R.reconstruct(z=z_3, strength=strength_z)
+        reconstructed_output_c_4 = R.reconstruct(z=z_4, strength=strength_z)
         
         # # Make the z reconstrution images. 
         # reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
@@ -230,17 +248,28 @@ def reconstructNImages(experiment_title, idx):
         rows = 4
         columns = 2
         images = [ground_truth, reconstructed_target_c, reconstructed_output_c, reconstructed_output_c_0, reconstructed_output_c_1, reconstructed_output_c_2, reconstructed_output_c_3, reconstructed_output_c_4]
-        captions = ["Ground Truth", "Target C", "Output 5 Cs", "C_0", "C_1","C_2","C_3","C_4"]
-        figure = tileImages(experiment_title, images, captions, rows, columns)
+        captions = ["Ground Truth", "Target Z", "Output 5 Zs", "Z_0", "Z_1","Z_2","Z_3","Z_4"]
+        figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
         
     
-def benchmark_library(encModel, vector, device="cuda:0"):
-    _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, 
-                                                        loader=False, average=False, old_norm=True)
+def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, old_norm=False):
+    print(encModel)
+    _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
     # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
-    out = predictVector_coco(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    if(ae):
+        AE = AutoEncoder(hashNum = "544",
+                 lr=0.0000001,
+                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+                 encoderHash="521",
+                 log=False, 
+                 batch_size=750,
+                 parallel=False,
+                 device=device
+                )
+        x_test = AE.predict(x_test).to("cpu")
+    out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
     # torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
         
     # else:

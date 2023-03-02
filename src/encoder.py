@@ -254,9 +254,9 @@ class Encoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
             
     def predict(self, x, batch=False, batch_size=750):
         
@@ -349,9 +349,9 @@ class Encoder():
             os.makedirs("latent_vectors/" + model, exist_ok=True)
             # Load the model into the class to be used for predictions
             if(self.parallel):
-                self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+                self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
             else:
-                self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+                self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
             self.model.eval()
 
             # preprocessed_data = torch.zeros()
@@ -388,9 +388,9 @@ class Encoder():
         os.makedirs("latent_vectors/" + model + "/cc3m_batches/", exist_ok=True)
         # Load the model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location='cuda'))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
         self.model.eval()
 
 

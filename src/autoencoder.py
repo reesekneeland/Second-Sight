@@ -218,13 +218,13 @@ class AutoEncoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
             
     def predict(self, x, batch=False, batch_size=750):
         
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(self.device)
@@ -232,18 +232,20 @@ class AutoEncoder():
         return out
                 
     
-    def benchmark(self):
+    def benchmark(self, encodedPass=False):
         _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 ae=True,
                                                 encoderModel=self.encoderModel,
-                                                average=True)
-        out = torch.zeros((2770,11838))
-        target = torch.zeros((2770, 11838))
+                                                average=True,
+                                                old_norm=False)
+        datasize = len(self.testLoader.dataset)
+        out = torch.zeros((datasize,11838))
+        target = torch.zeros((datasize, 11838))
         modelId = self.hashNum + "_model_" + self.vector + ".pt"
         print(modelId)
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + modelId))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + modelId, map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
 
@@ -259,7 +261,10 @@ class AutoEncoder():
             y_test = y_test.to(self.device)
             x_test = x_test.to(self.device)
             # Generating predictions based on the current model
-            pred_y = self.model(x_test).to(self.device)
+            if(encodedPass):
+                pred_y = self.model(y_test).to(self.device)
+            else:
+                pred_y = self.model(x_test).to(self.device)
             
             
             out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y

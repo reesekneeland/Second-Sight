@@ -177,13 +177,13 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="Tiled MLP", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="Tiled MLP", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
     # train_autoencoder()
 
-    # train_ss_decoder()
+    train_ss_decoder()
 
 def mask_voxels():
     M = Masker(encoderHash="521",
@@ -200,30 +200,30 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    hashNum = update_hash()
-    # hashNum = "540"
+    # hashNum = update_hash()
+    hashNum = "546"
     
     AE = AutoEncoder(hashNum = hashNum,
-                 lr=0.000001,
+                 lr=0.000005,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="521",
-                 log=True, 
+                 encoderHash="424",
+                 log=False, 
                  parallel=False,
-                 device="cuda:2",
+                 device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
     
-    AE.train()
-    AE.benchmark()
+    # AE.train()
+    AE.benchmark(encodedPass=False)
 
 
 def train_encoder():
     # hashNum = update_hash()
-    hashNum = "543"
+    hashNum = "424"
     E = Encoder(hashNum = hashNum,
                  lr=0.000005,
-                 vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer
+                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=False, 
                  batch_size=750,
                  parallel=False,
@@ -234,27 +234,27 @@ def train_encoder():
     # E.train()
     modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    E.benchmark()
+    # E.benchmark()
     
-    # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
-    # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
-    #                 num_workers = E.num_workers, loader = False, split = False)
-    # outputs = E.predict(y)
-    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
-
-    # # E.predict_cc3m(model=modelId)
+    os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
+    _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
+                    num_workers = E.num_workers, loader = False, split = False)
+    outputs = E.predict(y)
+    torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
+    
     # E.predict_73K_coco(model=modelId)
+    # E.predict_cc3m(model=modelId)
     return hashNum
 
 def train_ss_decoder():
     
     # hashNum = update_hash()
-    hashNum = "493"
+    hashNum = "547"
     SS = SS_Decoder(hashNum = hashNum,
                     vector="c_img_0",
                     log=False, 
-                    encoderHash="424",
-                    lr=0.00001,
+                    encoderHash="521",
+                    lr=0.0001,
                     batch_size=750,
                     parallel=False,
                     device="cuda:0",
@@ -265,8 +265,8 @@ def train_ss_decoder():
     # SS.train()
     
     # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
-    SS.benchmark()
-    # SS.benchmark_nsd(AEhash="507")
+    # SS.benchmark()
+    SS.benchmark_nsd(AEhash="544", ae=True)
 
 
 def train_decoder():
@@ -372,7 +372,6 @@ def reconstructNImages(experiment_title, idx):
         # c_combined = format_clip(outputs_c_i[i])
         # c_combined_target = format_clip(targets_c_i[i])
         
-        
         # Make the c reconstrution images. 
         reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
@@ -393,7 +392,7 @@ def reconstructNImages(experiment_title, idx):
         columns = 2
         images = [ground_truth, z_c_reconstruction, reconstructed_target_c, reconstructed_output_c, reconstructed_target_z, reconstructed_output_z]
         captions = ["Ground Truth", "Z and C Reconstructed", "Reconstructed Target C", "Reconstructed Output C", "Reconstructed Target Z", "Reconstructed Output Z"]
-        figure = tileImages(experiment_title, images, captions, 3, 2)
+        figure = tileImages(experiment_title + ": " + str(i), images, captions, 3, 2)
         
         
         figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')

@@ -246,9 +246,9 @@ class SS_Decoder():
                 
         # Load our best model into the class to be used for predictions
         if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location='cuda'))
+            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
     def benchmark(self):
         # Initialize the data loaders
@@ -320,13 +320,14 @@ class SS_Decoder():
         torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
         return out, target
         
-    def benchmark_nsd(self, AEhash):
+    def benchmark_nsd(self, AEhash="544", ae=True):
         # Initialize the data loaders
         _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                             batch_size=self.batch_size, 
                                             num_workers=self.num_workers, 
                                             loader=True,
-                                            average=True)
+                                            average=False,
+                                            old_norm=False)
         AE = AutoEncoder(hashNum = AEhash,
                  lr=0.0000001,
                  vector=self.vector,
@@ -342,7 +343,7 @@ class SS_Decoder():
             vecSize = 16384
         out = torch.zeros((outSize, vecSize)).to("cpu")
         target = torch.zeros((outSize, vecSize)).to("cpu")
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
 
@@ -354,12 +355,13 @@ class SS_Decoder():
         for index, data in enumerate(tqdm(self.testLoader, desc="benchmarking test set")):
             
             x_test, y_test = data
-            x_test_ae = AE.predict(x_test)
-            PeC = PearsonCorrCoef(num_outputs=x_test_ae.shape[0]).to(self.device)
+            if(ae):
+                x_test = AE.predict(x_test)
+            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
             y_test = y_test.to(self.device)
-            x_test_ae = x_test_ae.to(self.device)
+            x_test = x_test.to(self.device)
             # Generating predictions based on the current model
-            pred_y = self.model(x_test_ae)
+            pred_y = self.model(x_test)
             pred_y = pred_y.to(self.device)
             
             out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
