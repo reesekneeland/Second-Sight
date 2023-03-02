@@ -34,14 +34,16 @@ nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/ns
 class Alexnet():
     
     def __init__(self,
-                normal_predict=False):
+                predict_normal=False,
+                predict_73k=False):
         
         # Input Variables
-        self.normal_predict = normal_predict
+        self.normal_predict = predict_normal
+        self.predict_73K = predict_73k
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device("cuda:0") #cuda
+        self.device = torch.device("cuda:1") #cuda
         torch.backends.cudnn.enabled=True
         
         # File locations
@@ -70,7 +72,7 @@ class Alexnet():
         
     def load_data(self):
         
-        if(self.normal_predict):
+        if(self.predict_normal):
             
             # ONE SUBJECTS 
             # ----------- Load data ------------
@@ -103,8 +105,6 @@ class Alexnet():
                 imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
                 image = np.array(imagePil).astype(np.float32) / 255.0
                 
-                # testing = Image.fromarray((image * 255).astype(np.uint8))
-                # testing.save("test.png")
                 data.append(image)
                 
             self.image_data[1] = np.moveaxis(np.array(data), 3, 1)
@@ -112,7 +112,7 @@ class Alexnet():
             print ('block size:', self.image_data[1].shape, ', dtype:', self.image_data[1].dtype, ', value range:',\
                     np.min(self.image_data[1]), np.max(self.image_data[1]))
                 
-        else:
+        elif(self.predict_73K):
             
             # ----------- Load Stimuli Whole COCO ------------
             self.image_data = {}
@@ -145,6 +145,18 @@ class Alexnet():
             print(self.image_data.keys())
             print ('block size:', self.image_data[1].shape, ', dtype:', self.image_data[1].dtype, ', value range:',\
                     np.min(self.image_data[1]), np.max(self.image_data[1]))
+            
+    
+    def load_image(self, image_path):
+        
+        image = Image.open(image_path).convert('RGB')
+        
+        w, h = 227, 227  # resize to integer multiple of 64
+        imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)
+        image = np.array(imagePil).astype(np.float32) / 255.0
+        
+        return image
+            
         
         
     def predict_normal(self):
@@ -200,6 +212,65 @@ class Alexnet():
         
         torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_73k.pt")
         
+    #def calulate_predict(self):
+        
+        
+    def predict_cc3m(self):
+        
+        rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/cc3m/"
+        folder_list = []
+        
+        for it in os.scandir(rootdir):
+            if it.is_dir():
+                folder_list.append(it.name)
+            
+        data = []
+        image_data = {}
+        count = 0
+        batch_count = 0
+        while count <= 2819140: 
+            for folder in folder_list:
+                if(folder == "_tmp"):
+                    pass
+                for file in tqdm(sorted(os.scandir(rootdir + folder), key=lambda e: e.name)):
+                    try:
+                        if(file.name.endswith(".jpg")):
+                            image = self.load_image(rootdir + folder + "/" + file.name)
+                            data.append(image)  
+                            count += 1
+                            if((count != 0) and (count % 22735 == 0)):
+                                print(count)
+                                print(np.array(data).shape)
+                                image_data[1] = np.moveaxis(np.array(data), 3, 1)
+                                print ('block size:', image_data[1].shape, ', dtype:', image_data[1].dtype, ', value range:',\
+                                        np.min(image_data[1]), np.max(image_data[1])) 
+                                    
+                                voxel_batch_size = 500
+                                _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
+
+                                _fmaps_fn = Alexnet_fmaps().to(self.device)
+                                _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
+                                _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
+                                                                _nonlinearity=_log_act_func, input_shape=image_data[self.subjects[0]].shape, aperture=1.0)
+                                
+                                sample_batch_size = 1000
+
+                                subject_image_pred = {}
+                                for s,bp in self.model_params.items():
+                                    subject_image_pred[1] = get_predictions(image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
+                                    break
+                                
+                                torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_cc3m_batches/" + str(batch_count) + ".pt")
+                                batch_count += 1
+                                data = []
+                                image_data = {}
+                        else:
+                            pass
+                    except:
+                        print(file.name)
+                        
+                        
+                        
     def predict(self, images):
         
         self.image_data = {}
@@ -231,14 +302,15 @@ class Alexnet():
         
         print(subject_image_pred[1].shape)
         return torch.from_numpy(subject_image_pred[1])
+    
+    
         
 
 def main():
     
-    AN = Alexnet(normal_predict = False)
+    AN = Alexnet(predict_normal = False, predict_73k = False)
     
-    AN.load_data()
-    AN.predict_73k_coco()
+    AN.predict_cc3m()
            
         
 if __name__ == "__main__":
