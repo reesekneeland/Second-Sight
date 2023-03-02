@@ -11,5 +11,6 @@ hash
 /latent_vectors
 /legacy_files/scalar_experiments/wandb
 /scripts/wandb
+/src/wandb
 /stablediffusion
 /charts

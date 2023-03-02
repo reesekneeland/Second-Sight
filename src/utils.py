@@ -158,23 +158,11 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     x_train.append(torch.mean(avx, dim=0))
                     y_train.append(avy[0])
             else:
-                if nest:
-                    x_row = []
-                    y_row = []
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if not nest:
-                                x_row.append(x[scanId-1])
-                                y_row.append(y[scanId-1])
-                    x_train.append(x_row)
-                    y_train.append(y_row)
-                else:
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            x_train.append(x[scanId-1])
-                            y_train.append(y[scanId-1])
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_train.append(x[scanId-1])
+                        y_train.append(y[scanId-1])
                         
                         
         for i in tqdm(range(7500, 9000), desc="loading validation samples"):
@@ -193,23 +181,11 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     y_val.append(avy[0])
             
             else:
-                if nest:
-                    x_row = []
-                    y_row = []
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if not nest:
-                                x_row.append(x[scanId-1])
-                                y_row.append(y[scanId-1])
-                    x_val.append(x_row)
-                    y_val.append(y_row)
-                else:
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                                x_val.append(x[scanId-1])
-                                y_val.append(y[scanId-1])
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                            x_val.append(x[scanId-1])
+                            y_val.append(y[scanId-1])
         
         for i in range(200):
             nsdId = subj1_train.iloc[i]['nsdId']
@@ -227,26 +203,14 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     x_voxelSelection.append(torch.mean(avx, dim=0))
                     y_voxelSelection.append(avy[0])
             else:
-                if nest:
-                    x_row = []
-                    y_row = []
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if not nest:
-                                x_row.append(x[scanId-1])
-                                y_row.append(y[scanId-1])
-                    x_voxelSelection.append(x_row)
-                    y_voxelSelection.append(y_row)
-                else:
-                    for j in range(3):
-                        scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if(return_trial): 
-                                x_test.append(x[scanId-1])
-                            x_voxelSelection.append(x[scanId-1])
-                            y_voxelSelection.append(y[scanId-1])
-                            alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
+                        x_voxelSelection.append(x[scanId-1])
+                        y_voxelSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
                     
         for i in range(200, 400):
             nsdId = subj1_train.iloc[i]['nsdId']
@@ -264,26 +228,14 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     x_thresholdSelection.append(torch.mean(avx, dim=0))
                     y_thresholdSelection.append(avy[0])
             else:
-                if nest:
-                    x_row = []
-                    y_row = []
-                    for j in range(3):
-                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if not nest:
-                                x_row.append(x[scanId-1])
-                                y_row.append(y[scanId-1])
-                    x_thresholdSelection.append(x_row)
-                    y_thresholdSelection.append(y_row)
-                else:
-                    for j in range(3):
-                        scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                        if(scanId < 27750):
-                            if(return_trial): 
-                                x_test.append(x[scanId-1])
-                            x_thresholdSelection.append(x[scanId-1])
-                            y_thresholdSelection.append(y[scanId-1])
-                            alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
+                        x_thresholdSelection.append(x[scanId-1])
+                        y_thresholdSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
                     
         for i in range(400, 1000):
             nsdId = subj1_train.iloc[i]['nsdId']
@@ -302,16 +254,19 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     test_trials.append(nsdId)
             else:
                 if nest:
-                    x_row = []
+                    x_row = torch.zeros((3, 11838))
                     y_row = []
+                    valCount = 0
                     for j in range(3):
                         scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
                         if(scanId < 27750):
-                            if not nest:
-                                x_row.append(x[scanId-1])
-                                y_row.append(y[scanId-1])
-                    x_test.append(x_row)
-                    y_test.append(y_row)
+                            valCount +=1
+                            x_row[j] = x[scanId-1]
+                            y_row.append(y[scanId-1])
+                    if(valCount > 0):
+                        test_trials.append(nsdId)
+                        x_test.append(x_row)
+                        y_test.append(y_row[0])
                 else:
                     for j in range(3):
                         scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]

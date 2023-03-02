@@ -47,6 +47,15 @@ class Reconstructor():
         self.init_preprocess = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 
         self.batch_size = 1
+    
+    def im2tensor(self, image):
+        w, h = 512, 512  # resize to integer multiple of 64
+        imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)
+        image = np.array(imagePil).astype(np.float32) / 255.0
+        # print(image.shape)
+        image = image[None].transpose(0, 3, 1, 2)
+        image = torch.from_numpy(image).to(device=self.device, dtype=torch.float16)
+        return 2. * image - 1.
         
     @torch.no_grad()
     def get_im_c(self, im_path):
@@ -91,6 +100,7 @@ class Reconstructor():
         conds_combined = conds_combined.tile(1, 1, 1)
         return conds_combined
     
+    #must take an image tensor converted using im2tensor()
     def encode_latents(self, init_image):
         return self.model.get_first_stage_encoding(self.model.encode_first_stage(init_image.to(self.device)))
     
