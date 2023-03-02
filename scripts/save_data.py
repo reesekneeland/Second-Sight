@@ -43,8 +43,8 @@ import nibabel as nib
 #   - Parameter #1: The vector you want grabbed as a string
 #   - Parameter #2: The vector threshold as a string
 #   - Parameter #3: The vector hash number as a string
-create_whole_region_unnormalized(whole=True)
-create_whole_region_normalized(whole=True)
+# create_whole_region_unnormalized(whole=True)
+# create_whole_region_normalized(whole=True)
 # grab_samples("z_img_mixer", "0.08283", "395")
 
 # extract_dim("c_img_mixer", 0)
@@ -59,3 +59,9 @@ create_whole_region_normalized(whole=True)
 # voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
 # voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
 # load_cc3m()
+
+visual_rois = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/prf-visualrois.nii.gz"
+mask = nib.load(visual_rois).get_fdata()
+print(mask.shape, mask)
+# mask = np.nan_to_num(mask)
+print(np.unique(mask, return_counts=True))

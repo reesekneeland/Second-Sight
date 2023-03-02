@@ -131,7 +131,7 @@ class Reconstructor():
                     # encode (scaled latent)
                     z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc]*1).to(self.device))
                     # decode it
-                    print(z_enc.shape, c.shape, t_enc, strength, uc.shape if uc is not None else None)
+                    # print(z_enc.shape, c.shape, t_enc, strength, uc.shape if uc is not None else None)
                     samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
                                             unconditional_conditioning=uc,)
 

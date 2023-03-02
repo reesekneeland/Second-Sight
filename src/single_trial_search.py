@@ -21,11 +21,13 @@ from reconstructor import Reconstructor
 
 
 def main():
+    os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     S = SingleTrialSearch(device="cuda:1",
                           log=True,
                           n_iter=10,
                           n_samples=10)
-    S.generateTestSamples(experiment_title="Single Trial Search", idx=[i for i in range(20)])
+
+    S.generateTestSamples(experiment_title="Single Trial Search", idx=[i for i in range(1, 20)], mask=[1])
 
 class SingleTrialSearch():
     def __init__(self, 
@@ -40,19 +42,15 @@ class SingleTrialSearch():
         self.R = Reconstructor(device="cuda:0")
         self.Alexnet = Alexnet()
         self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-        
-        if(self.log):
-            wandb.init(
-                # set the wandb project where this run will be logged
-                project="SingleTrialSearch",
-                # track hyperparameters and run metadata
-                config={
-                "architecture": "Single trial search to find best low level features",
-                "dataset": "Whole region visual cortex",
-                "n_iter": self.n_iter,
-                "n_samples": self.n_samples
-                }
-            )
+        mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+        self.masks = {0:torch.full((11838,), False),
+                      1:torch.load(mask_path + "V1.pt"),
+                      2:torch.load(mask_path + "V2.pt"),
+                      3:torch.load(mask_path + "V3.pt"),
+                      4:torch.load(mask_path + "V4.pt"),
+                      5:torch.load(mask_path + "V5.pt"),
+                      6:torch.load(mask_path + "V6.pt"),
+                      7:torch.load(mask_path + "V7.pt")}
 
     def generateNSamples(self, n, c, z=None, strength=1):
         images = []
@@ -65,7 +63,7 @@ class SingleTrialSearch():
     #cross validate says whether to cross validate between scans
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
-    def zSearch(self, clip, beta, cross_validate=True, n=10, max_iter=10):
+    def zSearch(self, clip, beta, n=10, max_iter=10, cross_validate=True, mask=[]):
         best_image = None
         PeC = PearsonCorrCoef(num_outputs=n).to(self.device)
         #still in development
@@ -119,8 +117,14 @@ class SingleTrialSearch():
             best_vc = -1
             loss_counter = 0
             z=None
+            
+            beta_mask = self.masks[0]
+            for i in mask:
+                beta_mask = torch.logical_or(beta_mask, self.masks[i])
+            print(np.unique(beta_mask, return_counts=True))
             beta = torch.mean(beta, dim=0)
             print(beta.shape)
+            beta = beta[beta_mask]
             xDup = beta.repeat(n, 1).moveaxis(0, 1).to(self.device)
             for cur_iter in tqdm(range(max_iter), desc="iterating over search samples"): 
                 # if(loss_counter < 3):
@@ -132,10 +136,14 @@ class SingleTrialSearch():
                     z = self.R.encode_latents(im_tensor)
 
                 samples = self.generateNSamples(n, clip, z, strength)
-                beta_primes = self.Alexnet.predict(samples).moveaxis(0, 1).to(self.device)
+                beta_primes = self.Alexnet.predict(samples)
+                print(beta_primes.shape)
+                beta_primes = beta_primes[:, beta_mask]
+                print(beta_primes.shape)
+                beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
                 
                 scores = PeC(xDup, beta_primes)
-                cur_vc = torch.max(scores)
+                cur_vc = float(torch.max(scores))
                 if(self.log):
                     wandb.log({'Alexnet Brain encoding pearson correlation': cur_vc})
                 print(cur_vc)
@@ -151,7 +159,7 @@ class SingleTrialSearch():
 
 
 
-    def generateTestSamples(self, experiment_title, idx):    
+    def generateTestSamples(self, experiment_title, idx, mask=[]):    
 
         os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
         # Load test data and targets
@@ -196,25 +204,38 @@ class SingleTrialSearch():
             
             c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
             c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
-
-            n_iter = 10
-            z_c_reconstruction, image_list, score_list = self.zSearch(c_combined, x_test[i], cross_validate=False, n=self.n_samples, max_iter=self.n_iter)
-
+            
+            if(self.log):
+                wandb.init(
+                    # set the wandb project where this run will be logged
+                    project="SingleTrialSearch",
+                    # track hyperparameters and run metadata
+                    config={
+                    "experiment": experiment_title,
+                    "sample": i,
+                    "masks": mask,
+                    "n_iter": self.n_iter,
+                    "n_samples": self.n_samples
+                    }
+                )
+            z_c_reconstruction, image_list, score_list = self.zSearch(c_combined, x_test[i], n=self.n_samples, max_iter=self.n_iter, cross_validate=False, mask=mask)
+            if(self.log):
+                wandb.finish()
             # returns a numpy array 
             nsdId = test_trials[i]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
             ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-            rows = self.n_iter/2 + 1
+            rows = int(self.n_iter/2 + 1)
             columns = 2
             images = [ground_truth, z_c_reconstruction]
             captions = ["Ground Truth", "Search Reconstruction"]
-            for i in range(self.n_iter):
-                images.append(image_list[i])
-                captions.append("Brain Correlation: " + str(round(score_list[i], 4)))
+            for j in range(self.n_iter):
+                images.append(image_list[j])
+                captions.append("Brain Correlation: " + str(round(score_list[j], 4)))
             figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
             
             
-            # figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
+            figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
 if __name__ == "__main__":
     main()

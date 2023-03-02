@@ -31,8 +31,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    benchmark_library(encModel="521_model_c_img_0.pt", vector="c_img_0", device="cuda:1", average=True, ae=True, old_norm=False)
-    # reconstructNImages(experiment_title="cc3m top 5 comparison z_img_mixer 543", idx=[i for i in range(1,20)])
+    # benchmark_library(encModel="521_model_c_img_0.pt", vector="c_img_0", device="cuda:1", average=True, ae=True, old_norm=False)
+    reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -137,6 +137,78 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
         torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
         return out
+
+def predictVector_Alexnet_coco(encModel, vector, x, device="cuda:0"):
+    mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+    masks = {0:torch.full((11838,), False),
+            1:torch.load(mask_path + "V1.pt"),
+            2:torch.load(mask_path + "V2.pt"),
+            3:torch.load(mask_path + "V3.pt"),
+            4:torch.load(mask_path + "V4.pt"),
+            5:torch.load(mask_path + "V5.pt"),
+            6:torch.load(mask_path + "V6.pt"),
+            7:torch.load(mask_path + "V7.pt")}
+    if(vector == "c_img_0" or vector == "c_text_0"):
+        datasize = 768
+    elif(vector == "z_img_mixer"):
+        datasize = 16384
+    prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+    latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+    # Save to latent vectors
+    y = torch.zeros((63000, datasize))
+    subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+    nsdIds = set(subj1['nsdId'].tolist())
+    
+    x_preds = torch.load(latent_path + encModel + "/coco_brain_preds.pt", map_location=device)[:, masks[1]]
+    y_full = torch.load(prep_path + vector + "/vector_73k.pt")
+    count = 0
+    for pred in range(73000):
+        if pred not in nsdIds:
+            y[count] = y_full[pred]
+            count+=1
+    PeC = PearsonCorrCoef(num_outputs=21000).to(device)
+    # outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
+    
+    out = torch.zeros((x.shape[0], 5, datasize))
+    average_pearson = 0
+    
+    for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+        # print(torch.sum(torch.count_nonzero(x[i])))
+        xDup = x[i, masks[1]]
+        print(xDup.shape)
+        xDup = xDup.repeat(21000, 1).moveaxis(0, 1).to(device)
+        scores = torch.zeros((63000,))
+        preds = torch.zeros((63000,datasize))
+        # batch_max_x = torch.zeros((620, x.shape[1]))
+        # batch_max_y = torch.zeros((620, datasize))
+        for batch in range(3):
+            y_batch = y[21000*batch:21000*batch+21000]
+            x_preds_batch = x_preds[21000*batch:21000*batch+21000]
+            x_preds_t = x_preds_batch.moveaxis(0, 1).to(device)
+            preds[21000*batch:21000*batch+21000] = y_batch.detach()
+            # Pearson correlation
+            scores[21000*batch:21000*batch+21000] = PeC(xDup, x_preds_t).detach()
+            # print(torch.sum(torch.count_nonzero(xDup)), torch.sum(torch.count_nonzero(x_preds_t)))
+            # Calculating the Average Pearson Across Samples
+        top5_pearson = torch.topk(scores, 5)
+        average_pearson += torch.mean(top5_pearson.values.detach()) 
+        # print(top5_pearson.indices, top5_pearson.values, scores[0:5])
+            
+            # for j, index in enumerate(top5_pearson.indices):
+            #     batch_max_x[5*batch + j] = x_preds_t[:,index].detach()
+            #     batch_max_y[5*batch + j] = y[index].detach()
+                
+            
+        # xDupOut = x[i].repeat(620, 1).moveaxis(0, 1).to(device)
+        # batch_max_x = batch_max_x.moveaxis(0, 1).to(device)
+        # outPearson = outputPeC(xDupOut, batch_max_x).to("cpu")
+        # top5_ind_out = torch.topk(outPearson, 5).indices
+        for j, index in enumerate(top5_pearson.indices):
+                out[i, j] = preds[index]
+        
+    torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
+    print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
+    return out
        
        
             
@@ -195,8 +267,9 @@ def reconstructNImages(experiment_title, idx):
         # outputs_c_t[i] = torch.load(rootdir + "c_text_0/" + str(i) + ".pt")
         # outputs_z[i] = torch.load(rootdir + "z_img_mixer/" + str(i) + ".pt")
         print(i)
-        # outputs_c_i = predictVector_cc3m(encModel="521_model_c_img_0.pt", vector="c_img_0", x=x_test[i].reshape((1,11838)))
-        outputs_z = predictVector_cc3m(encModel="543_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test[i].reshape((1,11838)))
+        # outputs_c_i = predictVector_coco(encModel="521_model_c_img_0.pt", vector="c_img_0", x=x_test[i].reshape((1,11838)))
+        # outputs_z = predictVector_cc3m(encModel="543_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test[i].reshape((1,11838)))
+        outputs_z = predictVector_Alexnet_coco(encModel="alexnet_encoder", vector="z_img_mixer", x=x_test[i].reshape((1,11838)), device="cuda:0")
         # outputs_c_i = outputs_c_i.reshape((5, 768))
         # c_combined = format_clip(outputs_c_i)
         # c_combined_target = format_clip(targets_c_i[i])
