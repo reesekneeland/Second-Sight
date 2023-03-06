@@ -315,7 +315,6 @@ class Alexnet():
             masked_params = []
             for params in bp:
                 masked_params.append(params[beta_mask])
-                print(params[beta_mask].shape)
                 
             subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
             break
