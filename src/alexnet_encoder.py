@@ -16,9 +16,9 @@ from PIL import Image
 from src.file_utility import load_mask_from_nii, view_data
 from src.roi import roi_map, iterate_roi
 from imp import reload
-import src.torch_fwrf as aaa
+import torch_fwrf as aaa
 reload(aaa)
-from src.torch_fwrf import get_predictions
+from torch_fwrf import get_predictions
 from models.alexnet import Alexnet_fmaps
 from src.torch_feature_space import Torch_filter_fmaps
 from src.torch_fwrf import Torch_fwRF_voxel_block
@@ -228,7 +228,7 @@ class Alexnet():
         image_data = {}
         count = 0
         batch_count = 0
-        while count <= 2819140: 
+        while count < 2819140: 
             for folder in folder_list:
                 if(folder == "_tmp"):
                     pass
