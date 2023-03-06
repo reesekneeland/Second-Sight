@@ -316,30 +316,18 @@ def get_predictions(data, _fmaps_fn, _fwrf_fn, params, sample_batch_size=100):
         The prediction of voxel activities for each voxels associated with the input data.
     """
     dtype = data.dtype.type
-    print("This is the dtype: ", dtype)
     device = next(_fmaps_fn.parameters()).device
-    print("This is the device: ", device)
     _params = [_p for _p in _fwrf_fn.parameters()]
     #print("This is the _params: ", _params)
-    print("This is the _params shape: ", _params[0].shape)
     voxel_batch_size = _params[0].size()[0]    
     # nt is the len of the images 
     # nv is the len of the brain scan
     nt, nv = len(data), len(params[0])
-    print("This is the nt: ", nt)
-    print("This is the nv: ", nv)
-    print("This is the params: ", params)
-    print("This is the params: ", params[0].shape)
-    print("This is the params: ", params[0][0])
-    print("This is the params: ", params[0][1])
-    print("This is the params: ", params[0][2])
     #print ('val_size = %d' % nt)
     pred = np.full(fill_value=0, shape=(nt, nv), dtype=dtype)
     start_time = time.time()
     with torch.no_grad():
         for rv, lv in iterate_range(0, nv, voxel_batch_size):
-            print("This is rv: ", rv)
-            print("This is lv: ", lv)
             _fwrf_fn.load_voxel_block(*[p[rv] if p is not None else None for p in params])
             pred_block = np.full(fill_value=0, shape=(nt, voxel_batch_size), dtype=dtype)
             for rt, lt in iterate_range(0, nt, sample_batch_size):

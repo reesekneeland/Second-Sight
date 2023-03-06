@@ -34,8 +34,8 @@ nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/ns
 class Alexnet():
     
     def __init__(self,
-                predict_normal=False,
-                predict_73k=False):
+                predict_normal,
+                predict_73k):
         
         # Input Variables
         self.normal_predict = predict_normal
@@ -68,6 +68,17 @@ class Alexnet():
         self.voxel_mask      = self.checkpoint['voxel_mask']
         self.voxel_idx       = self.checkpoint['voxel_index']
         self.voxel_roi       = self.checkpoint['voxel_roi']   
+        
+        # Masking information
+        mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+        self.masks = {0:torch.full((11838,), False),
+                      1:torch.load(mask_path + "V1.pt"),
+                      2:torch.load(mask_path + "V2.pt"),
+                      3:torch.load(mask_path + "V3.pt"),
+                      4:torch.load(mask_path + "V4.pt"),
+                      5:torch.load(mask_path + "V5.pt"),
+                      6:torch.load(mask_path + "V6.pt"),
+                      7:torch.load(mask_path + "V7.pt")}
         
         
     def load_data(self):
@@ -271,7 +282,7 @@ class Alexnet():
                         
                         
                         
-    def predict(self, images):
+    def predict(self, images, mask = []):
         
         self.image_data = {}
         data = []
@@ -285,8 +296,12 @@ class Alexnet():
             
         self.image_data[1] = np.moveaxis(np.array(data), 3, 1)
         
-        voxel_batch_size = 500 # 200
-        _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
+        beta_mask = self.masks[0]
+        for i in mask:
+            beta_mask = torch.logical_or(beta_mask, self.masks[i])        
+        
+        voxel_batch_size = 200 # 200
+        _log_act_func = lambda _x: torch.log(1 + torch.abs(_x)) 
 
         _fmaps_fn = Alexnet_fmaps().to(self.device)
         _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
@@ -297,7 +312,12 @@ class Alexnet():
 
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
+            masked_params = []
+            for params in bp:
+                masked_params.append(params[beta_mask])
+                print(params[beta_mask].shape)
+                
+            subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
             break
         
         print(subject_image_pred[1].shape)
@@ -310,7 +330,18 @@ def main():
     
     AN = Alexnet(predict_normal = False, predict_73k = False)
     
+    # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
+    # data = []
+    # for i in tqdm(range(100), desc="loading in images"):
+        
+    #     nsdId = subj1_train.iloc[i]['nsdId']
+    #     ground_truth_np_array = nsda.read_images([nsdId], show=False)
+    #     ground_truth = Image.fromarray(ground_truth_np_array[0])
+    #     data.append(ground_truth)
+    
     AN.predict_cc3m()
+    
+    # AN.predict(data, [1])
            
         
 if __name__ == "__main__":
