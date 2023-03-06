@@ -229,9 +229,9 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True, old_norm=True)
-    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True, old_norm=True)
-    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True, old_norm=True)
+    _, _, _, x_test, _, _, _, targets_c_i, _, test_trials = load_nsd(vector="c_img_0", loader=False, average=True, old_norm=True)
+    _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True, old_norm=True)
+    _, _, _, _, _, _, _, targets_z, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True, old_norm=True)
     # AE = AutoEncoder(hashNum = "540",
     #              lr=0.0000001,
     #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
@@ -260,7 +260,7 @@ def reconstructNImages(experiment_title, idx):
     strength_c = 1
     strength_z = 0
     R = Reconstructor(device="cuda:0")
-    for i in idx:
+    for i in tqdm(idx, desc="Generating reconstructions"):
         # index = int(subj1x.loc[(subj1x['subject1_rep0'] == test_i) | (subj1x['subject1_rep1'] == test_i) | (subj1x['subject1_rep2'] == test_i)].nsdId)
         # rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/"
         # outputs_c_i[i] = torch.load(rootdir + "c_img_0/" + str(i) + ".pt")

@@ -350,9 +350,9 @@ def reconstructNImages(experiment_title, idx):
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
     os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
     # Load test data and targets
-    _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-    _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
+    _, _, _, x_test, _, _, _, targets_c_i, _, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+    _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+    _, _, _, _, _, _, _, targets_z, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
     
     # Generating predicted and target vectors
     # ae_x_test = AE.predict(x_test)
@@ -364,7 +364,7 @@ def reconstructNImages(experiment_title, idx):
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
-    for i in idx:
+    for i in tqdm(idx, desc="Generating reconstructions"):
         print(i)
         
         c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))

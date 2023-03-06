@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8.10
+  - python=3.8
   - pip=22.3.1
   - pytorch==1.12.1
   - torchvision==0.13.1
@@ -30,6 +30,7 @@ dependencies:
       - transformers>=4.22.2
       - wandb>=0.12.21
       - seaborn
+      - image-similarity-measures
       - webdataset>=0.2.5
       - "--editable=git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers"
       - "--editable=git+https://github.com/openai/CLIP.git@main#egg=clip"

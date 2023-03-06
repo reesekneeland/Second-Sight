@@ -241,3 +241,256 @@ def run_fr_decoder():
         file = open(mask_path + "results.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile))
         file.close()
+        
+        
+        
+        #Single trial search cross validation function (not working)
+        if(self.cross_validate):
+            #iterate over the 3 scans
+            beta_mask = self.masks[0]
+            for m in mask:
+                beta_mask = torch.logical_or(beta_mask, self.masks[m])
+            xDup = []
+            for i in range(beta.shape[0]):
+                #generating beta for current scan, and masking
+                cur_beta = beta[i]
+                cur_beta = cur_beta[beta_mask]
+                xDup.append(cur_beta.repeat(n, 1).moveaxis(0, 1).to(self.device))
+            for i in range(beta.shape[0]):
+                images = []
+                iter_scores = []
+                best_vector_corrrelation = -1
+                best_image_i = None
+                z=None
+                for cur_iter in tqdm(range(max_iter), desc="search iterations"): 
+                    #configure strength parameter based on depth of search
+                    strength = 1.0-0.7*(cur_iter/max_iter)
+                    #setup previous best image as Z vector for new step of search
+                    if(best_image_i):
+                        im_tensor = self.R.im2tensor(best_image)
+                        z = self.R.encode_latents(im_tensor)
+                        #generate samples
+                    samples = self.generateNSamples(n, clip, z, strength)
+                    #evaluate samples
+                    beta_primes = self.Alexnet.predict(samples)
+                    beta_primes = beta_primes[:, beta_mask]
+                    beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
+                    cv_scores = []
+                    for j in range(beta.shape[0]):
+                        if i != j:
+                            score = PeC(xDup[j], beta_primes)
+                            cv_scores.append(torch.max(score))
+                    cv_score_mean = sum(cv_scores)/len(cv_scores)
+                    single_trial_scores = PeC(xDup[i], beta_primes)
+                    cur_vector_corrrelation = float(torch.max(single_trial_scores))
+                    print("current scan score vs cross validation score average: ", cur_vector_corrrelation, cv_score_mean)
+                    if(self.log):
+                        wandb.log({'Current trial correlation': cur_vector_corrrelation, 'Cross validated trial correlation': cv_score_mean})
+                    print(cur_vector_corrrelation)
+                    images.append(samples[int(torch.argmax(single_trial_scores))])
+                    iter_scores.append(cur_vector_corrrelation)
+                    print("scores, cv_score, cv_best, st_score, st_best", cv_score_mean, best_cv_vector_correlation, cur_vector_corrrelation, best_vector_corrrelation)
+                    if cv_score_mean > best_cv_vector_correlation or best_cv_vector_correlation == -1:
+                        best_cv_vector_correlation = cv_score_mean
+                        best_image = samples[int(torch.argmax(single_trial_scores))]
+                    if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
+                        best_vector_corrrelation = cur_vector_corrrelation
+                        best_image_i = samples[int(torch.argmax(single_trial_scores))]
+                    else:
+                        loss_counter +=1
+                        
+                        
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False):
+    if(old_norm):
+        region_name = "whole_region_11838_old_norm.pt"
+    else:
+        region_name = "whole_region_11838.pt"
+    if(ae):
+        x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
+        y = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
+    else:
+        x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
+        y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+    
+    if(not split): 
+        return x, y
+    
+    else: 
+        x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test = [], [], [], [], []
+        y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test = [], [], [], [], []
+        subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
+        subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+        subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
+        alexnet_stimuli_order_list = np.where(subj1_full["shared1000"] == True)[0]
+        
+        # Loads the raw tensors into a Dataset object
+
+        # TensorDataset takes in two tensors of equal size and then maps 
+        # them to one dataset. 
+        # x is the brain data 
+        # y are the vectors
+        # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
+        alexnet_stimuli_ordering  = []
+        test_trials = []
+        for i in tqdm(range(7500), desc="loading training samples"):
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx) > 0):
+                    avx = torch.stack(avx)
+                    x_train.append(torch.mean(avx, dim=0))
+                    y_train.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        x_train.append(x[scanId-1])
+                        y_train.append(y[scanId-1])
+                        
+                        
+        for i in tqdm(range(7500, 9000), desc="loading validation samples"):
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_val.append(torch.mean(avx, dim=0))
+                    y_val.append(avy[0])
+            
+            else:
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                            x_val.append(x[scanId-1])
+                            y_val.append(y[scanId-1])
+        
+        for i in range(200):
+            nsdId = subj1_train.iloc[i]['nsdId']
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_voxelSelection.append(torch.mean(avx, dim=0))
+                    y_voxelSelection.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
+                        x_voxelSelection.append(x[scanId-1])
+                        y_voxelSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                    
+        for i in range(200, 400):
+            nsdId = subj1_train.iloc[i]['nsdId']
+            if(average==True): 
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_thresholdSelection.append(torch.mean(avx, dim=0))
+                    y_thresholdSelection.append(avy[0])
+            else:
+                for j in range(3):
+                    scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        if(return_trial): 
+                            x_test.append(x[scanId-1])
+                        x_thresholdSelection.append(x[scanId-1])
+                        y_thresholdSelection.append(y[scanId-1])
+                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                    
+        for i in range(400, 1000):
+            nsdId = subj1_train.iloc[i]['nsdId']
+            if(average==True):
+                avx = []
+                avy = []
+                for j in range(3):
+                    scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                    if(scanId < 27750):
+                        avx.append(x[scanId-1])
+                        avy.append(y[scanId-1])
+                if(len(avx)>0):
+                    avx = torch.stack(avx)
+                    x_test.append(torch.mean(avx, dim=0))
+                    y_test.append(avy[0])
+                    test_trials.append(nsdId)
+            else:
+                if nest:
+                    x_row = torch.zeros((3, 11838))
+                    y_row = []
+                    valCount = 0
+                    for j in range(3):
+                        scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                        if(scanId < 27750):
+                            valCount +=1
+                            x_row[j] = x[scanId-1]
+                            y_row.append(y[scanId-1])
+                    if(valCount > 0):
+                        test_trials.append(nsdId)
+                        x_test.append(x_row)
+                        y_test.append(y_row[0])
+                else:
+                    for j in range(3):
+                        scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+                        if(scanId < 27750):
+                            x_test.append(x[scanId-1])
+                            y_test.append(y[scanId-1])
+                            test_trials.append(nsdId)
+                            alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+        x_train = torch.stack(x_train).to("cpu")
+        x_val = torch.stack(x_val).to("cpu")
+        x_voxelSelection = torch.stack(x_voxelSelection).to("cpu")
+        x_thresholdSelection = torch.stack(x_thresholdSelection).to("cpu")
+        x_test = torch.stack(x_test).to("cpu")
+        y_train = torch.stack(y_train)
+        y_val = torch.stack(y_val)
+        y_voxelSelection = torch.stack(y_voxelSelection)
+        y_thresholdSelection = torch.stack(y_thresholdSelection)
+        y_test = torch.stack(y_test)
+        print("shapes: ", x_train.shape, x_val.shape, x_voxelSelection.shape, x_thresholdSelection.shape, x_test.shape, y_train.shape, y_val.shape, y_voxelSelection.shape, y_thresholdSelection.shape, y_test.shape)
+
+        if(loader):
+            trainset = torch.utils.data.TensorDataset(x_train, y_train)
+            valset = torch.utils.data.TensorDataset(x_val, y_val)
+            voxelset = torch.utils.data.TensorDataset(x_voxelSelection, y_voxelSelection)
+            thresholdset = torch.utils.data.TensorDataset(x_thresholdSelection, y_thresholdSelection)
+            testset = torch.utils.data.TensorDataset(x_test, y_test)
+            # Loads the Dataset into a DataLoader
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+            voxelloader = torch.utils.data.DataLoader(voxelset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            threshloader = torch.utils.data.DataLoader(thresholdset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            return trainloader, valloader, voxelloader, threshloader, testloader
+        else:
+            if(return_trial): 
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, alexnet_stimuli_ordering, test_trials
+            else:
+                return x_train, x_val, x_voxelSelection, x_thresholdSelection, x_test, y_train, y_val, y_voxelSelection, y_thresholdSelection, y_test, test_trials
