@@ -109,7 +109,7 @@ class AutoEncoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, _ = load_nsd(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _, = load_nsd(vector=self.vector, 
                                                                 batch_size=self.batch_size, 
                                                                 num_workers=self.num_workers, 
                                                                 ae=True,
@@ -215,7 +215,7 @@ class AutoEncoder():
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 10):
+                if(loss_counter >= 3):
                     break
                 
         # Load our best model into the class to be used for predictions
@@ -235,7 +235,7 @@ class AutoEncoder():
                 
     
     def benchmark(self, encodedPass=False):
-        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 ae=True,
@@ -258,7 +258,7 @@ class AutoEncoder():
         
         for index, data in enumerate(self.testLoader):
             
-            y_test, x_test = data
+            x_test, y_test = data
             PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
             y_test = y_test.to(self.device)
             x_test = x_test.to(self.device)

@@ -205,10 +205,10 @@ def train_autoencoder():
     #hashNum = "546"
     
     AE = AutoEncoder(hashNum = hashNum,
-                        lr=0.000005,
+                        lr=0.0000005,
                         vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
                         encoderHash="555",
-                        log=False, 
+                        log=True, 
                         parallel=False,
                         device="cuda:1",
                         num_workers=16,
