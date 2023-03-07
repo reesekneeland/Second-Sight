@@ -17,6 +17,7 @@ from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
+from alexnet_encoder import Alexnet
 from ss_decoder import SS_Decoder
 from mask import Masker
 
@@ -181,9 +182,9 @@ def main():
 
     # test_reconstruct()
 
-    # train_autoencoder()
+    train_autoencoder()
 
-    train_ss_decoder()
+    #train_ss_decoder()
 
 def mask_voxels():
     M = Masker(encoderHash="521",
@@ -200,22 +201,36 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    # hashNum = update_hash()
-    hashNum = "546"
+    hashNum = update_hash()
+    #hashNum = "546"
     
     AE = AutoEncoder(hashNum = hashNum,
-                 lr=0.000005,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="424",
-                 log=False, 
-                 parallel=False,
-                 device="cuda:0",
-                 num_workers=16,
-                 epochs=300
-                )
+                        lr=0.000005,
+                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="555",
+                        log=False, 
+                        parallel=False,
+                        device="cuda:1",
+                        num_workers=16,
+                        epochs=300
+                        )
     
-    # AE.train()
+    AE.train()
     AE.benchmark(encodedPass=False)
+    
+    # AN = Alexnet()
+    
+    # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
+    
+    # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
+    # _, _, _, _, _, _, _, _, _, images = load_nsd(vector = "c_img_0", batch_size = AE.batch_size,
+    #                                              num_workers = AE.num_workers, loader = False, 
+    #                                              split = True, return_images=True)
+    # print("This is the length of PIL images: ", len(images))
+    # print("This is the type: ", type(images[0]))
+    # outputs = AN.predict(images, [])
+    # print("This is the output shape: ", outputs.shape)
+    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
 
 
 def train_encoder():

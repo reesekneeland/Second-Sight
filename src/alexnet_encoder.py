@@ -88,7 +88,7 @@ class Alexnet():
             # ONE SUBJECTS 
             # ----------- Load data ------------
             # x_train, x_val, _, _, _, _, _, _, _, _, val_trails, _ = load_nsd(vector = "c_img_0", loader = False, average = True, return_trial = True)
-            _, _, _, x_test, _, _, _, _, alexnet_stimuli_order, _ = load_nsd(vector = "c_img_0", loader = False, return_trial = True)
+            _, _, _, x_test, _, _, _, _, alexnet_stimuli_order, _, _ = load_nsd(vector = "c_img_0", loader = False, return_trial = True)
     
             print(alexnet_stimuli_order)
 
@@ -314,12 +314,17 @@ class Alexnet():
 
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            masked_params = []
-            for params in bp:
-                masked_params.append(params[beta_mask])
+            if(len(mask) == 0):
+                subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
+                break
+            
+            else:
+                masked_params = []
+                for params in bp:
+                    masked_params.append(params[beta_mask])
                 
-            subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
-            break
+                subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
+                break
         
         print(subject_image_pred[1].shape)
         return torch.from_numpy(subject_image_pred[1])

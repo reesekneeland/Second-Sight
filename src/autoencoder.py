@@ -110,11 +110,11 @@ class AutoEncoder():
 
     def train(self):
         self.trainLoader, self.valLoader, _, _, _ = load_nsd(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    ae=True,
-                                                                    encoderModel=self.encoderModel,
-                                                                    average=False)
+                                                                batch_size=self.batch_size, 
+                                                                num_workers=self.num_workers, 
+                                                                ae=True,
+                                                                encoderModel=self.encoderModel,
+                                                                average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -141,8 +141,8 @@ class AutoEncoder():
                 
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
-                # x_data = Beta prime (Vector conditioned encoding)
-                # y_data = Beta (Brain data)
+                # x_data = Beta (Brain data)
+                # y_data = Beta prime (Vector conditioned encoding)
                 x_data, y_data = data
                 
                 # Moving the tensors to the GPU
@@ -181,6 +181,8 @@ class AutoEncoder():
             for i, data in enumerate(self.valLoader):
                 
                 # Loading in the test data
+                # x_data = Beta (Brain data)
+                # y_data = Beta prime (Vector conditioned encoding)
                 x_data, y_data = data
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
