@@ -111,14 +111,14 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, return_images=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
         region_name = "whole_region_11838.pt"
     if(ae):
-        x = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
-        y = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
+        x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
+        y = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False)
     else:
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
@@ -144,7 +144,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         alexnet_stimuli_ordering  = []
         test_trials = []
         param_trials = []
+        images = []
         for i in tqdm(range(7500), desc="loading training samples"):
+            nsdId = subj1_train.iloc[i]['nsdId']
             avx = []
             avy = []
             for j in range(3):
@@ -156,12 +158,16 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     else:
                         x_train.append(x[scanId-1])
                         y_train.append(y[scanId-1])
+                        ground_truth_image_np_array = nsda.read_images([scanId], show=False)
+                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+                        images.append(ground_truth_PIL)
             if(len(avx) > 0):
                 avx = torch.stack(avx)
                 x_train.append(torch.mean(avx, dim=0))
                 y_train.append(avy[0])
                          
         for i in tqdm(range(7500, 9000), desc="loading validation samples"):
+            nsdId = subj1_train.iloc[i]['nsdId']
             avx = []
             avy = []
             for j in range(3):
@@ -173,6 +179,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     else:
                         x_val.append(x[scanId-1])
                         y_val.append(y[scanId-1])
+                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
+                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+                        images.append(ground_truth_PIL)
             if(len(avx) > 0):
                 avx = torch.stack(avx)
                 x_val.append(torch.mean(avx, dim=0))
@@ -194,6 +203,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         y_param.append(y[scanId-1])
                         param_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
+                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+                        images.append(ground_truth_PIL)
             if(len(avy)>0):
                 avx = torch.stack(avx)
                 x_param.append(torch.mean(avx, dim=0))
@@ -216,6 +228,9 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         y_test.append(y[scanId-1])
                         test_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
+                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+                        images.append(ground_truth_PIL)
             if(len(avy)>0):
                 avx = torch.stack(avx)
                 x_test.append(torch.mean(avx, dim=0))
@@ -246,6 +261,8 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         else:
             if(return_trial): 
                 return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, param_trials, test_trials
+            elif(return_images):
+                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, images
             else:
                 return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, param_trials, test_trials
 
