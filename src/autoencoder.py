@@ -114,7 +114,8 @@ class AutoEncoder():
                                                                 num_workers=self.num_workers, 
                                                                 ae=True,
                                                                 encoderModel=self.encoderModel,
-                                                                average=False)
+                                                                average=False,
+                                                                old_norm=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
