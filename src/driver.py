@@ -206,11 +206,11 @@ def train_autoencoder():
     
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.0000005,
-                        vector="c_img_0", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="521",
+                        vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="543",
                         log=True, 
                         parallel=False,
-                        device="cuda:0",
+                        device="cuda:1",
                         num_workers=16,
                         epochs=300
                         )
