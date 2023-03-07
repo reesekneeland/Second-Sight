@@ -210,7 +210,7 @@ def train_autoencoder():
                         encoderHash="555",
                         log=False, 
                         parallel=False,
-                        device="cuda:1",
+                        device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
