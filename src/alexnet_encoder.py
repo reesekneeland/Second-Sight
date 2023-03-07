@@ -34,8 +34,8 @@ nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/ns
 class Alexnet():
     
     def __init__(self,
-                predict_normal,
-                predict_73k):
+                predict_normal=False,
+                predict_73k=False):
         
         # Input Variables
         self.normal_predict = predict_normal

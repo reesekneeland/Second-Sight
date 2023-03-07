@@ -111,7 +111,7 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -127,8 +127,8 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         return x, y
     
     else: 
-        x_train, x_val, x_param, x_test = [], [], [], [], []
-        y_train, y_val, y_param, y_test = [], [], [], [], []
+        x_train, x_val, x_param, x_test = [], [], [], []
+        y_train, y_val, y_param, y_test = [], [], [], []
         subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
         subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
         subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
@@ -189,20 +189,14 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if average:
                         avx.append(x[scanId-1])
                         avy.append(y[scanId-1])
-                    elif nest:
-                        x_row[j] = x[scanId-1]
-                        avy.append(y[scanId-1])
                     else:
                         x_param.append(x[scanId-1])
                         y_param.append(y[scanId-1])
                         param_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
             if(len(avy)>0):
-                if average:
-                    avx = torch.stack(avx)
-                    x_param.append(torch.mean(avx, dim=0))
-                elif nest:
-                    x_param.append(x_row)
+                avx = torch.stack(avx)
+                x_param.append(torch.mean(avx, dim=0))
                 y_param.append(avy[0])
                 param_trials.append(nsdId)
                     
@@ -217,20 +211,14 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     if average:
                         avx.append(x[scanId-1])
                         avy.append(y[scanId-1])
-                    elif nest:
-                        x_row[j] = x[scanId-1]
-                        avy.append(y[scanId-1])
                     else:
                         x_test.append(x[scanId-1])
                         y_test.append(y[scanId-1])
                         test_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
             if(len(avy)>0):
-                if average:
-                    avx = torch.stack(avx)
-                    x_test.append(torch.mean(avx, dim=0))
-                elif nest:
-                    x_test.append(x_row)
+                avx = torch.stack(avx)
+                x_test.append(torch.mean(avx, dim=0))
                 y_test.append(avy[0])
                 test_trials.append(nsdId)
         
@@ -257,7 +245,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             return trainloader, valloader, paramLoader, testloader
         else:
             if(return_trial): 
-                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, test_trials
+                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, param_trials, test_trials
             else:
                 return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, param_trials, test_trials
 

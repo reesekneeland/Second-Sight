@@ -26,30 +26,35 @@ from reconstructor import Reconstructor
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    S = SingleTrialSearch(device="cuda:0",
+    S1 = SingleTrialSearch(device="cuda:0",
                           log=True,
-                          n_iter=25,
-                          n_samples=25)
-
-    S.generateTestSamples(experiment_title="STS 25:25 medium strength V1 var stopping N decrease", idx=[i for i in range(0, 20)], mask=[1])
-    S.generateTestSamples(experiment_title="STS 25:25 medium strength V1, V2 var stopping N decrease", idx=[i for i in range(0, 20)], mask=[1, 2])
-    S = SingleTrialSearch(device="cuda:0",
+                          n_iter=10,
+                          n_samples=100,
+                          n_branches=4)
+    S2 = SingleTrialSearch(device="cuda:0",
                           log=True,
-                          n_iter=100,
-                          n_samples=100)
-    S.generateTestSamples(experiment_title="STS 100:100 medium strength V1 var stopping N decrease", idx=[i for i in range(0, 20)], mask=[1])
-    S.generateTestSamples(experiment_title="STS 100:100 medium strength V1 V2 var stopping N decrease", idx=[i for i in range(0, 20)], mask=[1, 2])
+                          n_iter=20,
+                          n_samples=60,
+                          n_branches=3)
+    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
+    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
+    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
+    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
+    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
+    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
 
 class SingleTrialSearch():
     def __init__(self, 
                 device="cuda:0",
                 log=True,
                 n_iter=10,
-                n_samples=10):
+                n_samples=10,
+                n_branches=1):
         self.log = log
         self.device = device
         self.n_iter = n_iter
         self.n_samples = n_samples
+        self.n_branches = n_branches
         self.R = Reconstructor(device="cuda:0")
         self.Alexnet = Alexnet()
         self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
@@ -74,8 +79,10 @@ class SingleTrialSearch():
     #cross validate says whether to cross validate between scans
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
-    def zSearch(self, clip, beta, n=10, max_iter=10, mask=[]):
+    def zSearch(self, clip, beta, n=10, max_iter=10, n_branches = 1, mask=[]):
         z, best_image = None, None
+        iter_images = [None] * n_branches
+        best_image
         images, iter_scores, var_scores = [], [], []
         best_vector_corrrelation, best_var = -1, -1
         loss_counter = 0
@@ -87,27 +94,33 @@ class SingleTrialSearch():
             
         beta = torch.mean(beta, dim=0)
         beta = beta[beta_mask]
-        xDup = beta.repeat(n, 1).moveaxis(0, 1).to(self.device)
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # if(loss_counter > 3):
             #     break
-            strength = 1.0-0.7*(cur_iter/max_iter)
-            n = max(10, int(n*strength))
+            strength = 1.0-0.5*(cur_iter/max_iter)
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n))
-            xDup = beta.repeat(n, 1).moveaxis(0, 1).to(self.device)
-            PeC = PearsonCorrCoef(num_outputs=n).to(self.device) 
+            
         
-            if(best_image):
-                im_tensor = self.R.im2tensor(best_image)
-                z = self.R.encode_latents(im_tensor)
-                
-            samples = self.generateNSamples(n, clip, z, strength)
-            beta_primes = self.Alexnet.predict(samples)
-            beta_primes = beta_primes[:, beta_mask]
+            
+            samples = []
+            for i in range(n_branches):
+                if(iter_images[i]):
+                    im_tensor = self.R.im2tensor(iter_images[i])
+                    z = self.R.encode_latents(im_tensor)
+                n_i = max(10, int(n/n_branches*strength))
+                samples += self.generateNSamples(n_i, clip, z, strength)
+
+            beta_primes = self.Alexnet.predict(samples, mask)
+            # beta_primes = beta_primes[:, beta_mask]
+            
             beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
             
+            xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+            PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+            print(xDup.shape, beta_primes.shape)
             scores = PeC(xDup, beta_primes)
-            cur_var = torch.var(scores)
+            cur_var = float(torch.var(scores))
+            topn_pearson = torch.topk(scores, n_branches)
             cur_vector_corrrelation = float(torch.max(scores))
             if(self.log):
                 wandb.log({'Alexnet Brain encoding pearson correlation': cur_vector_corrrelation, 'score variance': cur_var})
@@ -115,6 +128,8 @@ class SingleTrialSearch():
             images.append(samples[int(torch.argmax(scores))])
             iter_scores.append(cur_vector_corrrelation)
             var_scores.append(cur_var)
+            for i in range(n_branches):
+                iter_images[i] = samples[int(topn_pearson.indices[i])]
             if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
                 best_vector_corrrelation = cur_vector_corrrelation
                 best_image = samples[int(torch.argmax(scores))]
@@ -131,14 +146,11 @@ class SingleTrialSearch():
     def generateTestSamples(self, experiment_title, idx, mask=[]):    
 
         os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
-        # Load test data and targets
-        # _, _, _, _, x_test, _, _, _, _, targets_c_i, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
-        # _, _, _, _, _, _, _, _, _, targets_c_t, _ = load_nsd(vector="c_text_0", loader=False, average=False, nest=False)
-        # _, _, _, _, _, _, _, _, _, targets_z, _ = load_nsd(vector="z_img_mixer", loader=False, average=False, nest=False)
-        # Load validation data and targets
-        _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=False, nest=False)
-        _, _, _, _, _, _, targets_z, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=False, nest=False)
+        # Load data and targets
+        _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+        _, _, _, _, _, _, targets_z, _, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
+        
         Dc_i = Decoder(hashNum = "528",
                  vector="c_img_0", 
                  inpSize = 11838,
@@ -166,21 +178,10 @@ class SingleTrialSearch():
                 )
 
         # Generating predicted and target vectors
-        outputs_c_i = Dc_i.predict(x=torch.mean(x_test, dim=1))
-        outputs_c_t = Dc_t.predict(x=torch.mean(x_test, dim=1))
+        outputs_c_i = Dc_i.predict(x=x_param, dim=1)
+        outputs_c_t = Dc_t.predict(x=x_param, dim=1)
         
-        strength_c = 1
-        strength_z = 0
-        best_sim_ssim = []
-        best_sim_fsim = []
-        avg_ssim=0
-        avg_fsim=0
         for i in idx:
-            if(len(best_sim_ssim)>0):
-                avg_ssim = sum(best_sim_ssim)/len(best_sim_ssim)
-                avg_fsim = sum(best_sim_fsim)/len(best_sim_fsim)
-            print(i, avg_fsim, avg_ssim)
-            
             c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
             c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
             
@@ -197,7 +198,7 @@ class SingleTrialSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            z_c_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_param[i], n=self.n_samples, max_iter=self.n_iter, mask=mask)
+            z_c_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_param[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             # returns a numpy array 
             nsdId = param_trials[i]
