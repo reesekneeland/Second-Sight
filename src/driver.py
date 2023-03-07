@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -177,13 +177,13 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImages(experiment_title="Tiled MLP", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="Tiled MLP Params", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
     # train_autoencoder()
 
-    train_ss_decoder()
+    # train_ss_decoder()
 
 def mask_voxels():
     M = Masker(encoderHash="521",
@@ -200,8 +200,8 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    # hashNum = update_hash()
-    hashNum = "546"
+    hashNum = update_hash()
+    # hashNum = "546"
     
     AE = AutoEncoder(hashNum = hashNum,
                  lr=0.000005,
@@ -350,22 +350,21 @@ def reconstructNImages(experiment_title, idx):
     nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
     os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
     # Load test data and targets
-    _, _, _, x_test, _, _, _, targets_c_i, _, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-    _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-    _, _, _, _, _, _, _, targets_z, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
+    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+    _, _, _, _, _, _, targets_z, _, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
     
     # Generating predicted and target vectors
     # ae_x_test = AE.predict(x_test)
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
     
-    outputs_c_i = Dc_i.predict(x=x_test)
-    outputs_c_t = Dc_t.predict(x=x_test)
-    outputs_z = Dz.predict(x=x_test)
+    outputs_c_i = Dc_i.predict(x=x_param)
+    outputs_c_t = Dc_t.predict(x=x_param)
+    outputs_z = Dz.predict(x=x_param)
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
     for i in tqdm(idx, desc="Generating reconstructions"):
-        print(i)
         
         c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
         c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
@@ -384,7 +383,7 @@ def reconstructNImages(experiment_title, idx):
         z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.85)
         
         # returns a numpy array 
-        nsdId = test_trials[i]
+        nsdId = param_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)

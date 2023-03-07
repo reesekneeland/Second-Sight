@@ -175,8 +175,8 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         y_val.append(y[scanId-1])
             if(len(avx) > 0):
                 avx = torch.stack(avx)
-                x_train.append(torch.mean(avx, dim=0))
-                y_train.append(avy[0])
+                x_val.append(torch.mean(avx, dim=0))
+                y_val.append(avy[0])
         
         for i in range(200):
             nsdId = subj1_train.iloc[i]['nsdId']

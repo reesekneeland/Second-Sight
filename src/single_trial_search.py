@@ -88,12 +88,11 @@ class SingleTrialSearch():
         loss_counter = 0
         
         #Conglomerate masks
-        beta_mask = self.masks[0]
-        for i in mask:
-            beta_mask = torch.logical_or(beta_mask, self.masks[i])
-            
-        beta = torch.mean(beta, dim=0)
-        beta = beta[beta_mask]
+        if(len(mask)>0):
+            beta_mask = self.masks[0]
+            for i in mask:
+                beta_mask = torch.logical_or(beta_mask, self.masks[i])
+            beta = beta[beta_mask]
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # if(loss_counter > 3):
             #     break
