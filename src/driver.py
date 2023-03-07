@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -210,7 +210,7 @@ def train_autoencoder():
                         encoderHash="521",
                         log=True, 
                         parallel=False,
-                        device="cuda:0",
+                        device="cuda:1",
                         num_workers=16,
                         epochs=300
                         )
