@@ -137,6 +137,7 @@ class AutoEncoder():
             
             # Keep track of running loss for this training epoch
             running_loss = 0.0
+            print(torch.cuda.is_available())
             for i, data in enumerate(self.trainLoader):
                 
                 # Load the data out of our dataloader by grabbing the next chunk
