@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -201,13 +201,13 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    # hashNum = update_hash()
-    hashNum = "573"
+    hashNum = update_hash()
+    #hashNum = "573"
     
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.0000005,
-                        vector="z_img_mixer", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="543",
+                        vector="c_img_0", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="536",
                         log=True, 
                         parallel=False,
                         device="cuda:1",
