@@ -111,7 +111,7 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, return_images=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -144,7 +144,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         alexnet_stimuli_ordering  = []
         test_trials = []
         param_trials = []
-        images = []
         for i in tqdm(range(7500), desc="loading training samples"):
             nsdId = subj1_train.iloc[i]['nsdId']
             avx = []
@@ -158,9 +157,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     else:
                         x_train.append(x[scanId-1])
                         y_train.append(y[scanId-1])
-                        ground_truth_image_np_array = nsda.read_images([scanId], show=False)
-                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
-                        images.append(ground_truth_PIL)
             if(len(avx) > 0):
                 avx = torch.stack(avx)
                 x_train.append(torch.mean(avx, dim=0))
@@ -179,9 +175,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     else:
                         x_val.append(x[scanId-1])
                         y_val.append(y[scanId-1])
-                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
-                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
-                        images.append(ground_truth_PIL)
             if(len(avx) > 0):
                 avx = torch.stack(avx)
                 x_val.append(torch.mean(avx, dim=0))
@@ -203,9 +196,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         y_param.append(y[scanId-1])
                         param_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
-                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
-                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
-                        images.append(ground_truth_PIL)
             if(len(avy)>0):
                 avx = torch.stack(avx)
                 x_param.append(torch.mean(avx, dim=0))
@@ -228,9 +218,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         y_test.append(y[scanId-1])
                         test_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
-                        ground_truth_image_np_array = nsda.read_images([nsdId], show=False)
-                        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
-                        images.append(ground_truth_PIL)
             if(len(avy)>0):
                 avx = torch.stack(avx)
                 x_test.append(torch.mean(avx, dim=0))
@@ -261,8 +248,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         else:
             if(return_trial): 
                 return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, param_trials, test_trials
-            elif(return_images):
-                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, images
             else:
                 return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, param_trials, test_trials
 
@@ -384,7 +369,7 @@ def create_whole_region_normalized(whole=False):
         #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
     
     
-def process_data(vector):
+def process_data(vector="c_combined", image=False):
     
     if(vector == "z" or vector == "z_img_mixer"):
         vec_target = torch.zeros((27750, 16384))
@@ -402,7 +387,7 @@ def process_data(vector):
     # Loading the description object for subejct1
     
     subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-
+    images = []
     for i in tqdm(range(0,27750), desc="vector loader"):
         
         # Flexible to both Z and C tensors depending on class configuration
@@ -411,9 +396,16 @@ def process_data(vector):
         # Do a check here. Do this in get_data
         # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
         index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
-        vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
-
-    torch.save(vec_target, prep_path + vector + "/vector.pt")
+        if(image):
+            ground_truth_image_np_array = nsda.read_images([index], show=False)
+            ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+            images.append(ground_truth_PIL)
+        else:
+            vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
+    if(image):
+        return images
+    else:
+        torch.save(vec_target, prep_path + vector + "/vector.pt")
     
 def process_data_full(vector):
     

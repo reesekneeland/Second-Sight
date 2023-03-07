@@ -202,20 +202,20 @@ def mask_voxels():
 def train_autoencoder():
     
     # hashNum = update_hash()
-    hashNum = "573"
+    hashNum = "582"
     
     AE = AutoEncoder(hashNum = hashNum,
-                        lr=0.0000005,
-                        vector="c_img_0", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="521",
-                        log=True, 
+                        lr=0.0001,
+                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="579",
+                        log=False, 
                         parallel=False,
-                        device="cuda:1",
+                        device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
     
-    AE.train()
+    # AE.train()
     AE.benchmark(encodedPass=False)
     
     # AN = Alexnet()
@@ -223,12 +223,13 @@ def train_autoencoder():
     # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
     
     # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
-    # _, _, _, _, _, _, _, _, _, images = load_nsd(vector = "c_img_0", batch_size = AE.batch_size,
-    #                                              num_workers = AE.num_workers, loader = False, 
-    #                                              split = True, return_images=True)
+    # # _, _, _, _, _, _, _, _, _, images = load_nsd(vector = "c_img_0", batch_size = AE.batch_size,
+    # #                                              num_workers = AE.num_workers, loader = False, 
+    # #                                              split = True, return_images=True)
+    # images = process_data(image=True)
     # print("This is the length of PIL images: ", len(images))
     # print("This is the type: ", type(images[0]))
-    # outputs = AN.predict(images, [])
+    # outputs = AN.predict(images)
     # print("This is the output shape: ", outputs.shape)
     # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
 
@@ -264,11 +265,11 @@ def train_encoder():
 def train_ss_decoder():
     
     # hashNum = update_hash()
-    hashNum = "547"
+    hashNum = "541"
     SS = SS_Decoder(hashNum = hashNum,
                     vector="c_img_0",
                     log=False, 
-                    encoderHash="521",
+                    encoderHash="536",
                     lr=0.0001,
                     batch_size=750,
                     parallel=False,
@@ -281,7 +282,7 @@ def train_ss_decoder():
     
     # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
     # SS.benchmark()
-    SS.benchmark_nsd(AEhash="544", ae=True)
+    SS.benchmark_nsd(AEhash="577", ae=True)
 
 
 def train_decoder():

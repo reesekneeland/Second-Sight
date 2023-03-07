@@ -137,7 +137,6 @@ class AutoEncoder():
             
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            print(torch.cuda.is_available())
             for i, data in enumerate(self.trainLoader):
                 
                 # Load the data out of our dataloader by grabbing the next chunk
@@ -207,7 +206,7 @@ class AutoEncoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(best_loss, "best_loss_" + self.vector + ".pt")
+                # torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
                     torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 else:

@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -26,22 +26,30 @@ from reconstructor import Reconstructor
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    S1 = SingleTrialSearch(device="cuda:0",
+    S0 = SingleTrialSearch(device="cuda:0",
                           log=True,
                           n_iter=10,
                           n_samples=100,
                           n_branches=4)
-    S2 = SingleTrialSearch(device="cuda:0",
-                          log=True,
-                          n_iter=20,
-                          n_samples=60,
-                          n_branches=3)
-    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
-    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
-    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
-    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
-    S1.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
-    S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
+    # S1 = SingleTrialSearch(device="cuda:0",
+    #                       log=True,
+    #                       n_iter=10,
+    #                       n_samples=500,
+    #                       n_branches=5)
+    # S2 = SingleTrialSearch(device="cuda:0",
+    #                       log=True,
+    #                       n_iter=30,
+    #                       n_samples=100,
+    #                       n_branches=3)
+    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
+    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
+    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
+    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
+    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
 
 class SingleTrialSearch():
     def __init__(self, 
@@ -99,8 +107,6 @@ class SingleTrialSearch():
             strength = 1.0-0.5*(cur_iter/max_iter)
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n))
             
-        
-            
             samples = []
             for i in range(n_branches):
                 if(iter_images[i]):
@@ -142,7 +148,7 @@ class SingleTrialSearch():
 
 
 
-    def generateTestSamples(self, experiment_title, idx, mask=[]):    
+    def generateTestSamples(self, experiment_title, idx, mask=[], ae=False):    
 
         os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
@@ -166,10 +172,10 @@ class SingleTrialSearch():
                     parallel=False
                     )
 
-        AE = AutoEncoder(hashNum = "540",
+        AE = AutoEncoder(hashNum = "582",
                  lr=0.0000001,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="536",
+                 vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
+                 encoderHash="579",
                  log=False, 
                  batch_size=750,
                  parallel=False,
@@ -177,8 +183,10 @@ class SingleTrialSearch():
                 )
 
         # Generating predicted and target vectors
-        outputs_c_i = Dc_i.predict(x=x_param, dim=1)
-        outputs_c_t = Dc_t.predict(x=x_param, dim=1)
+        outputs_c_i = Dc_i.predict(x=x_param)
+        outputs_c_t = Dc_t.predict(x=x_param)
+        if(ae):
+            x_param = AE.predict(x_param)
         
         for i in idx:
             c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))

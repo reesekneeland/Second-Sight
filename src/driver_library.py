@@ -31,8 +31,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # benchmark_library(encModel="521_model_c_img_0.pt", vector="c_img_0", device="cuda:1", average=True, ae=True, old_norm=False)
-    reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
+    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
+    # reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -329,20 +329,21 @@ def reconstructNImages(experiment_title, idx):
     
 def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, old_norm=False):
     print(encModel)
-    _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
+    _, _, _, x_test, _, _, _, target, _, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
     # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
     if(ae):
-        AE = AutoEncoder(hashNum = "544",
+        AE = AutoEncoder(hashNum = "577",
                  lr=0.0000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="521",
+                 encoderHash="536",
                  log=False, 
                  batch_size=750,
                  parallel=False,
                  device=device
                 )
         x_test = AE.predict(x_test).to("cpu")
-    out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    out = predictVector_coco(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    # out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
     # torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
         
     # else:

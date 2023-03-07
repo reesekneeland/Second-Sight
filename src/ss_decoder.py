@@ -322,12 +322,12 @@ class SS_Decoder():
         
     def benchmark_nsd(self, AEhash="544", ae=True):
         # Initialize the data loaders
-        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                             batch_size=self.batch_size, 
                                             num_workers=self.num_workers, 
                                             loader=True,
-                                            average=False,
-                                            old_norm=False)
+                                            average=True,
+                                            old_norm=True)
         AE = AutoEncoder(hashNum = AEhash,
                  lr=0.0000001,
                  vector=self.vector,
