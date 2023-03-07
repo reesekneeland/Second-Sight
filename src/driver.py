@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -178,7 +178,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="Tiled MLP Params", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="Tiled MLP Params", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -206,11 +206,11 @@ def train_autoencoder():
     
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.0000005,
-                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="555",
+                        vector="c_img_0", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="521",
                         log=True, 
                         parallel=False,
-                        device="cuda:1",
+                        device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
