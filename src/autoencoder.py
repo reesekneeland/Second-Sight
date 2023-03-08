@@ -24,8 +24,6 @@ class MLP(torch.nn.Module):
         self.encoder = torch.nn.Sequential(
             torch.nn.Linear(11838, 5000),
             torch.nn.ReLU(),
-            # torch.nn.Linear(5000, 2500),
-            # torch.nn.ReLU(),
             torch.nn.Linear(5000, 1000),
             torch.nn.ReLU(),
             torch.nn.Linear(1000, 500)
@@ -34,8 +32,6 @@ class MLP(torch.nn.Module):
         self.decoder = torch.nn.Sequential(
             torch.nn.Linear(500, 1000),
             torch.nn.ReLU(),
-            # torch.nn.Linear(1000, 2500),
-            # torch.nn.ReLU(),
             torch.nn.Linear(1000, 5000),
             torch.nn.ReLU(),
             torch.nn.Linear(5000, 11838)
@@ -55,7 +51,6 @@ class AutoEncoder():
                  encoderHash=None,
                  lr=0.00001,
                  batch_size=750,
-                 parallel=True,
                  device="cuda",
                  num_workers=16,
                  epochs=200
@@ -73,14 +68,9 @@ class AutoEncoder():
         self.num_epochs  = epochs
         self.num_workers = num_workers
         self.log         = log
-        self.parallel    = parallel
     
         # Initialize the Pytorch model class
         self.model = MLP()
-        
-        # Configure multi-gpu training
-        if(self.parallel):
-            self.model = nn.DataParallel(self.model)
         
         # Send model to Pytorch Device 
         self.model.to(self.device)
@@ -206,11 +196,7 @@ class AutoEncoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                # torch.save(best_loss, "best_loss_" + self.vector + ".pt")
-                if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
-                else:
-                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -219,14 +205,11 @@ class AutoEncoder():
                     break
                 
         # Load our best model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
             
     def predict(self, x, batch=False, batch_size=750):
         
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(self.device)
@@ -247,7 +230,7 @@ class AutoEncoder():
         target = torch.zeros((datasize, 11838))
         modelId = self.hashNum + "_model_" + self.vector + ".pt"
         print(modelId)
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + modelId, map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + modelId, map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
 
@@ -296,7 +279,7 @@ class AutoEncoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_autoencoder.png")
+        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_autoencoder.png")
         
 
     

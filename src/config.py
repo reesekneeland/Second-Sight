@@ -15,7 +15,7 @@ import seaborn as sns
 
 fpX = np.float32
 
-root_dir   = '/home/naxos2-raid25/ojeda040/local/styvesg/code/nsd_gnet8x/'
+root_dir   = '/export/raid1/home/styvesg/code/nsd_gnet8x/'
 net_dir    = root_dir + "net/" 
 video_dir  = root_dir+"video/"
 

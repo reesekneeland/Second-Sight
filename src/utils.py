@@ -26,18 +26,18 @@ latent_path = "/export/raid1/home/kneel027/Second-Sight/latent_vectors/"
 # First URL: This is the original read-only NSD file path (The actual data)
 # Second URL: Local files that we are adding to the dataset and need to access as part of the data
 # Object for the NSDAccess package
-nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
+nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 
         
 def get_hash():
-    with open('/export/raid1/home/kneel027/Second-Sight/hash','r') as file:
+    with open('hash','r') as file:
         h = file.read()
     file.close()
     return str(h)
 
 def update_hash():
-    with open('/export/raid1/home/kneel027/Second-Sight/hash','r+') as file:
+    with open('hash','r+') as file:
         h = int(file.read())
         new_h = f'{h+1:03d}'
         file.seek(0)
@@ -297,7 +297,7 @@ def create_whole_region_unnormalized(whole=False):
         file = "x/whole_region_11838_unnormalized.pt"
         whole_region = torch.zeros((27750, 11838))
 
-    nsd_general = nib.load("/export/raid1/home/kneel027/Second-Sight/masks/brainmask_nsdgeneral_1.0.nii").get_fdata()
+    nsd_general = nib.load("masks/brainmask_nsdgeneral_1.0.nii").get_fdata()
     print(nsd_general.shape)
 
     nsd_general_mask = np.nan_to_num(nsd_general)
@@ -478,7 +478,7 @@ def extract_dim(vector, dim):
 def grab_samples(vector, threshold, hashNum):
     
     whole_region = torch.load(prep_path + "x/whole_region_11838_old_norm.pt") 
-    mask = np.load("/export/raid1/home/kneel027/Second-Sight/masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
+    mask = np.load("masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
     new_len = np.count_nonzero(mask)
     target = torch.zeros((27750, new_len))
     for i in tqdm(range(27750), desc=(vector + " masking")): 

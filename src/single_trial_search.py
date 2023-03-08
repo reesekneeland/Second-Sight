@@ -25,7 +25,7 @@ from reconstructor import Reconstructor
 
 
 def main():
-    os.chdir("/export/raid1/home/kneel027/Second-Sight/")
+    # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # S0 = SingleTrialSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=10,
@@ -63,8 +63,8 @@ class SingleTrialSearch():
         self.n_branches = n_branches
         self.R = Reconstructor(device="cuda:0")
         self.Alexnet = Alexnet()
-        self.nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-        mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+        self.nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
+        mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
         self.masks = {0:torch.full((11838,), False),
                       1:torch.load(mask_path + "V1.pt"),
                       2:torch.load(mask_path + "V2.pt"),
@@ -148,7 +148,7 @@ class SingleTrialSearch():
 
     def generateTestSamples(self, experiment_title, idx, mask=[], ae=False):    
 
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
+        os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
         _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
         _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)

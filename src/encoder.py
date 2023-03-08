@@ -15,50 +15,10 @@ import wandb
 import copy
 from tqdm import tqdm
 from pearson import PearsonCorrCoef
-
-
-# You decode brain data into clip then you encode the clip into an image. 
-
-
-# target_c.pt (Ground Truth)
-#   - Correct c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the correct image)
-
-# target_z.pt (Ground Truth)
-#   - Correct z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the correct image)
-
-
-# output_c.pt (We made)
-#   - Wrong c vector made decoder of size 1x77x1024. (When put into stable diffusion gives you the wrong image)
-
-# output_z.pt (We made)
-#   - Wrong z vector made decoder of size 1x4x64x64. (When put into stable diffusion gives you the wrong image)
-#
-
-# 417_model_c_img_0.pt
-#     - old norm
-#
-# 419_model_c_text_0.pt
-#     - old norm
-#
-# 420_model_z_img_mixer.pt
-#     - old norm
-# ---------------------------
-# 424_model_c_img_0.pt
-#     - Z score
-#
-# 425_model_c_text_0.pt
-#     - Z score
-#
-# 426_model_z_img_mixer.pt
-#     - Z score
-
-
-
-
     
 # Pytorch model class for MLP Neural Network
 class MLP(torch.nn.Module):
-    def __init__(self, vector, outputSize):
+    def __init__(self, vector):
         super(MLP, self).__init__()
         if(vector == "c_prompt"):
             inpSize = 78848
@@ -73,14 +33,8 @@ class MLP(torch.nn.Module):
         self.linear = nn.Linear(inpSize, 10000)
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(10000, 12000)
-        self.outlayer = nn.Linear(12000, outputSize)
+        self.outlayer = nn.Linear(12000, 11838)
         
-        # self.linear = nn.Linear(10000, 10000)--> hundred million parameters
-        
-        # self.linear = nn.Linear(11838, 5000)
-        # self.linear2 = nn.Linear(5000, 1000)
-        # self.linear3 = nn.Linear(1000, 5000)
-        # self.linear = nn.Linear(5000, 11838)
     def forward(self, x):
         y_pred = self.relu(self.linear(x))
         y_pred = self.relu(self.linear2(y_pred))
@@ -95,7 +49,6 @@ class Encoder():
                  log, 
                  lr=0.00001,
                  batch_size=750,
-                 parallel=False,
                  device="cuda",
                  num_workers=16,
                  epochs=200
@@ -110,16 +63,10 @@ class Encoder():
         self.num_epochs  = epochs
         self.num_workers = num_workers
         self.log         = log
-        self.parallel    = parallel
-        self.outputSize  = 11838
     
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, self.outputSize)
-        
-        # Configure multi-gpu training
-        if(self.parallel):
-            self.model = nn.DataParallel(self.model)
-        
+        self.model = MLP(self.vector)
+
         # Send model to Pytorch Device 
         self.model.to(self.device)
         
@@ -240,11 +187,7 @@ class Encoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(best_loss, "best_loss_" + self.vector + ".pt")
-                if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
-                else:
-                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -253,29 +196,14 @@ class Encoder():
                     break
                 
         # Load our best model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
             
     def predict(self, x, batch=False, batch_size=750):
         
         # out = torch.zeros((x.shape[0],11838))
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-
-        # for i in range(int(np.ceil(x.shape[0]/batch_size))):
-        #     if i*batch_size < x.shape[0]:
-        #         x_test = x[i*batch_size:i*batch_size + batch_size]
-        #     else:
-        #         x_test = x[i*batch_size:i*batch_size + (x.shape[0]-i*batch_size)]
-        #     x_test = x_test.to(self.device)                
-
-        #     # Generating predictions based on the current model
-        #     pred_y = self.model(x_test).to(self.device)
-            
-        #     out[i*self.batch_size:i*self.batch_size+pred_y.shape[0]] = pred_y
         out = self.model(x.to(self.device))
         return out
                 
@@ -288,7 +216,7 @@ class Encoder():
                                                 average=True)
         out = torch.zeros((1656,11838))
         target = torch.zeros((1656, 11838))
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
 
@@ -334,7 +262,7 @@ class Encoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
         
 
 
@@ -348,10 +276,7 @@ class Encoder():
             print(model)
             os.makedirs("latent_vectors/" + model, exist_ok=True)
             # Load the model into the class to be used for predictions
-            if(self.parallel):
-                self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
-            else:
-                self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
+            self.model.load_state_dict(torch.load("/models/" + model, map_location=self.device))
             self.model.eval()
 
             # preprocessed_data = torch.zeros()
@@ -375,7 +300,7 @@ class Encoder():
                 pred_y = self.model(x_data).to(self.device)
                 out[index] = pred_y
                 
-            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/" + "coco_brain_preds.pt")
+            torch.save(out, "latent_vectors/" + model + "/" + "coco_brain_preds.pt")
         
         
     
@@ -387,10 +312,7 @@ class Encoder():
         print(model)
         os.makedirs("latent_vectors/" + model + "/cc3m_batches/", exist_ok=True)
         # Load the model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + model, map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + model, map_location=self.device))
         self.model.eval()
 
 
@@ -411,7 +333,7 @@ class Encoder():
             #     print(torch.max(pred_y))
             out = pred_y.to(self.device)
                 
-            torch.save(out, "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
+            torch.save(out, "latent_vectors/" + model + "/cc3m_batches/" + str(i) + ".pt")
         
         return out
     

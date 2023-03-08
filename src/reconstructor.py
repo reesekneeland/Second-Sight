@@ -38,9 +38,9 @@ class Reconstructor():
         self.clip_model, self.preprocess = clip.load("ViT-L/14", device=self.device)
         self.sampler = DDIMSampler(self.model)
         self.scale = 5
-
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/samples", exist_ok=True)
-        self.outpath = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/samples"
+        print(os.getcwd())
+        os.makedirs("reconstructions/samples", exist_ok=True)
+        self.outpath = "reconstructions/samples"
         self.base_count = len(os.listdir(self.outpath))+3
 
         self.init_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
@@ -142,39 +142,4 @@ class Reconstructor():
                     img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
                     self.base_count += 1
         return img
-
-    def main(self,):
-        nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-
-        captions = nsda.read_image_coco_info([i for i in range(73000)], info_type='captions', show_annot=False)
-        # nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-        # captions = nsda.read_image_coco_info([i for i in range(73000)], info_type='captions', show_annot=False)
-        for i in tqdm(range(0, 20)):
-    # Array of image data 1 x 425 x 425 x 3 (Stores pixel intensities)
-            img_arr = nsda.read_images([i], show=False)
-            init_image, img_pil = load_img(img_arr[0])
-            # image = Image.fromarray(img_arr.reshape((425, 425, 3)))
-            
-            #find best prompts
-            prompts = []
-            # Load the 5 prompts for each image
-            for j in range(len(captions[i])):
-                # Index into the caption list and get the corresponding 5 captions. 
-                prompts.append(captions[i][j]['caption'])
-            c = E.encode_combined(img_pil, prompts)
-            z = E.encode_latents(init_image)
-            
-            # Save the c and z vectors into there corresponding files. 
-            # torch.save(c, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/c_combined/" + str(i) + ".pt")
-            # torch.save(z, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z/" + str(i) + ".pt")
-            z_only = E.reconstruct(z=z, strength=0.0)
-            
-            z_and_c = E.reconstruct(z=z, c=c, strength=0.75)
-            c_only = E.reconstruct(c=c, strength=1.0)
-            z_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_z_only.png")
-            c_only.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_c_only.png")
-            z_and_c.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs4/" + str(i) + "_z_and_c.png")
         
-if __name__ == "__main__":
-    E = Reconstructor()
-    E.main()

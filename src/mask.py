@@ -36,8 +36,8 @@ class Masker():
                         device=self.device
                         )
         
-        self.latent_path = "/export/raid1/home/kneel027/Second-Sight/latent_vectors/" + self.encoderModel + "/"
-        self.mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/" + self.encoderModel + "/avg/"
+        self.latent_path = "latent_vectors/" + self.encoderModel + "/"
+        self.mask_path = "masks/" + self.encoderModel + "/avg/"
         if(not os.path.isfile(self.latent_path + "avg_encoded_voxel_selection.pt")):
             torch.save(self.E.predict(x=self.y_vox), self.latent_path + "avg_encoded_voxel_selection.pt")
         if(not os.path.isfile(self.latent_path + "avg_encoded_threshold_selection.pt")):
@@ -151,7 +151,7 @@ class Masker():
             y.append(float(vals[1][:-2]))
         print(x[0:5], y[0:5])
         plt.plot(np.array(x), np.array(y))  # Plot the chart
-        plt.savefig("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/charts/" + self.encoderModel + "_threshold_plot_avg_inc.png")
+        plt.savefig("charts/" + self.encoderModel + "_threshold_plot_avg_inc.png")
         print("best thresh: " + str(x[np.argmax(np.array(y))]))
         # #print(r)
         # #r = np.log(r)
