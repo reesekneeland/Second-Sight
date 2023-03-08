@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from einops import rearrange
 from torch import autocast
-sys.path.append('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/stablediffusion')
+sys.path.append(os.getcwd() + '/stable-diffusion/')
 from ldm.extras import load_model_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from huggingface_hub import hf_hub_download

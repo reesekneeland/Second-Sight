@@ -42,7 +42,7 @@ class Alexnet():
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device("cuda:1") #cuda
+        self.device = torch.device("cuda") #cuda
         torch.backends.cudnn.enabled=True
         
         # File locations

@@ -26,30 +26,28 @@ from reconstructor import Reconstructor
 
 def main():
     os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    S0 = SingleTrialSearch(device="cuda:0",
-                          log=True,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
-    # S1 = SingleTrialSearch(device="cuda:0",
+    # S0 = SingleTrialSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=10,
-    #                       n_samples=500,
-    #                       n_branches=5)
+    #                       n_samples=100,
+    #                       n_branches=4)
+    S1 = SingleTrialSearch(device="cuda:0",
+                          log=True,
+                          n_iter=10,
+                          n_samples=260,
+                          n_branches=20)
     # S2 = SingleTrialSearch(device="cuda:0",
     #                       log=True,
-    #                       n_iter=30,
-    #                       n_samples=100,
+    #                       n_iter=20,
+    #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
-    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
-    S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1", idx=[i for i in range(0, 10)], mask=[1])
-    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7])
-    # S1.generateTestSamples(experiment_title="STS 10:500:5 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4])
+    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
+    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
+    S1.generateTestSamples(experiment_title="STS 10:260:20 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
+    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
 
 class SingleTrialSearch():
     def __init__(self, 
@@ -87,7 +85,7 @@ class SingleTrialSearch():
     #cross validate says whether to cross validate between scans
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
-    def zSearch(self, clip, beta, n=10, max_iter=10, n_branches = 1, mask=[]):
+    def zSearch(self, clip, beta, n=10, max_iter=10, n_branches=1, mask=[]):
         z, best_image = None, None
         iter_images = [None] * n_branches
         best_image
