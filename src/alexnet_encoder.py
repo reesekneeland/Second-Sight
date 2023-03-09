@@ -21,7 +21,7 @@ model_urls = {
     'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
 }
 
-
+# Alexnet model
 class AlexNet(nn.Module):
 
     def __init__(self, num_classes=1000):
@@ -127,8 +127,6 @@ class Alexnet_fmaps(nn.Module):
 
     def forward(self, _x):
         return self.extractor((_x - self.mean[None, :, None, None])/self.std[None, :, None, None])
-
-
 
 
 # Torch Filter Maps
@@ -317,7 +315,6 @@ class AlexNetEncoder():
 
         self.exp_design_file = self.root_dir+"../../data/nsd/nsd_expdesign.mat"
         self.output_dir = self.model_dir
-        
         
         # Reload model files
         self.checkpoint = torch.load(self.model_dir + 'model_params')
