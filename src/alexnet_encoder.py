@@ -1,10 +1,9 @@
 
 # Set our directory to work with Ghislains files. 
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
-sys.path.append('/home/naxos2-raid25/ojeda040/local/styvesg/code/nsd_gnet8x/')
+sys.path.append('/export/raid1/home/styvesg/code/nsd_gnet8x/')
 from IPython.core.display import display, HTML
-display(HTML("<style>.container { width:95% !important; }</style>"))
+# display(HTML("<style>.container { width:95% !important; }</style>"))
 import src.numpy_utility as pnu
 from src.file_utility import save_stuff, flatten_dict, embed_dict, zip_dict
 from src.load_nsd import ordering_split
@@ -28,7 +27,7 @@ from utils import *
 # First URL: This is the original read-only NSD file path (The actual data)
 # Second URL: Local files that we are adding to the dataset and need to access as part of the data
 # Object for the NSDAccess package
-nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
+nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 
 class Alexnet():
@@ -43,7 +42,7 @@ class Alexnet():
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device("cuda:1") #cuda
+        self.device = torch.device("cuda") #cuda
         torch.backends.cudnn.enabled=True
         
         # File locations
@@ -70,7 +69,7 @@ class Alexnet():
         self.voxel_roi       = self.checkpoint['voxel_roi']   
         
         # Masking information
-        mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+        mask_path = "masks/"
         self.masks = {0:torch.full((11838,), False),
                       1:torch.load(mask_path + "V1.pt"),
                       2:torch.load(mask_path + "V2.pt"),
@@ -187,7 +186,7 @@ class Alexnet():
             subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
             break
         
-        torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_subject1_10k.pt")
+        torch.save(torch.from_numpy(subject_image_pred[1]), "latent_vectors/alexnet_encoder/alexnet_pred_subject1_10k.pt")
         
         subject_val_cc = {s: np.zeros(v.shape[1]) for s,v in self.val_voxel_data.items()}
         for s,p,o,v in zip_dict(subject_image_pred, self.val_stim_ordering, self.val_voxel_data):
@@ -198,7 +197,7 @@ class Alexnet():
         plt.plot(self.nsdcore_val_cc[1], subject_val_cc[1], marker='.', linestyle='None')
         plt.xlabel('old')
         plt.ylabel('new')
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/alexnet_line.png")
+        plt.savefig("charts/alexnet_line.png")
         
         plt.hist(subject_val_cc[1], bins=80, log=True)
         print(np.mean(subject_val_cc[1]))
@@ -230,7 +229,7 @@ class Alexnet():
         
     def predict_cc3m(self):
         
-        rootdir = "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/cc3m/"
+        rootdir = "/export/raid1/home/kneel027/nsd_local/cc3m/cc3m/"
         folder_list = []
         
         for it in os.scandir(rootdir):
@@ -273,7 +272,7 @@ class Alexnet():
                                     subject_image_pred[1] = get_predictions(image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
                                     break
                                 
-                                torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_cc3m_batches/" + str(batch_count) + ".pt")
+                                torch.save(torch.from_numpy(subject_image_pred[1]), "latent_vectors/alexnet_encoder/alexnet_pred_cc3m_batches/" + str(batch_count) + ".pt")
                                 batch_count += 1
                                 data = []
                                 image_data = {}

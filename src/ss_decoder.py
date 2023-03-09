@@ -88,7 +88,6 @@ class SS_Decoder():
                 encoderHash,
                 lr=0.00001,
                 batch_size=750,
-                parallel=False,
                 device="cuda",
                 num_workers=16,
                 epochs=200
@@ -104,14 +103,9 @@ class SS_Decoder():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.parallel = parallel
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
-        
-        # Configure multi-gpu training
-        if(self.parallel):
-            self.model = nn.DataParallel(self.model)
         
         # Send model to Pytorch Device 
         self.model.to(self.device)
@@ -149,10 +143,6 @@ class SS_Decoder():
         
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss()
-        
-        # Import gradients to wandb to track loss gradients
-        # if(self.log):
-        #     wandb.watch(self.model, criterion, log="all")
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
@@ -233,10 +223,7 @@ class SS_Decoder():
             # Early stopping
             if(best_loss == -1.0 or val_loss < best_loss):
                 best_loss = val_loss
-                if(self.parallel):
-                    torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
-                else:
-                    torch.save(self.model.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -245,10 +232,7 @@ class SS_Decoder():
                     break
                 
         # Load our best model into the class to be used for predictions
-        if(self.parallel):
-            self.model.module.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
-        else:
-            self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
     def benchmark(self):
         # Initialize the data loaders
@@ -263,7 +247,7 @@ class SS_Decoder():
             vecSize = 16384
         out = torch.zeros((outSize, vecSize)).to("cpu")
         target = torch.zeros((outSize, vecSize)).to("cpu")
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
 
@@ -313,27 +297,26 @@ class SS_Decoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
+        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_encoder.png")
         model = self.hashNum + "_model_" + self.vector + ".pt/"
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
-        torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_out.pt")
-        torch.save(target, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model + "test_targets.pt")
+        os.makedirs("latent_vectors/" + model, exist_ok=True)
+        torch.save(out, "latent_vectors/" + model + "test_out.pt")
+        torch.save(target, "latent_vectors/" + model + "test_targets.pt")
         return out, target
         
     def benchmark_nsd(self, AEhash="544", ae=True):
         # Initialize the data loaders
-        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                             batch_size=self.batch_size, 
                                             num_workers=self.num_workers, 
                                             loader=True,
-                                            average=False,
-                                            old_norm=False)
+                                            average=True,
+                                            old_norm=True)
         AE = AutoEncoder(hashNum = AEhash,
                  lr=0.0000001,
                  vector=self.vector,
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device=self.device
                 )
         outSize = len(self.testLoader.dataset)
@@ -343,7 +326,7 @@ class SS_Decoder():
             vecSize = 16384
         out = torch.zeros((outSize, vecSize)).to("cpu")
         target = torch.zeros((outSize, vecSize)).to("cpu")
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
 
@@ -395,12 +378,12 @@ class SS_Decoder():
         plt.hist(r, bins=40, log=True)
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_ss_decoder_AE.png")
         model = self.hashNum + "_model_" + self.vector + ".pt/"
-        os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + model, exist_ok=True)
+        os.makedirs("latent_vectors/" + model, exist_ok=True)
         return out, target
     
     def predict(self, x, batch=False, batch_size=750):
         
-        self.model.load_state_dict(torch.load("/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device))

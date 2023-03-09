@@ -21,18 +21,9 @@ from autoencoder  import AutoEncoder
 from pearson import PearsonCorrCoef, pearson_corrcoef
 
 
-#   Encoders:
-#      424_model_c_img_0.pt
-# 
-#      425_model_c_text_0.pt
-#      
-#      426_model_z_img_mixer.pt
-
-
 def main():
-    os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # benchmark_library(encModel="521_model_c_img_0.pt", vector="c_img_0", device="cuda:1", average=True, ae=True, old_norm=False)
-    reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
+    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
+    # reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -43,7 +34,7 @@ def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
             datasize = 16384
         # x = x.to(device)
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        latent_path = "latent_vectors/"
         
         PeC = PearsonCorrCoef(num_outputs=22735).to(device)
         
@@ -81,7 +72,7 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
         elif(vector == "z_img_mixer"):
             datasize = 16384
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+        latent_path = "latent_vectors/"
         # Save to latent vectors
         x_preds = torch.zeros((63000, 11838))
         y = torch.zeros((63000, datasize))
@@ -139,7 +130,7 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
         return out
 
 def predictVector_Alexnet_coco(encModel, vector, x, device="cuda:0"):
-    mask_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/"
+    mask_path = "masks/"
     masks = {0:torch.full((11838,), False),
             1:torch.load(mask_path + "V1.pt"),
             2:torch.load(mask_path + "V2.pt"),
@@ -153,7 +144,7 @@ def predictVector_Alexnet_coco(encModel, vector, x, device="cuda:0"):
     elif(vector == "z_img_mixer"):
         datasize = 16384
     prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-    latent_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/"
+    latent_path = "latent_vectors/"
     # Save to latent vectors
     y = torch.zeros((63000, datasize))
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
@@ -219,8 +210,8 @@ def reconstructNImages(experiment_title, idx):
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
-    nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/" + experiment_title + "/", exist_ok=True)
+    nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
+    os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     
@@ -238,24 +229,10 @@ def reconstructNImages(experiment_title, idx):
     #              encoderHash="536",
     #              log=False, 
     #              batch_size=750,
-    #              parallel=False,
     #              device="cuda"
     #             )
     # ae_x_test = AE.predict(x_test)
 
-    # TODO: Run the 20 test x through the autoencoder to feed into predictVector_cc3m
-    # x_test = ae_x_test.to("cuda:0")
-    # targets_c_i = targets_c_i
-    # targets_c_t = targets_c_t
-    # targets_z = targets_z
-    
-    
-    # outputs_c_t = predictVector_cc3m(model="425_model_c_text_0.pt", vector="c_text_0", x=x_test)[:,0]
-    # outputs_z = predictVector_cc3m(model="426_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test)[:,0]
-    # outputs_c_i = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/424_model_c_img_0.pt/c_img_0_cc3m_library_preds.pt")
-    # outputs_c_t = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/425_model_c_text_0.pt/c_text_0_cc3m_library_preds.pt")
-    # outputs_z = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/426_model_z_img_mixer.pt/z_img_mixer_cc3m_library_preds.pt")
-    
     
     strength_c = 1
     strength_z = 0
@@ -329,20 +306,20 @@ def reconstructNImages(experiment_title, idx):
     
 def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, old_norm=False):
     print(encModel)
-    _, _, _, _, x_test, _, _, _, _, target, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
+    _, _, _, x_test, _, _, _, target, _, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
     # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
     if(ae):
-        AE = AutoEncoder(hashNum = "544",
+        AE = AutoEncoder(hashNum = "577",
                  lr=0.0000001,
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="521",
+                 encoderHash="536",
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device=device
                 )
         x_test = AE.predict(x_test).to("cpu")
-    out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    out = predictVector_coco(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
+    # out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
     # torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
         
     # else:
@@ -373,7 +350,7 @@ def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, 
     print("Mean Pearson: ", np.mean(r))
     print("Loss: ", float(loss))
     plt.hist(r, bins=40, log=True)
-    plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/" + encModel + "_pearson_histogram_library_decoder.png")
+    plt.savefig("charts/" + encModel + "_pearson_histogram_library_decoder.png")
 
 if __name__ == "__main__":
     main()
