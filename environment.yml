@@ -1,4 +1,4 @@
-name: pycortex
+name: SS
 channels:
   - conda-forge
   - defaults
