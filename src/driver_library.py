@@ -229,7 +229,6 @@ def reconstructNImages(experiment_title, idx):
     #              encoderHash="536",
     #              log=False, 
     #              batch_size=750,
-    #              parallel=False,
     #              device="cuda"
     #             )
     # ae_x_test = AE.predict(x_test)
@@ -316,7 +315,6 @@ def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, 
                  encoderHash="536",
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device=device
                 )
         x_test = AE.predict(x_test).to("cpu")

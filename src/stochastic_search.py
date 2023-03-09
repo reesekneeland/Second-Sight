@@ -26,17 +26,17 @@ from reconstructor import Reconstructor
 
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # S0 = SingleTrialSearch(device="cuda:0",
+    # S0 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4)
-    S1 = SingleTrialSearch(device="cuda:0",
-                          log=True,
-                          n_iter=10,
-                          n_samples=260,
-                          n_branches=20)
-    # S2 = SingleTrialSearch(device="cuda:0",
+    S1 = StochasticSearch(device="cuda:0",
+                          log=False,
+                          n_iter=12,
+                          n_samples=500,
+                          n_branches=10)
+    # S2 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=20,
     #                       n_samples=60,
@@ -44,12 +44,12 @@ def main():
     # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    S1.generateTestSamples(experiment_title="STS 10:260:20 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    S1.generateTestSamples(experiment_title="STS 12:500:10 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
 
-class SingleTrialSearch():
+class StochasticSearch():
     def __init__(self, 
                 device="cuda:0",
                 log=True,
@@ -152,22 +152,17 @@ class SingleTrialSearch():
         # Load data and targets
         _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
         _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-        _, _, _, _, _, _, targets_z, _, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
         
-        Dc_i = Decoder(hashNum = "528",
+        Dc_i = Decoder(hashNum = "594",
                  vector="c_img_0", 
-                 inpSize = 11838,
                  log=False, 
-                 device=self.device,
-                 parallel=False
+                 device=self.device
                  )
     
-        Dc_t = Decoder(hashNum = "529",
+        Dc_t = Decoder(hashNum = "595",
                     vector="c_text_0", 
-                    inpSize = 11838,
                     log=False, 
-                    device=self.device,
-                    parallel=False
+                    device=self.device
                     )
 
         AE = AutoEncoder(hashNum = "582",
@@ -176,7 +171,6 @@ class SingleTrialSearch():
                  encoderHash="579",
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device="cuda"
                 )
 
@@ -193,7 +187,7 @@ class SingleTrialSearch():
             if(self.log):
                 wandb.init(
                     # set the wandb project where this run will be logged
-                    project="SingleTrialSearch",
+                    project="StochasticSearch",
                     # track hyperparameters and run metadata
                     config={
                     "experiment": experiment_title,

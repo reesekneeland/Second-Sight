@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -33,7 +33,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="Tiled MLP Params", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="New MLP Params", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -64,7 +64,6 @@ def train_autoencoder():
                         vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
                         encoderHash="579",
                         log=False, 
-                        parallel=False,
                         device="cuda:0",
                         num_workers=16,
                         epochs=300
@@ -97,7 +96,6 @@ def train_encoder():
                  vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device="cuda:0",
                  num_workers=16,
                  epochs=300
@@ -127,7 +125,6 @@ def train_ss_decoder():
                     encoderHash="536",
                     lr=0.0001,
                     batch_size=750,
-                    parallel=False,
                     device="cuda:0",
                     num_workers=16,
                     epochs=300
@@ -142,22 +139,20 @@ def train_ss_decoder():
 
 def train_decoder():
     # hashNum = update_hash()
-    hashNum = "528"
+    hashNum = "595"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000005,
-                 vector="c_img_0", #c_img_0 , c_text_0, z_img_mixer
-                 log=False, 
-                 inpSize = 11838,
-                 batch_size=750,
-                 parallel=False,
-                 device="cuda:0",
+                 lr=0.000002,
+                 vector="c_text_0", #c_img_0 , c_text_0, z_img_mixer
+                 log=True, 
+                 batch_size=32,
+                 device="cuda:1",
                  num_workers=16,
                  epochs=300
                 )
-    # D.train()
-    modelId = D.hashNum + "_model_" + D.vector + ".pt"
+    D.train()
     
-    D.benchmark()
+    D.benchmark(average=False)
+    D.benchmark(average=True)
     
     return hashNum
 
@@ -165,19 +160,15 @@ def train_decoder():
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
     Dz = Decoder(hashNum = "531",
-                 vector="z_img_mixer", 
-                 inpSize = 11838,
+                 vector="z_img_mixer",
                  log=False, 
-                 device="cuda",
-                 parallel=False
+                 device="cuda"
                  )
     
-    Dc_i = Decoder(hashNum = "528",
+    Dc_i = Decoder(hashNum = "594",
                  vector="c_img_0", 
-                 inpSize = 11838,
                  log=False, 
-                 device="cuda",
-                 parallel=False
+                 device="cuda"
                  )
     SS_Dc_i = SS_Decoder(hashNum = "541",
                  vector="c_img_0",
@@ -186,12 +177,10 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda:0"
                  )
     
-    Dc_t = Decoder(hashNum = "529",
-                 vector="c_text_0", 
-                 inpSize = 11838,
+    Dc_t = Decoder(hashNum = "595",
+                 vector="c_text_0",
                  log=False, 
-                 device="cuda",
-                 parallel=False
+                 device="cuda"
                  )
     AE = AutoEncoder(hashNum = "540",
                  lr=0.0000001,
@@ -199,7 +188,6 @@ def reconstructNImages(experiment_title, idx):
                  encoderHash="536",
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device="cuda"
                 )
     
@@ -250,7 +238,7 @@ def reconstructNImages(experiment_title, idx):
         columns = 2
         images = [ground_truth, z_c_reconstruction, reconstructed_target_c, reconstructed_output_c, reconstructed_target_z, reconstructed_output_z]
         captions = ["Ground Truth", "Z and C Reconstructed", "Reconstructed Target C", "Reconstructed Output C", "Reconstructed Target Z", "Reconstructed Output Z"]
-        figure = tileImages(experiment_title + ": " + str(i), images, captions, 3, 2)
+        figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         
         figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')

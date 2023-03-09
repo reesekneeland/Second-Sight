@@ -317,7 +317,6 @@ class SS_Decoder():
                  vector=self.vector,
                  log=False, 
                  batch_size=750,
-                 parallel=False,
                  device=self.device
                 )
         outSize = len(self.testLoader.dataset)

@@ -21,9 +21,28 @@ class MLP(torch.nn.Module):
     def __init__(self, vector):
         super(MLP, self).__init__()
         if(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
-            self.linear = nn.Linear(11838, 10000)
-            self.linear2 = nn.Linear(10000, 12000)
-            self.outlayer = nn.Linear(12000, 768)
+            # self.linear = nn.Linear(11838, 10000)
+            # self.linear2 = nn.Linear(10000, 12000)
+            # self.outlayer = nn.Linear(12000, 768)
+
+            # self.linear = nn.Linear(11838, 15000)
+            # self.linear2 = nn.Linear(15000, 5000)
+            # self.outlayer = nn.Linear(5000, 768)
+            
+            #586 architecture
+            # self.linear = nn.Linear(11838, 15000)
+            # self.linear2 = nn.Linear(15000, 5000)
+            # self.outlayer = nn.Linear(5000, 768)
+
+            #591 architecture
+            # self.linear = nn.Linear(11838, 15000)
+            # self.linear2 = nn.Linear(15000, 15000)
+            # self.outlayer = nn.Linear(15000, 768)
+
+            #594 architecture
+            self.linear = nn.Linear(11838, 20000)
+            self.linear2 = nn.Linear(20000, 20000)
+            self.outlayer = nn.Linear(20000, 768)
         elif(vector == "z" or vector == "z_img_mixer"):
             self.linear = nn.Linear(11838, 15000)
             self.linear2 = nn.Linear(15000, 25000)
@@ -89,7 +108,7 @@ class Decoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+        self.trainLoader, self.valLoader, _, _ = load_nsd(vector=self.vector, 
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
                                                         loader=True)
@@ -196,12 +215,12 @@ class Decoder():
         out = self.model(x.to(self.device))
         return out
     
-    def benchmark(self):
-        _, _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+    def benchmark(self, average=True):
+        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=True,
-                                                average=False)
+                                                average=average)
         outSize = len(self.testLoader.dataset)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768
