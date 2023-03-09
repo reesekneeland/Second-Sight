@@ -201,8 +201,8 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    hashNum = update_hash()
-    #hashNum = "573"
+    #hashNum = update_hash()
+    hashNum = "577"
     
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.0000005,
@@ -215,7 +215,7 @@ def train_autoencoder():
                         epochs=300
                         )
     
-    AE.train()
+    #AE.train()
     AE.benchmark(encodedPass=False)
     
     # AN = Alexnet()

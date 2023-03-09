@@ -115,7 +115,7 @@ class AutoEncoder():
                                                                 ae=True,
                                                                 encoderModel=self.encoderModel,
                                                                 average=False,
-                                                                old_norm=True)
+                                                                old_norm=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -208,7 +208,7 @@ class AutoEncoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(best_loss, "best_loss_" + self.vector + ".pt")
+                # torch.save(best_loss, "best_loss_" + self.vector + ".pt")
                 if(self.parallel):
                     torch.save(self.model.module.state_dict(), "/export/raid1/home/kneel027/Second-Sight/models/" + self.hashNum + "_model_" + self.vector + ".pt")
                 else:
