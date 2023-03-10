@@ -4,23 +4,17 @@ import torch
 import numpy as np
 from PIL import Image
 from nsd_access import NSDAccess
-import glob
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import torch.nn as nn
 from pycocotools.coco import COCO
 from utils import *
-import copy
 import math
 import wandb
 from tqdm import tqdm
-from image_similarity_measures.quality_metrics import fsim
 from encoder import Encoder
 from decoder import Decoder
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from reconstructor import Reconstructor
+from random import randrange
 
 
 
@@ -41,8 +35,9 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
-    S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    # S0.generateTestSamples(experiment_title="SCS 10:100:4 HS V1234567 Indv. AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
+    S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 12:500:10 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
@@ -149,16 +144,11 @@ class StochasticSearch():
     def generateTestSamples(self, experiment_title, idx, mask=[], ae=False):    
 
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
+        os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
         _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-        # _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-        gt_images = []
-        for i in idx:
-            nsdId = param_trials[i]
-            ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
-            ground_truth = Image.fromarray(ground_truth_np_array[0])
-            ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-            gt_images.append(ground_truth)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+        
         Dc_i = Decoder(hashNum = "604",
                  vector="c_img_0", 
                  log=False, 
@@ -177,14 +167,45 @@ class StochasticSearch():
                  encoderHash="579",
                  log=False, 
                  batch_size=750,
-                 device="cuda"
+                 device=self.device
                 )
-
+        
+        # Worst Case Random Samples
+        x, _ = load_nsd(vector ="c_img_0", loader = False, split = False)
+        x_param_rand = torch.zeros((len(idx), 11838))
+        for i in tqdm(range(x_param_rand.shape[1]), desc="making random betas"):
+            randIndex = randrange(len(x)-len(idx)-2)
+            x_param_rand[:,i] = x[randIndex:randIndex+len(idx),i]
+        x_param = x_param_rand
+        
         # Generating predicted and target vectors
         outputs_c_i = Dc_i.predict(x=x_param)
         outputs_c_t = Dc_t.predict(x=x_param)
+        
+        # Best Case Images
+        # gt_images = []
+        # for i in idx:
+        #     nsdId = param_trials[i]
+        #     ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
+        #     ground_truth = Image.fromarray(ground_truth_np_array[0])
+        #     ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
+        #     gt_images.append(ground_truth)
+        # A = AlexNetEncoder(device=self.device)
+        # x_param = A.predict(gt_images)
+   
+        PeC = PearsonCorrCoef(num_outputs=len(idx)).to("cpu")
+        #Log the CLIP scores
+        np.save("logs/" + experiment_title + "/" + "c_img_PeC.npy", np.array(PeC(outputs_c_i[:len(idx)].moveaxis(0,1).to("cpu"), targets_c_i[:len(idx)].moveaxis(0,1).to("cpu")).detach()))
+        np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t[:len(idx)].moveaxis(0,1).to("cpu"), targets_c_t[:len(idx)].moveaxis(0,1).to("cpu")).detach()))
+        
         if(ae):
             x_param = AE.predict(x_param)
+            #individual AE then average
+            # _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
+            # x_param_ae = torch.zeros((x_param.shape[0], 11838))
+            # for i in tqdm(range(x_param.shape[0]), desc="Autoencoding samples and averaging"):
+            #     x_param_ae[i] = torch.mean(AE.predict(x_param[i]),dim=0)
+            # x_param = x_param_ae
         
         for i in idx:
             c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
@@ -203,17 +224,23 @@ class StochasticSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            z_c_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_param[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
+            reconstructed_output_c = self.R.reconstruct(c=c_combined, strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(c=c_combined_target, strength=1.0)
+            scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_param[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
+            
+            #log the data to a file
+            np.save("logs/" + experiment_title + "/" + str(i) + "_score_list.npy", np.array(score_list))
+            np.save("logs/" + experiment_title + "/" + str(i) + "_var_list.npy", np.array(var_list))
             
             # returns a numpy array 
             nsdId = param_trials[i]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
             ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-            rows = int(math.ceil(len(image_list)/2 + 1))
+            rows = int(math.ceil(len(image_list)/2 + 2))
             columns = 2
-            images = [ground_truth, z_c_reconstruction]
-            captions = ["Ground Truth", "Search Reconstruction"]
+            images = [ground_truth, scs_reconstruction, reconstructed_target_c, reconstructed_output_c]
+            captions = ["Ground Truth", "Search Reconstruction", "Ground Truth CLIP", "Decoded CLIP Only"]
             for j in range(len(image_list)):
                 images.append(image_list[j])
                 captions.append("BC: " + str(round(score_list[j], 3)) + " VAR: " + str(round(var_list[j], 3)))

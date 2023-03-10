@@ -224,7 +224,7 @@ class AutoEncoder():
                                                 num_workers=self.num_workers, 
                                                 ae=True,
                                                 encoderModel=self.encoderModel,
-                                                average=True,
+                                                average=False,
                                                 old_norm=False)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,11838))

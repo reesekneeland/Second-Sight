@@ -1,5 +1,4 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
@@ -292,7 +291,8 @@ class AlexNetEncoder():
     
     def __init__(self,
                 predict_normal=False,
-                predict_73k=False):
+                predict_73k=False,
+                device = "cuda"):
         
         # Input Variables
         self.normal_predict = predict_normal
@@ -300,7 +300,7 @@ class AlexNetEncoder():
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device("cuda") #cuda
+        self.device = torch.device(device) #cuda
         torch.backends.cudnn.enabled=True
         
         # Config Information

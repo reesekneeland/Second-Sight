@@ -17,7 +17,7 @@ from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
-from alexnet_encoder import Alexnet
+from alexnet_encoder import AlexNetEncoder
 from ss_decoder import SS_Decoder
 from mask import Masker
 
@@ -33,11 +33,11 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="New MLP Params 2", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="New MLP Params 2", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
-    # train_autoencoder()
+    train_autoencoder()
 
     # train_ss_decoder()
 
@@ -70,9 +70,9 @@ def train_autoencoder():
                         )
     
     # AE.train()
-    AE.benchmark(encodedPass=False)
+    AE.benchmark(encodedPass=True)
     
-    # AN = Alexnet()
+    # AN = AlexNetEncoder()
     
     # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
     
