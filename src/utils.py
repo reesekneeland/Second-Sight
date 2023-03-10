@@ -5,11 +5,7 @@ import time
 import numpy as np
 import scipy.io as sio
 from scipy import ndimage as nd
-from scipy import misc
-from glob import glob
-import h5py
-import pickle
-import math
+from scipy.special import erf
 import matplotlib.pyplot as plt
 import torch.nn as nn
 from PIL import Image, ImageDraw, ImageFont
@@ -529,3 +525,65 @@ def tileImages(title, images, captions, h, w):
                 textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
                 count+=1
     return canvas
+
+
+#  Numpy Utility 
+def iterate_range(start, length, batchsize):
+    batch_count = int(length // batchsize )
+    residual = int(length % batchsize)
+    for i in range(batch_count):
+        yield range(start+i*batchsize, start+(i+1)*batchsize),batchsize
+    if(residual>0):
+        yield range(start+batch_count*batchsize,start+length),residual 
+        
+def gaussian_mass(xi, yi, dx, dy, x, y, sigma):
+    return 0.25*(erf((xi-x+dx/2)/(np.sqrt(2)*sigma)) - erf((xi-x-dx/2)/(np.sqrt(2)*sigma)))*(erf((yi-y+dy/2)/(np.sqrt(2)*sigma)) - erf((yi-y-dy/2)/(np.sqrt(2)*sigma)))
+
+def make_gaussian_mass(x, y, sigma, n_pix, size=None, dtype=np.float32):
+    deg = dtype(n_pix) if size==None else size
+    dpix = dtype(deg) / n_pix
+    pix_min = -deg/2. + 0.5 * dpix
+    pix_max = deg/2.
+    [Xm, Ym] = np.meshgrid(np.arange(pix_min,pix_max,dpix), np.arange(pix_min,pix_max,dpix));
+    if sigma<=0:
+        Zm = np.zeros_like(Xm)
+    elif sigma<dpix:
+        g_mass = np.vectorize(lambda a, b: gaussian_mass(a, b, dpix, dpix, x, y, sigma)) 
+        Zm = g_mass(Xm, -Ym)        
+    else:
+        d = (2*dtype(sigma)**2)
+        A = dtype(1. / (d*np.pi))
+        Zm = dpix**2 * A * np.exp(-((Xm-x)**2 + (-Ym-y)**2) / d)
+    return Xm, -Ym, Zm.astype(dtype)   
+    
+def make_gaussian_mass_stack(xs, ys, sigmas, n_pix, size=None, dtype=np.float32):
+    stack_size = min(len(xs), len(ys), len(sigmas))
+    assert stack_size>0
+    Z = np.ndarray(shape=(stack_size, n_pix, n_pix), dtype=dtype)
+    X,Y,Z[0,:,:] = make_gaussian_mass(xs[0], ys[0], sigmas[0], n_pix, size=size, dtype=dtype)
+    for i in range(1,stack_size):
+        _,_,Z[i,:,:] = make_gaussian_mass(xs[i], ys[i], sigmas[i], n_pix, size=size, dtype=dtype)
+    return X, Y, Z
+        
+        
+# File Utility
+def zip_dict(*args):
+    '''
+    like zip but applies to multiple dicts with matching keys, returning a single key and all the corresponding values for that key.
+    '''
+    for a in args[1:]:
+        assert (a.keys()==args[0].keys())
+    for k in args[0].keys():
+        yield [k,] + [a[k] for a in args]
+        
+# Torch fwRF
+def get_value(_x):
+    return np.copy(_x.data.cpu().numpy())
+
+def set_value(_x, x):
+    if list(x.shape)!=list(_x.size()):
+        _x.resize_(x.shape)
+    _x.data.copy_(torch.from_numpy(x))
+    
+    
+

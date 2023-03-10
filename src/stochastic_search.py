@@ -18,7 +18,7 @@ from tqdm import tqdm
 from image_similarity_measures.quality_metrics import fsim
 from encoder import Encoder
 from decoder import Decoder
-from alexnet_encoder import Alexnet
+from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from reconstructor import Reconstructor
 
@@ -62,7 +62,7 @@ class StochasticSearch():
         self.n_samples = n_samples
         self.n_branches = n_branches
         self.R = Reconstructor(device="cuda:0")
-        self.Alexnet = Alexnet()
+        self.Alexnet = AlexNetEncoder()
         self.nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
         mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
         self.masks = {0:torch.full((11838,), False),
