@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -26,28 +26,28 @@ from reconstructor import Reconstructor
 
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # S0 = StochasticSearch(device="cuda:0",
-    #                       log=True,
-    #                       n_iter=10,
-    #                       n_samples=100,
-    #                       n_branches=4)
-    S1 = StochasticSearch(device="cuda:0",
-                          log=False,
-                          n_iter=12,
-                          n_samples=500,
-                          n_branches=10)
+    S0 = StochasticSearch(device="cuda:0",
+                          log=True,
+                          n_iter=10,
+                          n_samples=100,
+                          n_branches=4)
+    # S1 = StochasticSearch(device="cuda:0",
+    #                       log=False,
+    #                       n_iter=12,
+    #                       n_samples=500,
+    #                       n_branches=10)
     # S2 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
-    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
-    # S0.generateTestSamples(experiment_title="STS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    S1.generateTestSamples(experiment_title="STS 12:500:10 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
-    # S2.generateTestSamples(experiment_title="STS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
+    # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
+    S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
+    # S1.generateTestSamples(experiment_title="SCS 12:500:10 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
+    # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
 
 class StochasticSearch():
     def __init__(self, 
@@ -151,15 +151,21 @@ class StochasticSearch():
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
         _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
-        
-        Dc_i = Decoder(hashNum = "594",
+        # _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+        gt_images = []
+        for i in idx:
+            nsdId = param_trials[i]
+            ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
+            ground_truth = Image.fromarray(ground_truth_np_array[0])
+            ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
+            gt_images.append(ground_truth)
+        Dc_i = Decoder(hashNum = "604",
                  vector="c_img_0", 
                  log=False, 
                  device=self.device
                  )
     
-        Dc_t = Decoder(hashNum = "595",
+        Dc_t = Decoder(hashNum = "606",
                     vector="c_text_0", 
                     log=False, 
                     device=self.device

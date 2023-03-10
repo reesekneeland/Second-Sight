@@ -10,6 +10,7 @@ dependencies:
   - cudatoolkit=11.3
   - pip:
       - diffusers==0.3.0
+      - h5py
       - einops==0.3.0
       - omegaconf==2.1.1
       - img2dataset>=1.41.0
@@ -30,7 +31,6 @@ dependencies:
       - transformers>=4.22.2
       - wandb>=0.12.21
       - seaborn
-      - image-similarity-measures
       - webdataset>=0.2.5
       - "--editable=git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers"
       - "--editable=git+https://github.com/openai/CLIP.git@main#egg=clip"

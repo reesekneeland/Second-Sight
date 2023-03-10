@@ -20,6 +20,7 @@ from tqdm import tqdm
 class MLP(torch.nn.Module):
     def __init__(self, vector):
         super(MLP, self).__init__()
+        self.vector=vector
         if(vector == "c_img_mixer_0" or vector=="c_img_0" or vector=="c_text_0"):
             # self.linear = nn.Linear(11838, 10000)
             # self.linear2 = nn.Linear(10000, 12000)
@@ -40,18 +41,31 @@ class MLP(torch.nn.Module):
             # self.outlayer = nn.Linear(15000, 768)
 
             #594 architecture
-            self.linear = nn.Linear(11838, 20000)
-            self.linear2 = nn.Linear(20000, 20000)
-            self.outlayer = nn.Linear(20000, 768)
+            # self.linear = nn.Linear(11838, 20000)
+            # self.linear2 = nn.Linear(20000, 20000)
+            # self.outlayer = nn.Linear(20000, 768)
+            
+            #599
+            # self.linear = nn.Linear(11838, 60000)
+            # self.outlayer = nn.Linear(60000, 768)
+            
+            #604, 606
+            self.linear = nn.Linear(11838, 100000)
+            self.outlayer = nn.Linear(100000, 768)
         elif(vector == "z" or vector == "z_img_mixer"):
             self.linear = nn.Linear(11838, 15000)
             self.linear2 = nn.Linear(15000, 25000)
             self.outlayer = nn.Linear(25000, 16384)
         self.relu = nn.ReLU()
     def forward(self, x):
-        y_pred = self.relu(self.linear(x))
-        y_pred = self.relu(self.linear2(y_pred))
-        y_pred = self.outlayer(y_pred)
+        if(self.vector == "c_img_mixer_0" or self.vector=="c_img_0" or self.vector=="c_text_0"):
+            y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.outlayer(y_pred)
+        else:
+            y_pred = self.relu(self.linear(x))
+            y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.outlayer(y_pred)
         return y_pred
 
     
