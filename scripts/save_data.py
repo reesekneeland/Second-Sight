@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
-sys.path.append('../src')
+sys.path.append('src')
 from utils import *
 import wandb
 import copy
@@ -36,7 +36,8 @@ import nibabel as nib
 
 # Call process data 
 # Input: The vector you want processed as a string
-# process_data("z_img_mixer")
+process_data("c_img_vd")
+process_data("c_text_vd")
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
@@ -60,8 +61,8 @@ import nibabel as nib
 # voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')
 # load_cc3m()
 
-visual_rois = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/prf-visualrois.nii.gz"
-mask = nib.load(visual_rois).get_fdata()
-print(mask.shape, mask)
-# mask = np.nan_to_num(mask)
-print(np.unique(mask, return_counts=True))
+# visual_rois = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/prf-visualrois.nii.gz"
+# mask = nib.load(visual_rois).get_fdata()
+# print(mask.shape, mask)
+# # mask = np.nan_to_num(mask)
+# print(np.unique(mask, return_counts=True))

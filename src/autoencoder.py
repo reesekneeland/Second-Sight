@@ -218,13 +218,13 @@ class AutoEncoder():
         return out
                 
     
-    def benchmark(self, encodedPass=False):
+    def benchmark(self, encodedPass=False, average=True):
         _, _, _, self.testLoader = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 ae=True,
                                                 encoderModel=self.encoderModel,
-                                                average=False,
+                                                average=average,
                                                 old_norm=False)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,11838))

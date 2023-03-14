@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -25,7 +25,7 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    # train_decoder()
+    train_decoder()
 
     # train_encoder()
     
@@ -37,7 +37,7 @@ def main():
 
     # test_reconstruct()
 
-    train_autoencoder()
+    # train_autoencoder()
 
     # train_ss_decoder()
 
@@ -56,21 +56,21 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    # hashNum = update_hash()
-    hashNum = "582"
+    hashNum = update_hash()
+    # hashNum = "582"
     
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.0001,
                         vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
                         encoderHash="579",
-                        log=False, 
+                        log=True, 
                         device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
     
-    # AE.train()
-    AE.benchmark(encodedPass=True)
+    AE.train()
+    AE.benchmark(encodedPass=False, average=True)
     
     # AN = AlexNetEncoder()
     
@@ -138,11 +138,11 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    hashNum = update_hash()
-    # hashNum = "597"
+    # hashNum = update_hash()
+    hashNum = "611"
     D = Decoder(hashNum = hashNum,
-                 lr=0.0000005,
-                 vector="c_text_0", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.0001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
                  device="cuda:0",

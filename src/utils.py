@@ -42,65 +42,6 @@ def update_hash():
     file.close()
     return str(new_h)
 
-def get_last_token(s, tokens={'@': list, '.': dict}):
-    l,name,entry,t = 2**31,'','',None
-    for tok,toktype in tokens.items():
-        ss = s.split(tok)
-        if len(ss)>1 and len(ss[-1])<l:
-            l = len(ss[-1])
-            entry = ss[-1]
-            name = tok.join(ss[:-1])
-            t = toktype
-    return name, entry, t
-
-
-def has_token(s, tokens=['@', '.']):
-    isin = False
-    for tok in tokens:
-        if tok in s:
-            isin = True
-    return isin
-    
-def extend_list(l, i, v):
-    if len(l)<i+1:
-        l += [None,]*(i+1-len(l))
-    l[i] = v
-    return l
-
-def flatten_dict(base, append=''):
-    '''flatten nested dictionary and lists'''
-    flat = {}
-    for k,v in base.items():
-        if type(v)==dict:
-            flat.update(flatten_dict(v, '%s%s.'%(append,k)))
-        elif type(v)==list:
-            flat.update(flatten_dict({'%s%s@%d'%(append,k,i): vv for i,vv in enumerate(v)}))
-        else:
-            flat['%s%s'%(append,k)] = v
-    return flat
-
-def embed_dict(fd):
-    d = {}
-    for k,v in fd.items():
-        name, entry, ty = get_last_token(k, {'@': list, '.': dict})
-        if ty==list:
-            if name in d.keys():
-                d[name] = extend_list(d[name], int(entry), v)
-            else:
-                d[name] = extend_list([], int(entry), v)
-        elif ty==dict:
-            if name in d.keys():
-                d[name].update({entry: v})
-            else:
-                d[name] = {entry: v}
-        else:
-            if k in d.keys():
-                d[k].update(v)
-            else:
-                d[k] = v   
-    return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
-
-
 # Main data loader, 
 # Loader = True
 #    - Returns the train and test data loader
@@ -389,6 +330,12 @@ def process_data(vector="c_combined", image=False):
     elif(vector == "c_combined" or vector == "c_img_mixer"):
         vec_target = torch.zeros((27750, 3840))
         datashape = (1, 3840)
+    elif(vector == "c_img_vd"):
+        vec_target = torch.zeros((27750, 197376))
+        datashape = (1, 197376)
+    elif(vector == "c_text_vd"):
+        vec_target = torch.zeros((27750, 59136))
+        datashape = (1, 59136)
 
     # Loading the description object for subejct1
     
@@ -411,6 +358,7 @@ def process_data(vector="c_combined", image=False):
     if(image):
         return images
     else:
+        os.makedirs(prep_path + vector + "/", exist_ok=True)
         torch.save(vec_target, prep_path + vector + "/vector.pt")
     
 def process_data_full(vector):
@@ -446,73 +394,6 @@ def process_data_full(vector):
         torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
     
     
-def extract_dim(vector, dim):
-    
-    if(vector == "z"):
-        vec_target = torch.zeros((27750, 16384))
-        datashape = (1, 16384)
-    elif(vector == "c"):
-        vec_target = torch.zeros((27750, 1536))
-        datashape = (1, 1536)
-    elif(vector == "c_prompt"):
-        vec_target = torch.zeros((27750, 78848))
-        datashape = (1, 78848)
-    elif(vector == "c_combined" or vector == "c_img_mixer"):
-        vec_target = torch.zeros((27750, 768))
-        datashape = (1, 768)
-
-    # Loading the description object for subejct1
-    
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-
-    for i in tqdm(range(0,27750), desc="vector loader"):
-        
-        # Flexible to both Z and C tensors depending on class configuration
-        
-        # TODO: index the column of this table that is apart of the 1000 test set. 
-        # Do a check here. Do this in get_data
-        # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
-        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
-        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
-        reduced_dim = full_vec[:,dim]
-        vec_target[i] = torch.reshape(reduced_dim, datashape)
-
-    torch.save(vec_target, prep_path + vector + "_" + str(dim) + "/vector.pt")
-    
-    
-    
-def grab_samples(vector, threshold, hashNum):
-    
-    whole_region = torch.load(prep_path + "x/whole_region_11838_old_norm.pt") 
-    mask = np.load("masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
-    new_len = np.count_nonzero(mask)
-    target = torch.zeros((27750, new_len))
-    for i in tqdm(range(27750), desc=(vector + " masking")): 
-       
-        # Indexing into the sample and then using y_mask to grab the correct samples. 
-        target[i] = whole_region[i][torch.from_numpy(mask)]
-    torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + threshold + ".pt")
-
-def compound_loss(pred, target):
-        alpha = 0.9
-        mse = nn.MSELoss()
-        cs = nn.CosineSimilarity()
-        loss = alpha * mse(pred, target) + (1 - alpha) * (1- torch.mean(cs(pred, target)))
-        return loss
-    
-def format_clip(c):
-    if(len(c.shape)<2):
-        c = c.reshape((1,768))
-    c_combined = []
-    for i in range(c.shape[0]):
-        c_combined.append(c[i].reshape((1,768)).to("cuda"))
-    
-    for j in range(5-c.shape[0]):
-        c_combined.append(torch.zeros((1, 768), device="cuda"))
-    
-    c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
-    c_combined = c_combined.tile(1, 1, 1)
-    return c_combined
 
 def tileImages(title, images, captions, h, w):
     bigH = 576 * h
@@ -535,7 +416,6 @@ def tileImages(title, images, captions, h, w):
                 textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
                 count+=1
     return canvas
-
 
 #  Numpy Utility 
 def iterate_range(start, length, batchsize):
