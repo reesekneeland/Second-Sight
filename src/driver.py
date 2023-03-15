@@ -25,7 +25,7 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    train_decoder()
+    # train_decoder()
 
     # train_encoder()
     
@@ -33,7 +33,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImages(experiment_title="VD 5k decoders 2", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="VD 5k decoders 3", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -165,7 +165,7 @@ def reconstructNImages(experiment_title, idx):
     #              device="cuda"
     #              )
     
-    Dc_i = Decoder(hashNum = "611",
+    Dc_i = Decoder(hashNum = "625",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda"
@@ -177,7 +177,7 @@ def reconstructNImages(experiment_title, idx):
     #              device="cuda:0"
     #              )
     
-    Dc_t = Decoder(hashNum = "618",
+    Dc_t = Decoder(hashNum = "619",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda"
@@ -205,8 +205,8 @@ def reconstructNImages(experiment_title, idx):
     # ae_x_test = AE.predict(x_test)
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
     
-    outputs_c_i = Dc_i.predict(x=x_param)
-    outputs_c_t = Dc_t.predict(x=x_param)
+    outputs_c_i = Dc_i.predict(x=x_param[idx])
+    outputs_c_t = Dc_t.predict(x=x_param[idx])
     print(outputs_c_i.shape, outputs_c_i[0].shape)
     # outputs_z = Dz.predict(x=x_param)
     strength_c = 1

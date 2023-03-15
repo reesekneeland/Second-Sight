@@ -229,7 +229,7 @@ class Reconstructor(object):
             seed = randint(0,1000)
             np.random.seed(seed)
             torch.manual_seed(seed + 100)
-        if strength!=1:
+        if strength!=1 and image:
             x0 = self.net.vae_encode(image_tensor, which='image').repeat(n_samples, 1, 1, 1)
             step = int(self.ddim_steps * (strength))
             x, _ = self.sampler.sample_multicontext(

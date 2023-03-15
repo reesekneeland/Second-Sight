@@ -22,8 +22,8 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 9000)
-            self.outlayer = nn.Linear(9000, 197376)
+            self.linear = nn.Linear(11838, 8000)
+            self.outlayer = nn.Linear(8000, 197376)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.outlayer = nn.Linear(15000, 59136)

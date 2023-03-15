@@ -20,28 +20,28 @@ from random import randrange
 
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # S0 = StochasticSearch(device="cuda:0",
-    #                       log=True,
-    #                       n_iter=10,
-    #                       n_samples=100,
-    #                       n_branches=4)
-    S1 = StochasticSearch(device="cuda:0",
-                          log=False,
+    S0 = StochasticSearch(device="cuda:0",
+                          log=True,
                           n_iter=10,
-                          n_samples=250,
-                          n_branches=5)
+                          n_samples=100,
+                          n_branches=4)
+    # S1 = StochasticSearch(device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=250,
+    #                       n_branches=5)
     # S2 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="SCS 10:100:4 HS V1234567 Indv. AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    S0.generateTestSamples(experiment_title="SCS VD 10:100:4 HS nsd_general Indv. AE", idx=[i for i in range(0, 10)], mask=[], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(0, 20)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
-    S1.generateTestSamples(experiment_title="SCS 10:250:5 HS nsd_general AE", idx=[i for i in range(60, 786)], mask=[], ae=True)
+    # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS nsd_general AE", idx=[i for i in range(60, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
@@ -99,18 +99,17 @@ class StochasticSearch():
             # if(loss_counter > 3):
             #     break
             strength = 1.0-0.5*(cur_iter/max_iter)
-            tqdm.write("Strength: " + str(strength) + ", N: " + str(n))
+            n_i = max(10, int(n/n_branches*strength))
+            tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
             samples = []
             for i in range(n_branches):
-                if(iter_images[i]):
-                n_i = max(10, int(n/n_branches*strength))
                 samples += self.R.reconstruct(image=iter_images[i], 
-                                            c_i=c_i, 
-                                            c_t=c_t, 
-                                            n_samples=n_i, 
-                                            textstrength=0.45, 
-                                            strength=strength)
+                                                c_i=c_i, 
+                                                c_t=c_t, 
+                                                n_samples=n_i, 
+                                                textstrength=0.45, 
+                                                strength=strength)
         
 
             beta_primes = self.Alexnet.predict(samples, mask)
@@ -154,13 +153,13 @@ class StochasticSearch():
         _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
         _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
         
-        Dc_i = Decoder(hashNum = "611",
+        Dc_i = Decoder(hashNum = "625",
                  vector="c_img_vd", 
                  log=False, 
                  device=self.device
                  )
     
-        Dc_t = Decoder(hashNum = "618",
+        Dc_t = Decoder(hashNum = "619",
                     vector="c_text_vd", 
                     log=False, 
                     device=self.device
@@ -229,8 +228,8 @@ class StochasticSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.45, strength=1.0)
-            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.45, strength=1.0)
+            reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], strength=1.0)
             scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_i=outputs_c_i[i], c_t=outputs_c_t[i], beta=x_test[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             #log the data to a file
