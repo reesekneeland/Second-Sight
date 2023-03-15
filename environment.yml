@@ -10,6 +10,7 @@ dependencies:
   - cudatoolkit=11.3
   - pip:
       - diffusers==0.3.0
+      - h5py
       - einops==0.3.0
       - omegaconf==2.1.1
       - img2dataset>=1.41.0

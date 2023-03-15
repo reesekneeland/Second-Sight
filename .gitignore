@@ -12,5 +12,9 @@ hash
 /legacy_files/scalar_experiments/wandb
 /scripts/wandb
 /src/wandb
+/src/clip
+/src/nomi
+/src/taming-transformers
 /stablediffusion
 /charts
+/logs

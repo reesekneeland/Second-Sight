@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -17,7 +17,7 @@ from decoder import Decoder
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
-from alexnet_encoder import Alexnet
+from alexnet_encoder import AlexNetEncoder
 from ss_decoder import SS_Decoder
 from mask import Masker
 
@@ -33,11 +33,11 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="New MLP Params", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="New MLP Params 2", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
-    # train_autoencoder()
+    train_autoencoder()
 
     # train_ss_decoder()
 
@@ -70,9 +70,9 @@ def train_autoencoder():
                         )
     
     # AE.train()
-    AE.benchmark(encodedPass=False)
+    AE.benchmark(encodedPass=True)
     
-    # AN = Alexnet()
+    # AN = AlexNetEncoder()
     
     # modelId = AE.hashNum + "_model_" + AE.vector + ".pt"
     
@@ -138,14 +138,14 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    # hashNum = update_hash()
-    hashNum = "595"
+    hashNum = update_hash()
+    # hashNum = "597"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000002,
+                 lr=0.0000005,
                  vector="c_text_0", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
-                 batch_size=32,
-                 device="cuda:1",
+                 batch_size=64,
+                 device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
@@ -165,7 +165,7 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda"
                  )
     
-    Dc_i = Decoder(hashNum = "594",
+    Dc_i = Decoder(hashNum = "604",
                  vector="c_img_0", 
                  log=False, 
                  device="cuda"
@@ -177,7 +177,7 @@ def reconstructNImages(experiment_title, idx):
                  device="cuda:0"
                  )
     
-    Dc_t = Decoder(hashNum = "595",
+    Dc_t = Decoder(hashNum = "606",
                  vector="c_text_0",
                  log=False, 
                  device="cuda"

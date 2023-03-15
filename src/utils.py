@@ -107,7 +107,7 @@ def embed_dict(fd):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -184,7 +184,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             for j in range(3):
                 scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
                 if(scanId < 27750):
-                    if average:
+                    if average or nest:
                         avx.append(x[scanId-1])
                         avy.append(y[scanId-1])
                     else:
@@ -193,8 +193,13 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         param_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
             if(len(avy)>0):
-                avx = torch.stack(avx)
-                x_param.append(torch.mean(avx, dim=0))
+                if average:
+                    avx = torch.stack(avx)
+                    x_param.append(torch.mean(avx, dim=0))
+                else:
+                    for i in range(len(avx)):
+                        x_row[i] = avx[i]
+                    x_param.append(x_row)
                 y_param.append(avy[0])
                 param_trials.append(nsdId)
                     
@@ -206,7 +211,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             for j in range(3):
                 scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
                 if(scanId < 27750):
-                    if average:
+                    if average or nest:
                         avx.append(x[scanId-1])
                         avy.append(y[scanId-1])
                     else:
@@ -215,8 +220,13 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                         test_trials.append(nsdId)
                         alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
             if(len(avy)>0):
-                avx = torch.stack(avx)
-                x_test.append(torch.mean(avx, dim=0))
+                if average:
+                    avx = torch.stack(avx)
+                    x_test.append(torch.mean(avx, dim=0))
+                else:
+                    for i in range(len(avx)):
+                        x_row[i] = avx[i]
+                    x_test.append(x_row)
                 y_test.append(avy[0])
                 test_trials.append(nsdId)
         
