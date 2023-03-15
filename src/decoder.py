@@ -22,8 +22,8 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 5000)
-            self.outlayer = nn.Linear(5000, 197376)
+            self.linear = nn.Linear(11838, 9000)
+            self.outlayer = nn.Linear(9000, 197376)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.outlayer = nn.Linear(15000, 59136)
@@ -102,7 +102,7 @@ class Decoder():
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
-        use_amp=True
+        use_amp=False
         scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):

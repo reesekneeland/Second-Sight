@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -138,18 +138,18 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    hashNum = update_hash()
-    # hashNum = "627"
+    # hashNum = update_hash()
+    hashNum = "625"
     D = Decoder(hashNum = hashNum,
                  lr=0.0001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
-                 log=True, 
+                 log=False, 
                  batch_size=64,
                  device="cuda:0",
                  num_workers=16,
                  epochs=500
                 )
-    D.train()
+    # D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
