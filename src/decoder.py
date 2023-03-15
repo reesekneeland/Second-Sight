@@ -25,8 +25,8 @@ class MLP(torch.nn.Module):
             self.linear = nn.Linear(11838, 5000)
             self.outlayer = nn.Linear(5000, 197376)
         elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 5000)
-            self.outlayer = nn.Linear(5000, 59136)
+            self.linear = nn.Linear(11838, 15000)
+            self.outlayer = nn.Linear(15000, 59136)
         self.relu = nn.ReLU()
         
     def forward(self, x):
@@ -102,7 +102,8 @@ class Decoder():
         
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
-        
+        use_amp=True
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
             
@@ -113,7 +114,9 @@ class Decoder():
             # Keep track of running loss for this training epoch
             running_loss = 0.0
             for i, data in enumerate(self.trainLoader):
-                
+                # Zero gradients in the optimizer
+                optimizer.zero_grad()
+                torch.cuda.empty_cache()
                 # Load the data out of our dataloader by grabbing the next chunk
                 # The chunk is the same size as the batch size
                 # x_data = Brain Data
@@ -124,29 +127,32 @@ class Decoder():
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
                 
-                # Zero gradients in the optimizer
-                optimizer.zero_grad()
+                
                 
                 # Forward pass: Compute predicted y by passing x to the model
                 with torch.set_grad_enabled(True):
+                    with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
                     
-                    # Train the x data in the model to get the predicted y value. 
-                    pred_y = self.model(x_data).to(self.device)
-                    
-                    # Compute the loss between the predicted y and the y data. 
-                    loss = criterion(pred_y, y_data)
-                    
+                        # Train the x data in the model to get the predicted y value. 
+                        pred_y = self.model(x_data).to(self.device)
+                        
+                        # Compute the loss between the predicted y and the y data. 
+                        loss = criterion(pred_y, y_data)
+                        
                     # Perform weight updating
-                    loss.backward()
-                    optimizer.step()
-
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                    del x_data
+                    del y_data
                 # tqdm.write('train loss: %.3f' %(loss.item()))
                 # Add up the loss for this training round
                 running_loss += loss.item()
             tqdm.write('[%d] train loss: %.8f' %
                 (epoch + 1, running_loss /len(self.trainLoader)))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
-                
+            
+            del loss
             # Entering validation stage
             # Set model to evaluation mode
             self.model.eval()
@@ -157,15 +163,17 @@ class Decoder():
                 x_data, y_data = data
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
-                
-                # Generating predictions based on the current model
-                pred_y = self.model(x_data).to(self.device)
+                with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+                    # Generating predictions based on the current model
+                    pred_y = self.model(x_data).to(self.device)
                 
                 # Compute the test loss 
                 loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()
-                
+                del x_data
+                del y_data
+                del loss
             test_loss = running_test_loss / len(self.valLoader)
                 
             # Printing and logging loss so we can keep track of progress
@@ -193,7 +201,7 @@ class Decoder():
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device))
+        out = self.model(x.to(self.device)) #.to(torch.float16)
         return out
     
     def benchmark(self, average=True):
@@ -207,6 +215,10 @@ class Decoder():
             vecSize = 768
         elif(self.vector == "z" or self.vector == "z_img_mixer"):
             vecSize = 16384
+        elif(self.vector == "c_img_vd"):
+            vecSize = 197376
+        elif(self.vector == "c_text_vd"):
+            vecSize = 59136
         out = torch.zeros((outSize, vecSize))
         target = torch.zeros((outSize, vecSize))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))

@@ -1,0 +1,33 @@
+name: SS_vd2
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pip=22.3.1
+  - pytorch==1.13.1
+  - torchvision
+  - cudatoolkit=11.6
+  - pip:
+      - huggingface-hub==0.11.1
+      - pyyaml==5.4.1
+      - h5py
+      - easydict==1.9
+      - scikit-image==0.17.2
+      - einops==0.3.0
+      - omegaconf==2.1.1
+      - ipython>=8.9.0
+      - matplotlib>=3.6.3
+      - nibabel>=5.0.0
+      - numpy>=1.23.5
+      - opencv-python==4.5.5.64
+      - open_clip_torch==2.0.2
+      - pandas>=1.5.3
+      - pillow>=9.4.0
+      - pycocotools==2.0.6
+      - torchmetrics==0.7.3
+      - tqdm>=4.64.1
+      - transformers==4.24.0
+      - wandb>=0.12.21
+      - seaborn
+      - webdataset>=0.2.5

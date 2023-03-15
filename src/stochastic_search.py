@@ -82,10 +82,9 @@ class StochasticSearch():
     #cross validate says whether to cross validate between scans
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
-    def zSearch(self, clip, beta, n=10, max_iter=10, n_branches=1, mask=[]):
-        z, best_image = None, None
+    def zSearch(self, c_i, c_t, beta, n=10, max_iter=10, n_branches=1, mask=[]):
+        best_image = None
         iter_images = [None] * n_branches
-        best_image
         images, iter_scores, var_scores = [], [], []
         best_vector_corrrelation, best_var = -1, -1
         loss_counter = 0
@@ -105,10 +104,14 @@ class StochasticSearch():
             samples = []
             for i in range(n_branches):
                 if(iter_images[i]):
-                    im_tensor = self.R.im2tensor(iter_images[i])
-                    z = self.R.encode_latents(im_tensor)
                 n_i = max(10, int(n/n_branches*strength))
-                samples += self.generateNSamples(n_i, clip, z, strength)
+                samples += self.R.reconstruct(image=iter_images[i], 
+                                            c_i=c_i, 
+                                            c_t=c_t, 
+                                            n_samples=n_i, 
+                                            textstrength=0.45, 
+                                            strength=strength)
+        
 
             beta_primes = self.Alexnet.predict(samples, mask)
             # beta_primes = beta_primes[:, beta_mask]
@@ -148,17 +151,17 @@ class StochasticSearch():
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
-        _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+        _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
+        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
         
-        Dc_i = Decoder(hashNum = "604",
-                 vector="c_img_0", 
+        Dc_i = Decoder(hashNum = "611",
+                 vector="c_img_vd", 
                  log=False, 
                  device=self.device
                  )
     
-        Dc_t = Decoder(hashNum = "606",
-                    vector="c_text_0", 
+        Dc_t = Decoder(hashNum = "618",
+                    vector="c_text_vd", 
                     log=False, 
                     device=self.device
                     )
@@ -211,9 +214,6 @@ class StochasticSearch():
             x_test= x_test_ae
         
         for i in idx:
-            c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
-            c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
-            
             os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + "/", exist_ok=True)
             
             if(self.log):
@@ -229,9 +229,9 @@ class StochasticSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            reconstructed_output_c = self.R.reconstruct(c=c_combined, strength=1.0)
-            reconstructed_target_c = self.R.reconstruct(c=c_combined_target, strength=1.0)
-            scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_test[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
+            reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.45, strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.45, strength=1.0)
+            scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_i=outputs_c_i[i], c_t=outputs_c_t[i], beta=x_test[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             #log the data to a file
             np.save("logs/" + experiment_title + "/" + str(i) + "_score_list.npy", np.array(score_list))

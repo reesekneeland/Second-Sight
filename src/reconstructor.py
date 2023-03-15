@@ -155,7 +155,7 @@ class Reconstructor(object):
             self.adjust_rank_f = adjust_rank(max_drop_rank=[1, 5], q=20)
             self.scale_imgto = 7.5
             self.disentanglement_noglobal = True
-
+        os.chdir("../")
     def encode_text(self, prompt):
         text_encoding = self.net.ctx_encode([prompt], which='text')
         return text_encoding
@@ -185,8 +185,8 @@ class Reconstructor(object):
         if strength == 0:
             return [image]*n_samples
         else:
-            c_i = c_i.reshape((257,768))
-            c_t = c_t.reshape((77,768))
+            c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
+            c_t = c_t.reshape((77,768)).to(dtype=torch.float16, device=self.device)
         if(image):
             image = image.resize([w, h], resample=BICUBIC)
             image_tensor = tvtrans.ToTensor()(image)[None].to(self.device).to(self.dtype)
@@ -200,7 +200,7 @@ class Reconstructor(object):
         c_info_list = []
         c_info_list.append({
             'type':'text', 
-            'conditioning':ct, 
+            'conditioning':ct.to(torch.float16), 
             'unconditional_conditioning':ut,
             'unconditional_guidance_scale':scale,
             'ratio': textstrength, })
@@ -216,7 +216,7 @@ class Reconstructor(object):
 
         c_info_list.append({
             'type':'image', 
-            'conditioning':ci, 
+            'conditioning':ci.to(torch.float16), 
             'unconditional_conditioning':torch.zeros_like(ci),
             'unconditional_guidance_scale':scale,
             'ratio': (1-textstrength), })
@@ -263,12 +263,13 @@ class Reconstructor(object):
             return imout
 
 def main():
-    R = Reconstructor(which='v1.0', fp16=True, device="cuda:3")
+    R = Reconstructor(which='v1.0', fp16=True, device="cuda:2")
     im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog.png")
     # text1 = "A dog running along a path with a yellow frisbee in its mouth"
     c_i = R.encode_image(im1)
-    dim_max = torch.max(c_i, dim=0)
-    print(len(dim_max.values), dim_max.values)
+    print(c_i.dtype)
+    # dim_max = torch.max(c_i, dim=0)
+    # print(len(dim_max.values), dim_max.values)
     # c_t = R.encode_text(text1)
     # output = R.reconstruct(image=im1, 
     #                         c_i=c_i, 
