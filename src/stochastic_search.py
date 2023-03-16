@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -21,7 +21,7 @@ from random import randrange
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     S0 = StochasticSearch(device="cuda:0",
-                          log=True,
+                          log=False,
                           n_iter=10,
                           n_samples=100,
                           n_branches=4)
@@ -35,13 +35,13 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD 10:100:4 HS nsd_general Indv. AE", idx=[i for i in range(0, 10)], mask=[], ae=True)
+    S0.generateTestSamples(experiment_title="SCS VD ST 10:100:4 HS nsd_general Indv. AE", idx=[i for i in range(0, 10)], mask=[], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(0, 20)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
-    # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS nsd_general AE", idx=[i for i in range(60, 786)], mask=[], ae=True)
+    # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
@@ -71,10 +71,14 @@ class StochasticSearch():
                       6:torch.load(mask_path + "V6.pt"),
                       7:torch.load(mask_path + "V7.pt")}
 
-    def generateNSamples(self, n, c, z=None, strength=1):
+    def generateNSamples(self, image, c_i, c_t, n, strength=1):
         images = []
         for i in tqdm(range(n), desc="Generating samples"):
-            images.append(self.R.reconstruct(c=c, z=z, strength=strength))
+            images.append(self.R.reconstruct(image=image, 
+                                                c_i=c_i, 
+                                                c_t=c_t, 
+                                                n_samples=1, 
+                                                strength=strength))
         return images
 
     #clip is a 5x768 clip vector
@@ -104,11 +108,10 @@ class StochasticSearch():
             
             samples = []
             for i in range(n_branches):
-                samples += self.R.reconstruct(image=iter_images[i], 
+                samples += self.generateNSamples(image=iter_images[i], 
                                                 c_i=c_i, 
                                                 c_t=c_t, 
-                                                n_samples=n_i, 
-                                                textstrength=0.45, 
+                                                n=n_i,  
                                                 strength=strength)
         
 
@@ -150,19 +153,26 @@ class StochasticSearch():
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
-        _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+        _, _, _, _, _, _, targets_c_i, _, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+        _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
+        x_test_pruned = torch.zeros((x_param.shape[0], 11838))
+        for i in tqdm(range(x_param.shape[0]), desc="Pruning samples"):# and averaging"):
+            x_test_pruned[i] = x_param[i, randrange(0,3)]
+            # x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
+        x_test= x_test_pruned
+        print(x_test.shape)
         
         Dc_i = Decoder(hashNum = "625",
                  vector="c_img_vd", 
                  log=False, 
-                 device=self.device
+                 device="cuda:0"
                  )
     
         Dc_t = Decoder(hashNum = "619",
                     vector="c_text_vd", 
                     log=False, 
-                    device=self.device
+                    device="cuda:0"
                     )
 
         AE = AutoEncoder(hashNum = "582",
@@ -186,7 +196,8 @@ class StochasticSearch():
         # Generating predicted and target vectors
         outputs_c_i = Dc_i.predict(x=x_test)
         outputs_c_t = Dc_t.predict(x=x_test)
-        
+        del Dc_t
+        del Dc_i
         # Best Case Images
         # gt_images = []
         # for i in idx:
@@ -204,13 +215,13 @@ class StochasticSearch():
         np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t[idx].moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
         
         if(ae):
-            # x_test = AE.predict(x_test)
+            x_test = AE.predict(x_test)
             #individual AE then average
-            _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
-            x_test_ae = torch.zeros((x_test.shape[0], 11838))
-            for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
-                x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
-            x_test= x_test_ae
+            # _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
+            # x_test_ae = torch.zeros((x_test.shape[0], 11838))
+            # for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples"):# and averaging"):
+            #     # x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
+            # x_test= x_test_ae
         
         for i in idx:
             os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + "/", exist_ok=True)
@@ -237,7 +248,7 @@ class StochasticSearch():
             np.save("logs/" + experiment_title + "/" + str(i) + "_var_list.npy", np.array(var_list))
             
             # returns a numpy array 
-            nsdId = test_trials[i]
+            nsdId = param_trials[i]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
             ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)

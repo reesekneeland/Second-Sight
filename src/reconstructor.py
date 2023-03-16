@@ -174,52 +174,54 @@ class Reconstructor(object):
                     n_samples=1, 
                     textstrength=0.45, 
                     strength=0.8, 
-                    color_adjust=True,
+                    color_adjust=False,
                     fcs_lvl=0.5, 
                     seed=None
                     ):
         
+        numClips =0
         h, w = 512, 512
         BICUBIC = PIL.Image.Resampling.BICUBIC
         
         if strength == 0:
             return [image]*n_samples
         else:
-            c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
-            c_t = c_t.reshape((77,768)).to(dtype=torch.float16, device=self.device)
+            c_info_list = []
+            scale = self.scale_imgto*(1-textstrength) + self.scale_textto*textstrength
+            if c_t is not None and textstrength != 0:
+                c_t = c_t.reshape((77,768)).to(dtype=torch.float16, device=self.device)
+                ut = self.net.ctx_encode([""], which='text').repeat(n_samples, 1, 1)
+                ct = c_t.repeat(n_samples, 1, 1)
+                c_info_list.append({
+                    'type':'text', 
+                    'conditioning':ct.to(torch.float16), 
+                    'unconditional_conditioning':ut,
+                    'unconditional_guidance_scale':scale,
+                    'ratio': textstrength, })
+                numClips +=1
+
+            if c_i is not None and textstrength != 1:
+                c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
+                ci = c_i
+
+                if self.disentanglement_noglobal:
+                    ci_glb = ci[:, 0:1]
+                    ci_loc = ci[:, 1: ]
+                    ci_loc = self.adjust_rank_f(ci_loc, fcs_lvl)
+                    ci = torch.cat([ci_glb, ci_loc], dim=1).repeat(n_samples, 1, 1)
+                else:
+                    ci = self.adjust_rank_f(ci, fcs_lvl).repeat(n_samples, 1, 1)
+
+                c_info_list.append({
+                    'type':'image', 
+                    'conditioning':ci.to(torch.float16), 
+                    'unconditional_conditioning':torch.zeros_like(ci),
+                    'unconditional_guidance_scale':scale,
+                    'ratio': (1-textstrength), })
+                numClips +=1
         if(image):
             image = image.resize([w, h], resample=BICUBIC)
             image_tensor = tvtrans.ToTensor()(image)[None].to(self.device).to(self.dtype)
-        else:
-            color_adjust=False
-            
-        ut = self.net.ctx_encode([""], which='text').repeat(n_samples, 1, 1)
-        ct = c_t.repeat(n_samples, 1, 1)
-        scale = self.scale_imgto*(1-textstrength) + self.scale_textto*textstrength
-        
-        c_info_list = []
-        c_info_list.append({
-            'type':'text', 
-            'conditioning':ct.to(torch.float16), 
-            'unconditional_conditioning':ut,
-            'unconditional_guidance_scale':scale,
-            'ratio': textstrength, })
-        ci = c_i
-
-        if self.disentanglement_noglobal:
-            ci_glb = ci[:, 0:1]
-            ci_loc = ci[:, 1: ]
-            ci_loc = self.adjust_rank_f(ci_loc, fcs_lvl)
-            ci = torch.cat([ci_glb, ci_loc], dim=1).repeat(n_samples, 1, 1)
-        else:
-            ci = self.adjust_rank_f(ci, fcs_lvl).repeat(n_samples, 1, 1)
-
-        c_info_list.append({
-            'type':'image', 
-            'conditioning':ci.to(torch.float16), 
-            'unconditional_conditioning':torch.zeros_like(ci),
-            'unconditional_guidance_scale':scale,
-            'ratio': (1-textstrength), })
 
         shape = [n_samples, self.image_latent_dim, h//8, w//8]
         if(seed):
@@ -232,22 +234,39 @@ class Reconstructor(object):
         if strength!=1 and image:
             x0 = self.net.vae_encode(image_tensor, which='image').repeat(n_samples, 1, 1, 1)
             step = int(self.ddim_steps * (strength))
-            x, _ = self.sampler.sample_multicontext(
-                steps=self.ddim_steps,
-                x_info={'type':'image', 'x0':x0, 'x0_forward_timesteps':step},
-                c_info_list=c_info_list,
-                shape=shape,
-                verbose=False,
-                eta=self.ddim_eta)
+            if numClips==2:
+                x, _ = self.sampler.sample_multicontext(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image', 'x0':x0, 'x0_forward_timesteps':step},
+                    c_info_list=c_info_list,
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+            else:
+                x, _ = self.sampler.sample(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image', 'x0':x0, 'x0_forward_timesteps':step},
+                    c_info=c_info_list[0],
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
         else:
-            x, _ = self.sampler.sample_multicontext(
-                steps=self.ddim_steps,
-                x_info={'type':'image',},
-                c_info_list=c_info_list,
-                shape=shape,
-                verbose=False,
-                eta=self.ddim_eta)
-
+            if numClips ==2:
+                x, _ = self.sampler.sample_multicontext(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image',},
+                    c_info_list=c_info_list,
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+            else:
+                x, _ = self.sampler.sample(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image',},
+                    c_info=c_info_list[0],
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
         imout = self.net.vae_decode(x, which='image')
         if color_adjust:
             cx_mean = image_tensor.view(3, -1).mean(-1)[:, None, None]
