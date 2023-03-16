@@ -18,26 +18,71 @@ from matplotlib.lines import Line2D
 #     if it.is_dir():
 #         folder_list.append(it.name)
 
-var = np.empty((78, 10))
-brain_correlation = np.empty((78, 10))
-# Encoding vectors for 2819140 images
-for i in tqdm(range(78)):
-    var[i] = np.load("logs/SCS 10:250:5 HS V1234567 AE/" + str(i) + "_var_list.npy")
-    brain_correlation[i] = np.load("logs/SCS 10:250:5 HS V1234567 AE/" + str(i) + "_score_list.npy")
 
-var = np.average(var, axis=0)
-brain_correlation = np.average(brain_correlation, axis=0)
-strength = np.arange(1.0, 0.5, -0.05)
+brain_correlation_V1            = np.empty((25, 10))
+brain_correlation_V2            = np.empty((25, 10))
+brain_correlation_V3            = np.empty((25, 10))
+brain_correlation_V4            = np.empty((25, 10))
+brain_correlation_early_visual  = np.empty((25, 10))
+brain_correlation_higher_visual = np.empty((25, 10))
+brain_correlation_unmasked      = np.empty((25, 10))
+
+
+# Encoding vectors for 2819140 images
+for i in tqdm(range(25)):
+    
+    brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
+    brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
+    brain_correlation_V3[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V3.npy")
+    brain_correlation_V4[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V4.npy")
+    brain_correlation_early_visual[i]  = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_early_visual.npy")
+    brain_correlation_higher_visual[i] = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy")
+    brain_correlation_unmasked[i]      = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list.npy")
+
+
+brain_correlation_V1            = np.average(brain_correlation_V1, axis=0)
+brain_correlation_V2            = np.average(brain_correlation_V2, axis=0)
+brain_correlation_V3            = np.average(brain_correlation_V3, axis=0)
+brain_correlation_V4            = np.average(brain_correlation_V4, axis=0)
+brain_correlation_unmasked      = np.average(brain_correlation_unmasked, axis=0)
+brain_correlation_early_visual  = np.average(brain_correlation_early_visual, axis=0)
+brain_correlation_higher_visual = np.average(brain_correlation_higher_visual, axis=0)
+
+
+strength  = np.arange(1.0, 0.5, -0.05)
 iteration = np.arange(0.0, 10.0)
+
 # print(var.dtype, brain_correlation.dtype, strength.dtype, iteration.dtype)
 
-df = pd.DataFrame(np.stack((iteration, brain_correlation, var, strength), axis=1), columns = ['iteration', 'brain_correlation','var','strength'])
+df = pd.DataFrame(np.stack((iteration, brain_correlation_V1, brain_correlation_V2, 
+                            brain_correlation_V3, brain_correlation_V4, brain_correlation_early_visual,
+                            brain_correlation_higher_visual, brain_correlation_unmasked), axis=1), 
+                            columns = ['iteration', 'brain_correlation_V1', 'brain_correlation_V2', 'brain_correlation_V3', 
+                                       'brain_correlation_V4', 'brain_correlation_early_visual', 'brain_correlation_higher_visual', 
+                                       'brain_correlation_visual_cortex'])
 
-g = sns.lineplot(data=df['brain_correlation'], color="g")
-sns.lineplot(data=df['var'], color="b", ax=g.axes.twinx())
-sns.lineplot(data=df['strength'], color="r", ax=g.axes.twinx())
+# df = pd.DataFrame(np.stack((iteration, brain_correlation_V1, brain_correlation_V2, 
+#                             brain_correlation_V3, brain_correlation_V4, brain_correlation_early_visual,
+#                             brain_correlation_unmasked), axis=1), 
+#                             columns = ['iteration', 'brain_correlation_V1', 'brain_correlation_V2', 'brain_correlation_V3', 
+#                                        'brain_correlation_V4', 'brain_correlation_early_visual', 
+#                                        'brain_correlation_visual_cortex'])
+
+g = sns.lineplot(data=df['brain_correlation_V1'], color = '#FF5733')
+sns.lineplot(data=df['brain_correlation_V2'], color = '#EA891B', ax=g.axes.twinx())
+sns.lineplot(data=df['brain_correlation_V3'], color = '#FDFD03', ax=g.axes.twinx())
+sns.lineplot(data=df['brain_correlation_V4'], color = '#3B8809', ax=g.axes.twinx())
+sns.lineplot(data=df['brain_correlation_early_visual'], color = '#00FCCB', ax=g.axes.twinx())
+sns.lineplot(data=df['brain_correlation_visual_cortex'], color = '#001FFC', ax=g.axes.twinx())
+sns.lineplot(data=df['brain_correlation_higher_visual'], color = '#A800FC', ax=g.axes.twinx())
+
+# sns.lineplot(data=df['var'], color="b", ax=g.axes.twinx())
+# sns.lineplot(data=df['strength'], color="r", ax=g.axes.twinx())
 g.axes.spines.right.set_position(("axes", 1.2))
-g.legend(handles=[Line2D([], [], marker='_', color="g", label='brain_correlation'), Line2D([], [], marker='_', color="b", label='var'), Line2D([], [], marker='_', color="r", label='strength')])
+g.legend(handles=[Line2D([], [], marker='_', color = '#FF5733', label='brain_correlation_V1'), Line2D([], [], marker='_', color = '#EA891B', label='brain_correlation_v2'), 
+                  Line2D([], [], marker='_', color = '#FDFD03', label='brain_correlation_V3'), Line2D([], [], marker='_', color = '#3B8809', label='brain_correlation_V4'), 
+                  Line2D([], [], marker='_', color = '#00FCCB', label='brain_correlation_early_visual'), Line2D([], [], marker='_', color = '#A800FC', label='brain_correlation_higher_visual'),
+                  Line2D([], [], marker='_', color = '#001FFC', label='brain_correlation_visual_cortex')])
 
 
 # ax = plt.figure(figsize=(10,6), tight_layout=True)
@@ -58,4 +103,4 @@ g.set(xlabel='Search Iteration', ylabel='Brain Pearson Correlation', title='Enco
 # plt.ylabel('Brain Correlation')
 # plt.title('Encoded Brain Pearson Correlation in Early Visual Cortex ')
 # plt.legend(title='Players', title_fontsize = 13, labels=['L. Messi', 'Cristiano Ronaldo', 'K. De Bruyne', 'V. van Dijk', 'K. Mbappé'])
-plt.savefig("charts/brain_correlation_plot2.png")
+plt.savefig("charts/brain_correlation_plot_twin.png")
