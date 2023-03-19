@@ -8,12 +8,13 @@ from scipy import ndimage as nd
 from scipy.special import erf
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import nibabel as nib
 from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from pearson import PearsonCorrCoef
+import pickle as pk
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -48,7 +49,7 @@ def update_hash():
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False, pca=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -59,9 +60,17 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
     else:
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+        if(pca):
+            pca = pk.load(open("masks/pca_" + vector + ".pkl",'rb'))
+            y = torch.from_numpy(pca.transform(y.numpy()))
     
     if(not split): 
-        return x, y
+        if(loader):
+            dataset = torch.utils.data.TensorDataset(x, y)
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            return dataloader
+        else:
+            return x, y
     
     else: 
         x_train, x_val, x_param, x_test = [], [], [], []
@@ -170,7 +179,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     x_test.append(x_row)
                 y_test.append(avy[0])
                 test_trials.append(nsdId)
-        
         x_train = torch.stack(x_train).to("cpu")
         x_val = torch.stack(x_val).to("cpu")
         x_param = torch.stack(x_param).to("cpu")
@@ -475,5 +483,6 @@ def set_value(_x, x):
         _x.resize_(x.shape)
     _x.data.copy_(torch.from_numpy(x))
     
-    
-
+def equalize_color(image):
+    filt = ImageEnhance.Color(image)
+    return filt.enhance(0.8)

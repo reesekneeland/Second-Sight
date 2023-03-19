@@ -1,29 +1,13 @@
-# Only GPU's in use
-import os
 import torch
-from torch.autograd import Variable
 from torch.optim import Adam
 import numpy as np
-import glob
-import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import torch.nn as nn
 from pearson import PearsonCorrCoef
-import h5py
 from utils import *
 import wandb
-import copy
 from tqdm import tqdm
-from pynvml import *
-import bitsandbytes as bnb
-
-
-def print_gpu_utilization():
-    nvmlInit()
-    handle = nvmlDeviceGetHandleByIndex(1)
-    info = nvmlDeviceGetMemoryInfo(handle)
-    print(f"GPU memory occupied: {info.used//1024**2} MB.")
+import pickle as pk
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -31,11 +15,12 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 10800)
-            self.outlayer = nn.Linear(10800, 197376)
+            self.linear = nn.Linear(11838, 35000)
+            self.outlayer = nn.Linear(35000, 13875)
         elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 15000)
-            self.outlayer = nn.Linear(15000, 59136)
+            self.linear = nn.Linear(11838, 25000)
+            self.outlayer = nn.Linear(25000, 13875)
+        self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
@@ -46,7 +31,7 @@ class MLP(torch.nn.Module):
 
     
 # Main Class    
-class Decoder():
+class Decoder_PCA():
     def __init__(self, 
                  hashNum,
                  vector, 
@@ -67,7 +52,7 @@ class Decoder():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.use_amp=False
+        self.pca = pk.load(open("masks/pca_" +self.vector + ".pkl",'rb'))
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
@@ -104,7 +89,8 @@ class Decoder():
         self.trainLoader, self.valLoader, _, _ = load_nsd(vector=self.vector, 
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
-                                                        loader=True)
+                                                        loader=True,
+                                                        pca=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -112,69 +98,32 @@ class Decoder():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        # optimizer = Adam(self.model.parameters(), lr = self.lr)
-        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
-        # scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-        # print_gpu_utilization()
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
-            
             # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
-            
-            
             # Keep track of running loss for this training epoch
             running_loss = 0.0
             for i, data in enumerate(self.trainLoader):
-                # torch.cuda.empty_cache()
-                # Load the data out of our dataloader by grabbing the next chunk
-                # The chunk is the same size as the batch size
                 # x_data = Brain Data
                 # y_data = Clip/Z vector Data
                 x_data, y_data = data
-                # x_data = nn.functional.pad(input=x_data, pad=(0, 2, 0, 0), mode='constant', value=0)
-                # print(i, " TRAIN 2 ")
-                # print_gpu_utilization()
                 # Moving the tensors to the GPU
-                x_data = x_data.to(self.device)
+                x_data = x_data.to(self.device, torch.float64)
                 y_data = y_data.to(self.device)
-                
-                
-                
                 # Forward pass: Compute predicted y by passing x to the model
-                # with torch.set_grad_enabled(True):
-                # with torch.amp.autocast(device_type="cuda", enabled=self.use_amp):
-                    # print("TRAIN 3 ")
-                    # print_gpu_utilization()
-                    # Train the x data in the model to get the predicted y value. 
+                # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
-                    # assert pred_y.dtype is torch.float16
-                    # print("TRAIN 4 ")
-                    # print_gpu_utilization()
                     # Compute the loss between the predicted y and the y data. 
                 loss = criterion(pred_y, y_data)
-                    # assert loss.dtype is torch.float32
-                    # print("TRAIN 5 ")
-                    # print_gpu_utilization()
-                # Perform weight updating
-                # scaler.scale(loss).backward()
                 loss.backward()
-                # if ((i + 1) % gradient_accumulation == 0) or (i + 1 == len(self.trainLoader)):
-                # scaler.step(optimizer)
-                # scaler.update()
-                    
                 optimizer.step()
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
-                # print("TRAIN 6 ")
-                # print_gpu_utilization()
-                # del x_data
-                # del y_data
-                # tqdm.write('train loss: %.3f' %(loss.item()))
                 # Add up the loss for this training round
                 running_loss += loss.item()
-                # del loss
             tqdm.write('[%d] train loss: %.8f' %
                 (epoch + 1, running_loss /len(self.trainLoader)))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
@@ -188,16 +137,13 @@ class Decoder():
                 
                 # Loading in the test data
                 x_data, y_data = data
-                # x_data = nn.functional.pad(input=x_data, pad=(0, 2, 0, 0), mode='constant', value=0)
-                x_data = x_data.to(self.device)
+                x_data = x_data.to(self.device, torch.float64)
                 y_data = y_data.to(self.device)
-                # with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
-                    # Generating predictions based on the current model
-                with torch.amp.autocast(device_type="cuda", enabled=self.use_amp):
-                    pred_y = self.model(x_data).to(self.device)
-            
-                    # Compute the test loss 
-                    loss = criterion(pred_y, y_data)
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+        
+                # Compute the test loss 
+                loss = criterion(pred_y, y_data)
 
                 running_test_loss += loss.item()
             test_loss = running_test_loss / len(self.valLoader)
@@ -227,36 +173,35 @@ class Decoder():
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device)) #.to(torch.float16)
-        return out
+        out = self.model(x.to(self.device, torch.float64)).cpu.numpy() #.to(torch.float16)
+        out = torch.from_numpy(self.pca.inverse_transform(out))
+        return out.to(torch.float32)
     
     def benchmark(self, average=True):
-        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+        _, _, _, _, _, _, _, target, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
-                                                loader=True,
-                                                average=average)
-        outSize = len(self.testLoader.dataset)
+                                                loader=False,
+                                                average=average,
+                                                pca=False)
+        _, _, _, x_test, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=False,
+                                                average=average,
+                                                pca=True)
+        outSize = len(x_test)
         if(self.vector=="c_img_0" or self.vector=="c_text_0"):
             vecSize = 768
         elif(self.vector == "z" or self.vector == "z_img_mixer"):
             vecSize = 16384
         elif(self.vector == "c_img_vd"):
-            vecSize = 197376
+            vecSize = 13875
         elif(self.vector == "c_text_vd"):
-            vecSize = 59136
+            vecSize = 13875
         out = torch.zeros((outSize, vecSize))
-        target = torch.zeros((outSize, vecSize))
+        # target = torch.zeros((outSize, vecSize))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
-        for parameter in self.model.parameters():
-            print(parameter)
-            print(parameter.dtype)
-            break
-        self.model.to(0)
-        for parameter in self.model.parameters():
-            print(parameter)
-            print(parameter.dtype)
-            break
         self.model.eval()
 
         loss = 0
@@ -264,45 +209,40 @@ class Decoder():
         
         criterion = nn.MSELoss()
         
-        for index, data in enumerate(self.testLoader):
-            
-            x_test, y_test = data
+        
             # x_test = nn.functional.pad(input=x_test, pad=(0, 2, 0, 0), mode='constant', value=0)
-            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
-            y_test = y_test.to(self.device)
-            x_test = x_test.to(self.device)
+        x_test = x_test.to(self.device, torch.float64)
             # Generating predictions based on the current model
-            with torch.amp.autocast(device_type="cuda", enabled=self.use_amp):
                 # print(torch.sum(torch.isnan(y_test)))
-                pred_y = self.model(x_test).to(self.device)
-                # print(torch.sum(torch.isnan(pred_y)))
-            
-                out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
-                target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
-                loss += criterion(pred_y, y_test)
+        pred_y = self.model(x_test).cpu()
+            # print(torch.sum(torch.isnan(pred_y)))
+        
+        out = pred_y
+        loss += criterion(pred_y.to(self.device), y_test.to(self.device))
                 # print(pred_y, y_test)
-                pred_y = pred_y.moveaxis(0,1)
-                y_test = y_test.moveaxis(0,1)
-                pearson_loss += torch.mean(PeC(pred_y, y_test))
+        
+        PeC = PearsonCorrCoef(num_outputs=out.shape[0])
+        pearson_loss =torch.mean(PeC(out.moveaxis(0,1), y_test.moveaxis(0,1)))
+        out = torch.from_numpy(self.pca.inverse_transform(out.detach().numpy()))
+        pearson_loss_T = torch.mean(PeC(out.moveaxis(0,1), target.moveaxis(0,1)))
             #print(pearson_corrcoef(out[index], target[index]))
             
-            
-        loss = loss / len(self.testLoader)
-        
-        # Vector correlation for that trial row wise
-        pearson_loss = pearson_loss / len(self.testLoader)
+        # print(y_test.shape[0], target.shape[0])
+        # print(y_test == target)
+        loss = loss / len(target)
         
         out = out.detach()
         target = target.detach()
         PeC = PearsonCorrCoef()
         r = []
-        for p in range(out.shape[0]):
+        for p in range(out.shape[1]):
             
             # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(out[p], target[p]))
+            r.append(PeC(out[:,p], target[:,p]))
         r = np.array(r)
         
-        print("Vector Correlation: ", float(pearson_loss))
+        print("Vector Correlation_PCA: ", float(pearson_loss))
+        print("Vector Correlation: ", float(pearson_loss_T))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
