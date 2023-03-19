@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -26,7 +26,9 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    train_decoder()
+    # train_decoder()
+    
+    train_decoder_pca()
 
     # train_encoder()
     
@@ -34,7 +36,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImagesST(experiment_title="VD 10.8k decoder 3 ST reps EQ", idx=[i for i in range(21)])
+    # reconstructNImagesST(experiment_title="VD decoder unfucked", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -139,8 +141,28 @@ def train_ss_decoder():
 
 
 def train_decoder():
+    # hashNum = update_hash()
+    hashNum = "625"
+    D = Decoder(hashNum = hashNum,
+                 lr=0.000001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
+                 log=False, 
+                 batch_size=64,
+                 device="cuda:0",
+                 num_workers=4,
+                 epochs=500
+                )
+    
+    # D.train()
+    
+    D.benchmark(average=False)
+    D.benchmark(average=True)
+    
+    return hashNum
+
+def train_decoder_pca():
     hashNum = update_hash()
-    # hashNum = "638"
+    # hashNum = "640"
     D = Decoder_PCA(hashNum = hashNum,
                  lr=0.00001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
@@ -150,6 +172,7 @@ def train_decoder():
                  num_workers=4,
                  epochs=500
                 )
+    
     D.train()
     
     D.benchmark(average=False)
@@ -166,17 +189,22 @@ def reconstructNImages(experiment_title, idx):
     #              device="cuda"
     #              )
     
-    Dc_i = Decoder(hashNum = "625",
+    # Dc_i = Decoder_PCA(hashNum = "642",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    # Dc_t = Decoder_PCA(hashNum = "640",
+    #              vector="c_text_vd",
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    Dc_i = Decoder(hashNum = "634",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda"
                  )
-    # SS_Dc_i = SS_Decoder(hashNum = "541",
-    #              vector="c_img_0",
-    #              encoderHash="536",
-    #              log=False, 
-    #              device="cuda:0"
-    #              )
     
     Dc_t = Decoder(hashNum = "619",
                  vector="c_text_vd",
@@ -243,25 +271,24 @@ def reconstructNImages(experiment_title, idx):
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
 
 def reconstructNImagesST(experiment_title, idx):
-    # Dz = Decoder(hashNum = "531",
-    #              vector="z_img_mixer",
+    # Dc_i = Decoder(hashNum = "634",
+    #              vector="c_img_vd", 
     #              log=False, 
     #              device="cuda"
     #              )
     
-    Dc_i = Decoder(hashNum = "634",
+    # Dc_t = Decoder(hashNum = "619",
+    #              vector="c_text_vd",
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    Dc_i = Decoder_PCA(hashNum = "642",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda"
                  )
-    # SS_Dc_i = SS_Decoder(hashNum = "541",
-    #              vector="c_img_0",
-    #              encoderHash="536",
-    #              log=False, 
-    #              device="cuda:0"
-    #              )
-    
-    Dc_t = Decoder(hashNum = "619",
+    Dc_t = Decoder_PCA(hashNum = "640",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda"
@@ -321,8 +348,8 @@ def reconstructNImagesST(experiment_title, idx):
         empty = Image.new('RGB', (512, 512), color='white')
         rows = 6
         columns = 3
-        images = [ground_truth, equalize_color(ground_truth), equalize_color(OCc), TCc, TCi, TCt, OCc, OCi, OCt]
-        captions = ["Ground Truth", "Ground Truth EQ", "Output C_c EQ", "Target C_c", "Target C_i", "Target C_t", "Output C_c", "Output C_i", "Output C_t"]
+        images = [ground_truth, empty, empty, TCc, TCi, TCt, OCc, OCi, OCt]
+        captions = ["Ground Truth", "", "", "Target C_c", "Target C_i", "Target C_t", "Output C_c", "Output C_i", "Output C_t"]
         numTrials = len(OCcS)
         for k in range(numTrials):
             images.append(OCcS[k])

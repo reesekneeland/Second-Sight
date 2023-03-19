@@ -61,7 +61,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         if(pca):
-            pca = pk.load(open("masks/pca_" + vector + ".pkl",'rb'))
+            pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
             y = torch.from_numpy(pca.transform(y.numpy()))
     
     if(not split): 
@@ -79,7 +79,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
         subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
         alexnet_stimuli_order_list = np.where(subj1_full["shared1000"] == True)[0]
-        
         # Loads the raw tensors into a Dataset object
 
         # TensorDataset takes in two tensors of equal size and then maps 
@@ -127,12 +126,12 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                 y_val.append(avy[0])
         
         for i in range(200):
-            nsdId = subj1_train.iloc[i]['nsdId']
+            nsdId = subj1_test.iloc[i]['nsdId']
             avx = []
             avy = []
             x_row = torch.zeros((3, 11838))
             for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
                 if(scanId < 27750):
                     if average or nest:
                         avx.append(x[scanId-1])
@@ -154,12 +153,12 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                 param_trials.append(nsdId)
                     
         for i in range(200, 1000):
-            nsdId = subj1_train.iloc[i]['nsdId']
+            nsdId = subj1_test.iloc[i]['nsdId']
             avx = []
             avy = []
             x_row = torch.zeros((3, 11838))
             for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
+                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
                 if(scanId < 27750):
                     if average or nest:
                         avx.append(x[scanId-1])

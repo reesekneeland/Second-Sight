@@ -15,17 +15,23 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 35000)
-            self.outlayer = nn.Linear(35000, 13875)
+            self.linear = nn.Linear(11838, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.outlayer = nn.Linear(15000, 10000)
+            # self.linear = nn.Linear(11838, 45000)
+            # self.outlayer = nn.Linear(45000, 10000)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 25000)
-            self.outlayer = nn.Linear(25000, 13875)
+            self.outlayer = nn.Linear(25000, 10000)
         self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
         if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
+            y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.relu(self.linear3(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -52,7 +58,7 @@ class Decoder_PCA():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.pca = pk.load(open("masks/pca_" +self.vector + ".pkl",'rb'))
+        self.pca = pk.load(open("masks/pca_" +self.vector + "_10k.pkl",'rb'))
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
@@ -173,7 +179,7 @@ class Decoder_PCA():
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device, torch.float64)).cpu.numpy() #.to(torch.float16)
+        out = self.model(x.to(self.device, torch.float64)).cpu().detach().numpy() #.to(torch.float16)
         out = torch.from_numpy(self.pca.inverse_transform(out))
         return out.to(torch.float32)
     
@@ -196,9 +202,9 @@ class Decoder_PCA():
         elif(self.vector == "z" or self.vector == "z_img_mixer"):
             vecSize = 16384
         elif(self.vector == "c_img_vd"):
-            vecSize = 13875
+            vecSize = 10000
         elif(self.vector == "c_text_vd"):
-            vecSize = 13875
+            vecSize = 10000
         out = torch.zeros((outSize, vecSize))
         # target = torch.zeros((outSize, vecSize))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))

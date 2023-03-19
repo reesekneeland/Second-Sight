@@ -24,11 +24,11 @@ import pickle as pk
 # from skcuda.linalg import PCA as cuPCA
 
 # dataloader = load_nsd(vector = "c_img_vd", loader = True, split = False, batch_size=13875)
-x, y = load_nsd(vector = "c_img_vd", loader = False, split = False)
+x, y = load_nsd(vector = "c_text_vd", loader = False, split = False)
 
 pca = PCA(n_components=10000)
 pca.fit(y)
-pk.dump(pca, open("pca_c_img_vd_10k.pkl","wb"))
+# pk.dump(pca, open("pca_c_img_vd_85.pkl","wb"))
 # pca = pk.load(open("masks/pca_c_img_vd.pkl",'rb'))
 c = torch.from_numpy(pca.components_)
 m = torch.from_numpy(pca.mean_)
@@ -69,9 +69,9 @@ print(testy == unscaledY)
 
 
 l = pca.explained_variance_ratio_
-print(c.shape, np.sum(l))
+print(c.shape, sorted(l, reverse=True), np.sum(l))
 
-# pk.dump(pca, open("pca27k.pkl","wb"))
+pk.dump(pca, open("masks/pca_c_text_vd_10k.pkl","wb"))
 
 
 # g = sns.lineplot(data=l)

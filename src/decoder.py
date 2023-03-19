@@ -16,7 +16,7 @@ import wandb
 import copy
 from tqdm import tqdm
 from pynvml import *
-import bitsandbytes as bnb
+# import bitsandbytes as bnb
 
 
 def print_gpu_utilization():
@@ -31,8 +31,8 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 10800)
-            self.outlayer = nn.Linear(10800, 197376)
+            self.linear = nn.Linear(11838, 8000)
+            self.outlayer = nn.Linear(8000, 197376)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.outlayer = nn.Linear(15000, 59136)
@@ -112,8 +112,8 @@ class Decoder():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        # optimizer = Adam(self.model.parameters(), lr = self.lr)
-        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
+        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
         # print_gpu_utilization()
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
@@ -248,15 +248,6 @@ class Decoder():
         out = torch.zeros((outSize, vecSize))
         target = torch.zeros((outSize, vecSize))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
-        for parameter in self.model.parameters():
-            print(parameter)
-            print(parameter.dtype)
-            break
-        self.model.to(0)
-        for parameter in self.model.parameters():
-            print(parameter)
-            print(parameter.dtype)
-            break
         self.model.eval()
 
         loss = 0

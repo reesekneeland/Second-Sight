@@ -35,7 +35,7 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD ND 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 10)], mask=[], ae=True, test=False, average=True)
+    S0.generateTestSamples(experiment_title="SCS VD C_i 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 10)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
@@ -78,6 +78,7 @@ class StochasticSearch():
                                                 c_i=c_i, 
                                                 c_t=c_t, 
                                                 n_samples=1, 
+                                                textstrength=0.0,
                                                 strength=strength))
         return images
 
@@ -176,12 +177,12 @@ class StochasticSearch():
         
         # Load data and targets
         if test:
-            _, _, _, _, _, _, targets_c_i, _, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
-            _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-            _, _, _, x, _, _, _, _, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        else:
             _, _, _, _, _, _, _, targets_c_i, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
             _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+            _, _, _, x, _, _, _, _, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
+        else:
+            _, _, _, _, _, _, targets_c_i, _, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
+            _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
             _, _, x, _, _, _, _, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         x_pruned = torch.zeros((x.shape[0], 11838))
         if(ae):
