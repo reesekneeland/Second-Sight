@@ -25,7 +25,7 @@ class Masker():
         self.sorted_indices = None
         self.pearson_scores = None
         # Initialize the data
-        _, _, self.x_vox, self.x_thresh, self.x_test, _, _, self.y_vox, self.y_thresh, self.y_test, _ = load_nsd(vector="c_img_0", loader=False, average=True)
+        _, _, self.x_param, self.x_test, _, _, self.y_param, self.y_test, _ = load_nsd(vector="c_img_0", loader=False, average=True)
 
         # Initializes Weights and Biases to keep track of experiments and training runs
 
@@ -39,12 +39,11 @@ class Masker():
         self.latent_path = "latent_vectors/" + self.encoderModel + "/"
         self.mask_path = "masks/" + self.encoderModel + "/avg/"
         if(not os.path.isfile(self.latent_path + "avg_encoded_voxel_selection.pt")):
-            torch.save(self.E.predict(x=self.y_vox), self.latent_path + "avg_encoded_voxel_selection.pt")
-        if(not os.path.isfile(self.latent_path + "avg_encoded_threshold_selection.pt")):
-            torch.save(self.E.predict(x=self.y_thresh), self.latent_path + "avg_encoded_threshold_selection.pt")
+            torch.save(self.E.predict(x=self.y_param), self.latent_path + "avg_encoded_voxel_selection.pt")
+        
             
-        self.x_vox_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt", map_location=self.device)
-        self.x_thresh_encoded = torch.load(self.latent_path + "avg_encoded_threshold_selection.pt", map_location=self.device)
+        self.x_param_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt", map_location=self.device)
+        
         
         subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         nsdIds = set(subj1['nsdId'].tolist())

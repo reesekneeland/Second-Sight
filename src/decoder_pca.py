@@ -8,6 +8,7 @@ from utils import *
 import wandb
 from tqdm import tqdm
 import pickle as pk
+import bitsandbytes as bnb
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -16,13 +17,19 @@ class MLP(torch.nn.Module):
         # assert(vector == "c_img_vd" or vector=="c_text_vd")
         self.vector = vector
         if(self.vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.linear3 = nn.Linear(15000, 15000)
+            self.linear = nn.Linear(11838, 27000)
+            self.linear2 = nn.Linear(27000, 27000)
+            self.linear3 = nn.Linear(27000, 27000)
+            self.linear4 = nn.Linear(27000, 27000)
+            self.linear5 = nn.Linear(27000, 27000)
+            self.outlayer = nn.Linear(27000, 10000)
         if(self.vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-        self.outlayer = nn.Linear(15000, 10000)
+            self.linear = nn.Linear(11838, 27000)
+            self.linear2 = nn.Linear(27000, 27000)
+            self.linear3 = nn.Linear(27000, 27000)
+            self.linear4 = nn.Linear(27000, 27000)
+            self.linear5 = nn.Linear(27000, 27000)
+            self.outlayer = nn.Linear(27000, 10000)
         # layers = [nn.Linear(11838, 15000),
         #           nn.ReLU()]
         # for i in range(numLayers-1):
@@ -31,7 +38,7 @@ class MLP(torch.nn.Module):
         # layers.append(nn.Linear(15000, 10000))
         
         # self.layers = nn.Sequential(*layers)
-        self.double()
+        # self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
@@ -40,10 +47,15 @@ class MLP(torch.nn.Module):
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.relu(self.linear3(y_pred))
+            y_pred = self.relu(self.linear4(y_pred))
+            y_pred = self.relu(self.linear5(y_pred))
             y_pred = self.outlayer(y_pred)
         if(self.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.relu(self.linear3(y_pred))
+            y_pred = self.relu(self.linear4(y_pred))
+            y_pred = self.relu(self.linear5(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -114,7 +126,8 @@ class Decoder_PCA():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        optimizer = Adam(self.model.parameters(), lr = self.lr)
+        # optimizer = Adam(self.model.parameters(), lr = self.lr)
+        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
             # For each epoch, do a training and a validation stage
@@ -127,7 +140,7 @@ class Decoder_PCA():
                 # y_data = Clip/Z vector Data
                 x_data, y_data = data
                 # Moving the tensors to the GPU
-                x_data = x_data.to(self.device, torch.float64)
+                x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
@@ -153,7 +166,7 @@ class Decoder_PCA():
                 
                 # Loading in the test data
                 x_data, y_data = data
-                x_data = x_data.to(self.device, torch.float64)
+                x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
                 # Generating predictions based on the current model
                 pred_y = self.model(x_data).to(self.device)
@@ -185,13 +198,13 @@ class Decoder_PCA():
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
-    def predict(self, x, batch=False, batch_size=750):
+    def predict(self, x):
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device, torch.float64)).cpu().detach().numpy() #.to(torch.float16)
-        out = torch.from_numpy(self.pca.inverse_transform(out))
-        return out.to(torch.float32)
+        out = self.model(x.to(self.device)).cpu().detach().numpy() #.to(torch.float16)
+        out = torch.from_numpy(self.pca.inverse_transform(out.to(torch.float64))).to(torch.float32)
+        return out
     
     def benchmark(self, average=True):
         _, _, _, _, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
@@ -200,7 +213,7 @@ class Decoder_PCA():
                                                 loader=False,
                                                 average=average,
                                                 pca=False)
-        _, _, _, x_test_pca, _, _, _, y_test_pca, _, _ = load_nsd(vector=self.vector, 
+        _, _, _, x_test, _, _, _, y_test_pca, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=False,
@@ -212,17 +225,17 @@ class Decoder_PCA():
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test_pca = x_test_pca.to(self.device, torch.float64)
+        x_test = x_test.to(self.device)
         y_test_pca = y_test_pca.to(self.device)
         y_test = y_test.to(self.device)
         
-        pred_y_pca = self.model(x_test_pca)
+        pred_y_pca = self.model(x_test)
         
         loss_pca = criterion(pred_y_pca, y_test_pca.to(self.device))
               
         pearson_pca =torch.mean(PeC(pred_y_pca.moveaxis(0,1), y_test_pca.moveaxis(0,1)))
         
-        pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.detach().numpy())).to(torch.float32)
+        pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.to(torch.float64).detach().cpu().numpy())).to(self.device, torch.float32)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
@@ -231,5 +244,5 @@ class Decoder_PCA():
         print("Vector Correlation: ", float(pearson))
         print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
-        plt.hist(r, bins=40, log=True)
-        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")
+        # plt.hist(r, bins=40, log=True)
+        # plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")

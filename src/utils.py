@@ -62,7 +62,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
         if(pca):
             pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
-            y = torch.from_numpy(pca.transform(y.numpy()))
+            y = torch.from_numpy(pca.transform(y.numpy())).to(torch.float32)
     
     if(not split): 
         if(loader):

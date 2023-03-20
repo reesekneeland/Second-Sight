@@ -28,9 +28,9 @@ def main():
     
     # train_decoder()
     
-    #train_decoder_pca()
+    train_decoder_pca()
 
-    train_encoder()
+    # train_encoder()
     
     # mask_voxels()
 
@@ -142,29 +142,29 @@ def train_ss_decoder():
     SS.benchmark_nsd(AEhash="577", ae=True)
 
 
-def train_decoder():
-    # hashNum = update_hash()
-    hashNum = "625"
-    D = Decoder(hashNum = hashNum,
-                 lr=0.000001,
-                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
-                 log=False, 
-                 batch_size=64,
-                 device="cuda:0",
-                 num_workers=4,
-                 epochs=500
-                )
+# def train_decoder():
+#     # hashNum = update_hash()
+#     hashNum = "655"
+#     D = Decoder(hashNum = hashNum,
+#                  lr=0.000001,
+#                  vector="c_text_vd", #c_img_0 , c_text_0, z_img_mixer
+#                  log=True, 
+#                  batch_size=64,
+#                  device="cuda:0",
+#                  num_workers=4,
+#                  epochs=500
+#                 )
     
-    # D.train()
+#     # D.train()
     
-    D.benchmark(average=False)
-    D.benchmark(average=True)
+#     D.benchmark(average=False)
+#     D.benchmark(average=True)
     
-    return hashNum
+#     return hashNum
 
 def train_decoder_pca():
-    # hashNum = update_hash()
-    hashNum = "651"
+    hashNum = update_hash()
+    # hashNum = "663"
     D = Decoder_PCA(hashNum = hashNum,
                  lr=0.0000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
@@ -176,7 +176,7 @@ def train_decoder_pca():
                  epochs=500
                 )
     
-    # D.train()
+    D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -191,13 +191,11 @@ def reconstructNImages(experiment_title, idx):
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
-                 numLayers=3
                  )
-    Dc_t = Decoder_PCA(hashNum = "640",
+    Dc_t = Decoder_PCA(hashNum = "655",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda",
-                 numLayers=2
                  )
     
     # First URL: This is the original read-only NSD file path (The actual data)
