@@ -28,7 +28,8 @@ import nibabel as nib
 
 
 # Create the whole region of the visual cortex with 11838 voxels. 
-#utils.create_whole_region_unnormalized()
+#create_whole_region_unnormalized(subject = "subj2")
+# create_whole_region_normalized(subject = "subj2")
 
 # Create the whole region and normalize it by subtracting
 # the meand and diving by the standard deveiation. 
@@ -36,8 +37,8 @@ import nibabel as nib
 
 # Call process data 
 # Input: The vector you want processed as a string
-process_data("c_img_vd")
-process_data("c_text_vd")
+process_data(vector = "c_img_vd", subject = "subj2")
+process_data(vector = "c_text_vd", subject = "subj2")
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
