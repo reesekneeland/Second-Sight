@@ -17,7 +17,7 @@ class MLP(torch.nn.Module):
         if(vector == "c_img_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.linear2 = nn.Linear(15000, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
+            self.linear3 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 10000)
             # self.linear = nn.Linear(11838, 45000)
             # self.outlayer = nn.Linear(45000, 10000)
@@ -122,7 +122,7 @@ class Decoder_PCA():
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
-                    # Compute the loss between the predicted y and the y data. 
+                # Compute the loss between the predicted y and the y data. 
                 loss = criterion(pred_y, y_data)
                 loss.backward()
                 optimizer.step()

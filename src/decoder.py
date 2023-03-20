@@ -15,15 +15,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-from pynvml import *
 # import bitsandbytes as bnb
-
-
-def print_gpu_utilization():
-    nvmlInit()
-    handle = nvmlDeviceGetHandleByIndex(1)
-    info = nvmlDeviceGetMemoryInfo(handle)
-    print(f"GPU memory occupied: {info.used//1024**2} MB.")
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):

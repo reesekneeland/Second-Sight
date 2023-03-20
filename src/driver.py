@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -28,9 +28,9 @@ def main():
     
     # train_decoder()
     
-    train_decoder_pca()
+    #train_decoder_pca()
 
-    # train_encoder()
+    train_encoder()
     
     # mask_voxels()
 
@@ -48,13 +48,13 @@ def mask_voxels():
     M = Masker(encoderHash="521",
                  vector="c_img_0",
                  device="cuda:1")
-    # thresholds = list(torch.arange(0.01, 1.0, 0.015))
-    # for t in tqdm(thresholds, desc="thresholds"): 
-    #     print(t)
-    #     x = torch.tensor(0.013)
-    #     print(x)
-    #     M.get_percentile_coco(x)
-    # M.make_histogram()
+    thresholds = list(torch.arange(0.01, 1.0, 0.015))
+    for t in tqdm(thresholds, desc="thresholds"): 
+        print(t)
+        x = thresholds(t)
+        print(x)
+        M.get_percentile_coco(x)
+    M.make_histogram()
     M.create_mask(threshold=-1)
     
 def train_autoencoder():
@@ -92,27 +92,28 @@ def train_autoencoder():
 
 
 def train_encoder():
-    # hashNum = update_hash()
-    hashNum = "424"
+    #hashNum = update_hash()
+    hashNum = "658"
     E = Encoder(hashNum = hashNum,
-                 lr=0.000005,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 log=False, 
+                 lr=0.00001,
+                 vector="c_img_vd", #c_img_vd, c_text_vd
+                 log=True, 
                  batch_size=750,
                  device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
-    # E.train()
-    modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    E.train()
+    #modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    # E.benchmark()
+    E.benchmark(average=False)
+    E.benchmark(average=True)
     
-    os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
-    _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
-                    num_workers = E.num_workers, loader = False, split = False)
-    outputs = E.predict(y)
-    torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
+    # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
+    # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
+    #                 num_workers = E.num_workers, loader = False, split = False)
+    # outputs = E.predict(y)
+    # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
     
     # E.predict_73K_coco(model=modelId)
     # E.predict_cc3m(model=modelId)
