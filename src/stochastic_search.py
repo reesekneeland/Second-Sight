@@ -11,6 +11,7 @@ import wandb
 from tqdm import tqdm
 from encoder import Encoder
 from decoder import Decoder
+from decoder_pca import Decoder_PCA
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from reconstructor import Reconstructor
@@ -35,7 +36,7 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD C_i 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 10)], mask=[], ae=True, test=False, average=True)
+    S0.generateTestSamples(experiment_title="SCS VD PCA 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 10)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
@@ -153,19 +154,6 @@ class StochasticSearch():
 
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
-        
-        Dc_i = Decoder(hashNum = "634",
-                 vector="c_img_vd", 
-                 log=False, 
-                 device="cuda:0"
-                 )
-    
-        Dc_t = Decoder(hashNum = "619",
-                    vector="c_text_vd", 
-                    log=False, 
-                    device="cuda:0"
-                    )
-
         AE = AutoEncoder(hashNum = "582",
                  lr=0.0000001,
                  vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
@@ -174,8 +162,7 @@ class StochasticSearch():
                  batch_size=750,
                  device=self.device
                 )
-        
-        # Load data and targets
+         # Load data and targets
         if test:
             _, _, _, _, _, _, _, targets_c_i, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
             _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
@@ -184,11 +171,10 @@ class StochasticSearch():
             _, _, _, _, _, _, targets_c_i, _, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
             _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
             _, _, x, _, _, _, _, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        x_pruned = torch.zeros((x.shape[0], 11838))
         if(ae):
-            x_pruned_ae = torch.zeros((x.shape[0], 11838))
-        x_pruned = torch.zeros((x.shape[0], 11838))
-        for i in tqdm(range(x.shape[0]), desc="Pruning samples"):# and averaging"):
+            x_pruned_ae = torch.zeros((len(idx), 11838))
+        x_pruned = torch.zeros((len(idx), 11838))
+        for i in tqdm(range(len(idx)), desc="Pruning samples"):# and averaging"):
             if(average):
                 if(ae):
                     x_pruned_ae[i] = torch.mean(AE.predict(x[i]),dim=0)
@@ -199,7 +185,31 @@ class StochasticSearch():
                     x_pruned_ae[i] = AE.predict(x_pruned[i])
         x = x_pruned
         
-        
+        # Dc_i = Decoder(hashNum = "634",
+        #          vector="c_img_vd", 
+        #          log=False, 
+        #          device="cuda:0"
+        #          )
+    
+        # Dc_t = Decoder(hashNum = "619",
+        #             vector="c_text_vd", 
+        #             log=False, 
+        #             device="cuda:0"
+        #             )
+        Dc_i = Decoder_PCA(hashNum = "664",
+                 vector="c_img_vd", 
+                 log=False, 
+                 device="cuda",
+                 )
+        outputs_c_i = Dc_i.predict(x=x)
+        del Dc_i
+        Dc_t = Decoder_PCA(hashNum = "663",
+                    vector="c_text_vd",
+                    log=False, 
+                    device="cuda",
+                    )
+        outputs_c_t = Dc_t.predict(x=x)
+        del Dc_t
         
         # Worst Case Random Samples
         # x, _ = load_nsd(vector ="c_img_0", loader = False, split = False)
@@ -211,10 +221,10 @@ class StochasticSearch():
         # x_param = x_param_rand
         
         # Generating predicted and target vectors
-        outputs_c_i = Dc_i.predict(x=x)
-        outputs_c_t = Dc_t.predict(x=x)
-        del Dc_t
-        del Dc_i
+        # outputs_c_i = Dc_i.predict(x=x)
+        # outputs_c_t = Dc_t.predict(x=x)
+        # del Dc_t
+        # del Dc_i
         if(ae):
             x = x_pruned_ae
         # Best Case Images
@@ -233,7 +243,7 @@ class StochasticSearch():
         np.save("logs/" + experiment_title + "/" + "c_img_PeC.npy", np.array(PeC(outputs_c_i[idx].moveaxis(0,1).to("cpu"), targets_c_i[idx].moveaxis(0,1).to("cpu")).detach()))
         np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t[idx].moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
         
-        for i in idx:
+        for i, val in enumerate(idx):
             os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + "/", exist_ok=True)
             
             if(self.log):
@@ -258,7 +268,7 @@ class StochasticSearch():
             np.save("logs/" + experiment_title + "/" + str(i) + "_var_list.npy", np.array(var_list))
             
             # returns a numpy array 
-            nsdId = trials[i]
+            nsdId = trials[val]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
             ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)

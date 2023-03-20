@@ -8,7 +8,7 @@ from utils import *
 import wandb
 from tqdm import tqdm
 import pickle as pk
-import bitsandbytes as bnb
+# import bitsandbytes as bnb
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -17,19 +17,19 @@ class MLP(torch.nn.Module):
         # assert(vector == "c_img_vd" or vector=="c_text_vd")
         self.vector = vector
         if(self.vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 27000)
-            self.linear2 = nn.Linear(27000, 27000)
-            self.linear3 = nn.Linear(27000, 27000)
-            self.linear4 = nn.Linear(27000, 27000)
-            self.linear5 = nn.Linear(27000, 27000)
-            self.outlayer = nn.Linear(27000, 10000)
+            self.linear = nn.Linear(11838, 20000)
+            self.linear2 = nn.Linear(20000, 20000)
+            self.linear3 = nn.Linear(20000, 20000)
+            self.linear4 = nn.Linear(20000, 20000)
+            self.linear5 = nn.Linear(20000, 20000)
+            self.outlayer = nn.Linear(20000, 10000)
         if(self.vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 27000)
-            self.linear2 = nn.Linear(27000, 27000)
-            self.linear3 = nn.Linear(27000, 27000)
-            self.linear4 = nn.Linear(27000, 27000)
-            self.linear5 = nn.Linear(27000, 27000)
-            self.outlayer = nn.Linear(27000, 10000)
+            self.linear = nn.Linear(11838, 12000)
+            # self.linear2 = nn.Linear(27000, 27000)
+            # self.linear3 = nn.Linear(27000, 27000)
+            # self.linear4 = nn.Linear(27000, 27000)
+            # self.linear5 = nn.Linear(27000, 27000)
+            self.outlayer = nn.Linear(12000, 10000)
         # layers = [nn.Linear(11838, 15000),
         #           nn.ReLU()]
         # for i in range(numLayers-1):
@@ -52,10 +52,10 @@ class MLP(torch.nn.Module):
             y_pred = self.outlayer(y_pred)
         if(self.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.relu(self.linear3(y_pred))
-            y_pred = self.relu(self.linear4(y_pred))
-            y_pred = self.relu(self.linear5(y_pred))
+            # y_pred = self.relu(self.linear2(y_pred))
+            # y_pred = self.relu(self.linear3(y_pred))
+            # y_pred = self.relu(self.linear4(y_pred))
+            # y_pred = self.relu(self.linear5(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -102,7 +102,7 @@ class Decoder_PCA():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "MLP",
+                "architecture": "PCA MLP",
                 "vector": self.vector,
                 "dataset": "Z scored",
                 "epochs": self.num_epochs,
@@ -126,8 +126,8 @@ class Decoder_PCA():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        # optimizer = Adam(self.model.parameters(), lr = self.lr)
-        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
+        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
             # For each epoch, do a training and a validation stage
@@ -195,15 +195,14 @@ class Decoder_PCA():
                 if(loss_counter >= 5):
                     break
                 
-        # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        
 
     def predict(self, x):
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).cpu().detach().numpy() #.to(torch.float16)
-        out = torch.from_numpy(self.pca.inverse_transform(out.to(torch.float64))).to(torch.float32)
+        out = torch.from_numpy(self.pca.inverse_transform(out)).to(torch.float32)
         return out
     
     def benchmark(self, average=True):
@@ -219,6 +218,7 @@ class Decoder_PCA():
                                                 loader=False,
                                                 average=average,
                                                 pca=True)
+        # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
 

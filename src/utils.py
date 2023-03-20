@@ -50,7 +50,6 @@ def update_hash():
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
 def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False, pca=False):
-    
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -80,6 +79,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
         subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
         alexnet_stimuli_order_list = np.where(subj1_full["shared1000"] == True)[0]
+        
         # Loads the raw tensors into a Dataset object
 
         # TensorDataset takes in two tensors of equal size and then maps 
@@ -402,18 +402,24 @@ def process_data(vector="c_combined", image=False, subject = "subj1"):
     
 def process_data_full(vector):
     
-    if(vector == "z" or vector == "z_img_mixer"):
-        # vec_target = torch.zeros((2819140, 16384))
-        # vec_target2 = None
-        datashape = (1,16384)
-    elif(vector == "c_img_0" or vector == "c_text_0"):
-        # vec_target = torch.zeros((2819140, 768))
-        # vec_target2 = None
-        datashape = (1,768)
-    elif(vector == "c_combined"):
-        vec_target = torch.zeros((73000, 768))
-        vec_target2 = torch.zeros((73000, 768))
-        datashape = (1,768)
+    # if(vector == "z" or vector == "z_img_mixer"):
+    #     # vec_target = torch.zeros((2819140, 16384))
+    #     # vec_target2 = None
+    #     datashape = (1,16384)
+    # elif(vector == "c_img_0" or vector == "c_text_0"):
+    #     # vec_target = torch.zeros((2819140, 768))
+    #     # vec_target2 = None
+    #     datashape = (1,768)
+    # elif(vector == "c_combined"):
+    #     vec_target = torch.zeros((73000, 768))
+    #     vec_target2 = torch.zeros((73000, 768))
+    #     datashape = (1,768)
+    if(vector == "c_img_vd"):
+        vec_target = torch.zeros((73000, 197376))
+        datashape = (1,197376)
+    elif(vector == "c_text_vd"):
+        vec_target = torch.zeros((73000, 59136))
+        datashape = (1,59136)
 
     # Flexible to both Z and C tensors depending on class configuration
     # if vec_target2 is not None:
@@ -425,14 +431,16 @@ def process_data_full(vector):
     #     torch.save(vec_target, prep_path + "c_img_0/vector_73k.pt")
     #     torch.save(vec_target2, prep_path + "c_text_0/vector_73k.pt")
     # else:
-    for i in tqdm(range(124), desc="batched vector loader"):
-        vec_target = torch.zeros((22735, datashape[1]))
-        for j in range(22735):
-            full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
-            vec_target[j] = full_vec.reshape(datashape)
-        torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
-    
-    
+    # for i in tqdm(range(124), desc="batched vector loader"):
+    #     vec_target = torch.zeros((22735, datashape[1]))
+    #     for j in range(22735):
+    #         full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
+    #         vec_target[j] = full_vec.reshape(datashape)
+    #     torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
+    for i in tqdm(range(73000), desc="vector loader"):
+        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt").reshape(datashape)
+        vec_target[i] = full_vec
+    torch.save(vec_target, prep_path + vector + "/vector_73k.pt")
 
 def tileImages(title, images, captions, h, w):
     bigH = 576 * h
