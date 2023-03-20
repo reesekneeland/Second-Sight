@@ -1,4 +1,4 @@
-name: SS_vd2
+name: SS_vd
 channels:
   - conda-forge
   - defaults
@@ -31,3 +31,4 @@ dependencies:
       - wandb>=0.12.21
       - seaborn
       - webdataset>=0.2.5
+      - bitsandbytes

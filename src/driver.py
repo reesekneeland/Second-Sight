@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -14,6 +14,7 @@ from utils import *
 import copy
 from tqdm import tqdm
 from decoder import Decoder
+from decoder_pca import Decoder_PCA
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
@@ -26,6 +27,8 @@ def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
     # train_decoder()
+    
+    train_decoder_pca()
 
     # train_encoder()
     
@@ -33,7 +36,7 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="VD 5k decoders 3", idx=[i for i in range(21)])
+    # reconstructNImagesST(experiment_title="VD decoder unfucked", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -141,15 +144,36 @@ def train_decoder():
     # hashNum = update_hash()
     hashNum = "625"
     D = Decoder(hashNum = hashNum,
-                 lr=0.0001,
+                 lr=0.000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=False, 
                  batch_size=64,
                  device="cuda:0",
-                 num_workers=16,
+                 num_workers=4,
                  epochs=500
                 )
+    
     # D.train()
+    
+    D.benchmark(average=False)
+    D.benchmark(average=True)
+    
+    return hashNum
+
+def train_decoder_pca():
+    hashNum = update_hash()
+    # hashNum = "640"
+    D = Decoder_PCA(hashNum = hashNum,
+                 lr=0.00001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
+                 log=True, 
+                 batch_size=64,
+                 device="cuda:0",
+                 num_workers=4,
+                 epochs=500
+                )
+    
+    D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -165,17 +189,22 @@ def reconstructNImages(experiment_title, idx):
     #              device="cuda"
     #              )
     
-    Dc_i = Decoder(hashNum = "625",
+    # Dc_i = Decoder_PCA(hashNum = "642",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    # Dc_t = Decoder_PCA(hashNum = "640",
+    #              vector="c_text_vd",
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    Dc_i = Decoder(hashNum = "634",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda"
                  )
-    # SS_Dc_i = SS_Decoder(hashNum = "541",
-    #              vector="c_img_0",
-    #              encoderHash="536",
-    #              log=False, 
-    #              device="cuda:0"
-    #              )
     
     Dc_t = Decoder(hashNum = "619",
                  vector="c_text_vd",
@@ -236,6 +265,102 @@ def reconstructNImages(experiment_title, idx):
         columns = 2
         images = [reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t, ground_truth]
         captions = ["Target C_2", "Output C_2", "Target C_i", "Output C_i", "Target C_t", "Output C_t", "Ground Truth"]
+        figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
+        
+        
+        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
+
+def reconstructNImagesST(experiment_title, idx):
+    # Dc_i = Decoder(hashNum = "634",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    # Dc_t = Decoder(hashNum = "619",
+    #              vector="c_text_vd",
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    Dc_i = Decoder_PCA(hashNum = "642",
+                 vector="c_img_vd", 
+                 log=False, 
+                 device="cuda"
+                 )
+    Dc_t = Decoder_PCA(hashNum = "640",
+                 vector="c_text_vd",
+                 log=False, 
+                 device="cuda"
+                 )
+    # AE = AutoEncoder(hashNum = "540",
+    #              lr=0.0000001,
+    #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
+    #              encoderHash="536",
+    #              log=False, 
+    #              batch_size=750,
+    #              device="cuda"
+    #             )
+    
+    # First URL: This is the original read-only NSD file path (The actual data)
+    # Second URL: Local files that we are adding to the dataset and need to access as part of the data
+    # Object for the NSDAccess package
+    nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
+    os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
+    # Load test data and targets
+    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
+    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+    # _, _, _, _, _, _, targets_z, _, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
+    print(x_param[1, 1].shape)
+    # Generating predicted and target vectors
+    # ae_x_test = AE.predict(x_test)
+    # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
+    outputs_c_i = Dc_i.predict(x=torch.mean(x_param, dim=1))
+    outputs_c_t = Dc_t.predict(x=torch.mean(x_param, dim=1))
+    print(outputs_c_i.shape, outputs_c_i[0].shape)
+    
+    # outputs_z = Dz.predict(x=x_param)
+    strength_c = 1
+    strength_z = 0
+    R = Reconstructor()
+    for i in tqdm(idx, desc="Generating reconstructions"):
+
+        TCc = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.4, strength=strength_c)
+        TCi = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.0, strength=strength_c)
+        TCt = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=1.0, strength=strength_c)
+        OCc = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.4, strength=strength_c)
+        OCi = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.0, strength=strength_c)
+        OCt = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=1.0, strength=strength_c)
+        OCcS, OCiS, OCtS = [], [], []
+        for j in range(len(x_param[i])):
+            outputs_c_i_j = Dc_i.predict(x=x_param[i, j])
+            outputs_c_t_j = Dc_t.predict(x=x_param[i, j])
+            OCcS.append(R.reconstruct(c_i=outputs_c_i_j, c_t=outputs_c_t_j, textstrength=0.4, strength=strength_c))
+            OCiS.append(R.reconstruct(c_i=outputs_c_i_j, c_t=outputs_c_t_j, textstrength=0.0, strength=strength_c))
+            OCtS.append(R.reconstruct(c_i=outputs_c_i_j, c_t=outputs_c_t_j, textstrength=1.0, strength=strength_c))
+            
+        
+        # returns a numpy array 
+        nsdId = param_trials[i]
+        ground_truth_np_array = nsda.read_images([nsdId], show=True)
+        ground_truth = Image.fromarray(ground_truth_np_array[0])
+        ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
+        empty = Image.new('RGB', (512, 512), color='white')
+        rows = 6
+        columns = 3
+        images = [ground_truth, empty, empty, TCc, TCi, TCt, OCc, OCi, OCt]
+        captions = ["Ground Truth", "", "", "Target C_c", "Target C_i", "Target C_t", "Output C_c", "Output C_i", "Output C_t"]
+        numTrials = len(OCcS)
+        for k in range(numTrials):
+            images.append(OCcS[k])
+            captions.append("Output C_c Trial " + str(k))
+            images.append(OCiS[k])
+            captions.append("Output C_i Trial " + str(k))
+            images.append(OCtS[k])
+            captions.append("Output C_t Trial " + str(k))
+        for p in range(3-numTrials):
+            images.append(empty)
+            captions.append("")
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         

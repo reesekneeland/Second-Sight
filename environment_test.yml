@@ -1,11 +1,11 @@
-name: SS_vd
+name: SS_np
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8
-  - pip=22.3.1
-  - pytorch==1.13.1
+  - python
+  - pip
+  - pytorch
   - torchvision
   - cudatoolkit=11.6
   - pip:
