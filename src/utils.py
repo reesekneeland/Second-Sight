@@ -50,6 +50,7 @@ def update_hash():
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
 def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False, pca=False):
+    
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
@@ -240,33 +241,47 @@ def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     
 
 
-def create_whole_region_unnormalized(whole=False):
+def create_whole_region_unnormalized(whole=False, subject = "subj1"):
+    
+    #  Subject #1
+    #   - NSD General = 11838
+    #   - Brain shape = (81, 104, 83)
+    #   - Flatten Brain Shape = 699192
+    # 
+    #  Subject #2
+    #   - NSD General = 10325
+    #   - Brain Shape = (82, 106, 84)
+    #   - Flatten Brain Shape = 730128
+    #
+
+    nsd_general = nib.load("masks/" + subject + "/brainmask_nsdgeneral_1.0.nii").get_fdata()
+    layer_size = np.sum(nsd_general == True)
+    print(nsd_general.shape)
+    
     
     if(whole):
         data = 41
-        file = "x/whole_region_11838_unnormalized_all.pt"
-        whole_region = torch.zeros((30000, 11838))
+        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized_all.pt"
+        whole_region = torch.zeros((30000, layer_size))
     else:
         data = 38
-        file = "x/whole_region_11838_unnormalized.pt"
-        whole_region = torch.zeros((27750, 11838))
-
-    nsd_general = nib.load("masks/brainmask_nsdgeneral_1.0.nii").get_fdata()
-    print(nsd_general.shape)
+        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized.pt"
+        whole_region = torch.zeros((27750, layer_size))
 
     nsd_general_mask = np.nan_to_num(nsd_general)
-    nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
+    nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
+    print(nsd_mask.shape)
         
     # Loads the full collection of beta sessions for subject 1
     for i in tqdm(range(1,data), desc="Loading Voxels"):
-        beta = nsda.read_betas(subject='subj01', 
+        beta = nsda.read_betas(subject='subj02', 
                             session_index=i, 
                             trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
                             data_type='betas_fithrf_GLMdenoise_RR',
                             data_format='func1pt8mm')
 
         # Reshape the beta trails to be flattened. 
-        beta = beta.reshape((699192, 750))
+        beta = beta.reshape((nsd_mask.shape[0], 750))
 
         for j in range(750):
 
@@ -279,15 +294,21 @@ def create_whole_region_unnormalized(whole=False):
             whole_region[j + (i-1)*750] = single_scan[nsd_mask]
             
     # Save the tensor
+    print(whole_region.shape)
     torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized(whole=False):
+def create_whole_region_normalized(whole = False, subject = "subj1"):
+    
+    subjects = {"subj1": 11838,
+                "subj2": 10325}
     
     if(whole):
-        #whole_region_norm = torch.zeros((27750, 11838))
-        whole_region_norm_z = torch.zeros((30000, 11838))
-        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized_all.pt")
+
+        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized_all.pt")
+        
+        #whole_region_norm = torch.zeros((30000, subjects[subject]))
+        whole_region_norm_z = torch.zeros((30000, subjects[subject]))
                 
         # Normalize the data using Z scoring method for each voxel
         for i in range(whole_region.shape[1]):
@@ -300,13 +321,15 @@ def create_whole_region_normalized(whole=False):
         # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838_all.pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_all.pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
     
     else:
-        #whole_region_norm = torch.zeros((27750, 11838))
-        whole_region_norm_z = torch.zeros((27750, 11838))
-        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+
+        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized.pt")
+        
+        #whole_region_norm = torch.zeros((27750, subjects[subject]))
+        whole_region_norm_z = torch.zeros((27750, subjects[subject]))
                 
         # Normalize the data using Z scoring method for each voxel
         for i in range(whole_region.shape[1]):
@@ -319,11 +342,20 @@ def create_whole_region_normalized(whole=False):
         # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + ".pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
     
     
-def process_data(vector="c_combined", image=False):
+def process_data(vector="c_combined", image=False, subject = "subj1"):
+    
+    subjects = {"subj1": "subject1",
+                "subj2": "subject2",
+                "subj3": "subject3",
+                "subj4": "subject4",
+                "subj5": "subject5",
+                "subj6": "subject6",
+                "subj7": "subject7",
+                "subj8": "subject8"}
     
     if(vector == "z" or vector == "z_img_mixer"):
         vec_target = torch.zeros((27750, 16384))
@@ -346,7 +378,7 @@ def process_data(vector="c_combined", image=False):
 
     # Loading the description object for subejct1
     
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subjects[subject]] != 0]
     images = []
     for i in tqdm(range(0,27750), desc="vector loader"):
         
@@ -355,7 +387,7 @@ def process_data(vector="c_combined", image=False):
         # TODO: index the column of this table that is apart of the 1000 test set. 
         # Do a check here. Do this in get_data
         # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
-        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
+        index = int(subjx.loc[(subjx[subjects[subject] + "_rep0"] == i+1) | (subjx[subjects[subject] + "_rep1"] == i+1) | (subjx[subjects[subject] + "_rep2"] == i+1)].nsdId)
         if(image):
             ground_truth_image_np_array = nsda.read_images([index], show=False)
             ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
@@ -365,8 +397,8 @@ def process_data(vector="c_combined", image=False):
     if(image):
         return images
     else:
-        os.makedirs(prep_path + vector + "/", exist_ok=True)
-        torch.save(vec_target, prep_path + vector + "/vector.pt")
+        os.makedirs(prep_path + subjects + "/" + vector + "/", exist_ok=True)
+        torch.save(vec_target, prep_path + subjects + "/" + vector + "/vector.pt")
     
 def process_data_full(vector):
     

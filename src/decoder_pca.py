@@ -231,5 +231,3 @@ class Decoder_PCA():
         print("Vector Correlation: ", float(pearson))
         print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
-        plt.hist(r, bins=40, log=True)
-        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")

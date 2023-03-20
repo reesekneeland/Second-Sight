@@ -93,11 +93,11 @@ def train_autoencoder():
 
 
 def train_encoder():
-    #hashNum = update_hash()
-    hashNum = "658"
+    hashNum = update_hash()
+    #hashNum = "658"
     E = Encoder(hashNum = hashNum,
                  lr=0.00001,
-                 vector="c_img_vd", #c_img_vd, c_text_vd
+                 vector="c_text_vd", #c_img_vd, c_text_vd
                  log=True, 
                  batch_size=750,
                  device="cuda:0",
