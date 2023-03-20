@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -37,6 +37,8 @@ def main():
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
     # reconstructNImagesST(experiment_title="VD decoder unfucked", idx=[i for i in range(21)])
+    
+    # reconstructNImages(experiment_title="VD PCA decoder multi layer", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -48,12 +50,10 @@ def mask_voxels():
     M = Masker(encoderHash="521",
                  vector="c_img_0",
                  device="cuda:1")
-    # thresholds = list(torch.arange(0.01, 1.0, 0.015))
-    # for t in tqdm(thresholds, desc="thresholds"): 
-    #     print(t)
-    #     x = torch.tensor(0.013)
-    #     print(x)
-    #     M.get_percentile_coco(x)
+    thresholds = list(torch.arange(0.01, 1.0, 0.1))
+    for t in tqdm(thresholds, desc="thresholds"): 
+        x = thresholds[t]
+        M.get_percentile_coco(x)
     # M.make_histogram()
     M.create_mask(threshold=-1)
     
@@ -161,19 +161,20 @@ def train_decoder():
     return hashNum
 
 def train_decoder_pca():
-    hashNum = update_hash()
-    # hashNum = "640"
+    # hashNum = update_hash()
+    hashNum = "651"
     D = Decoder_PCA(hashNum = hashNum,
-                 lr=0.00001,
+                 lr=0.0000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
                  device="cuda:0",
                  num_workers=4,
+                 numLayers=4,
                  epochs=500
                 )
     
-    D.train()
+    # D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -183,78 +184,48 @@ def train_decoder_pca():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    # Dz = Decoder(hashNum = "531",
-    #              vector="z_img_mixer",
-    #              log=False, 
-    #              device="cuda"
-    #              )
     
-    # Dc_i = Decoder_PCA(hashNum = "642",
-    #              vector="c_img_vd", 
-    #              log=False, 
-    #              device="cuda"
-    #              )
-    # Dc_t = Decoder_PCA(hashNum = "640",
-    #              vector="c_text_vd",
-    #              log=False, 
-    #              device="cuda"
-    #              )
-    
-    Dc_i = Decoder(hashNum = "634",
+    Dc_i = Decoder_PCA(hashNum = "642",
                  vector="c_img_vd", 
                  log=False, 
-                 device="cuda"
+                 device="cuda",
+                 numLayers=3
                  )
-    
-    Dc_t = Decoder(hashNum = "619",
+    Dc_t = Decoder_PCA(hashNum = "640",
                  vector="c_text_vd",
                  log=False, 
-                 device="cuda"
+                 device="cuda",
+                 numLayers=2
                  )
-    # AE = AutoEncoder(hashNum = "540",
-    #              lr=0.0000001,
-    #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-    #              encoderHash="536",
-    #              log=False, 
-    #              batch_size=750,
-    #              device="cuda"
-    #             )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
     os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
-    # Load test data and targets
+    
     _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
     _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    # _, _, _, _, _, _, targets_z, _, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True)
     
-    # Generating predicted and target vectors
-    # ae_x_test = AE.predict(x_test)
-    # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
     
     outputs_c_i = Dc_i.predict(x=x_param[idx])
     outputs_c_t = Dc_t.predict(x=x_param[idx])
-    print(outputs_c_i.shape, outputs_c_i[0].shape)
-    # outputs_z = Dz.predict(x=x_param)
-    strength_c = 1
-    strength_z = 0
+    
     R = Reconstructor()
+    
     for i in tqdm(idx, desc="Generating reconstructions"):
         
-        
         # Make the c reconstrution images. 
-        reconstructed_output_c_i = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.0, strength=strength_c)
-        reconstructed_target_c_i = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.0, strength=strength_c)
+        reconstructed_output_c_i = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.0, strength=1)
+        reconstructed_target_c_i = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.0, strength=1)
         
         # # Make the z reconstrution images. 
-        reconstructed_output_c_t = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=1.0, strength=strength_c)
-        reconstructed_target_c_t = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=1.0, strength=strength_c)
+        reconstructed_output_c_t = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=1.0, strength=1)
+        reconstructed_target_c_t = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=1.0, strength=1)
         
         # # Make the z and c reconstrution images. 
-        reconstructed_output_c = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.5, strength=strength_c)
-        reconstructed_target_c = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.5, strength=strength_c)
+        reconstructed_output_c = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.5, strength=1)
+        reconstructed_target_c = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.5, strength=1)
         
         # returns a numpy array 
         nsdId = param_trials[i]
@@ -267,21 +238,9 @@ def reconstructNImages(experiment_title, idx):
         captions = ["Target C_2", "Output C_2", "Target C_i", "Output C_i", "Target C_t", "Output C_t", "Ground Truth"]
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
-        
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
 
 def reconstructNImagesST(experiment_title, idx):
-    # Dc_i = Decoder(hashNum = "634",
-    #              vector="c_img_vd", 
-    #              log=False, 
-    #              device="cuda"
-    #              )
-    
-    # Dc_t = Decoder(hashNum = "619",
-    #              vector="c_text_vd",
-    #              log=False, 
-    #              device="cuda"
-    #              )
     
     Dc_i = Decoder_PCA(hashNum = "642",
                  vector="c_img_vd", 
@@ -293,14 +252,6 @@ def reconstructNImagesST(experiment_title, idx):
                  log=False, 
                  device="cuda"
                  )
-    # AE = AutoEncoder(hashNum = "540",
-    #              lr=0.0000001,
-    #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-    #              encoderHash="536",
-    #              log=False, 
-    #              batch_size=750,
-    #              device="cuda"
-    #             )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
