@@ -138,13 +138,13 @@ class Masker():
             average_percentile += percentile
             # tqdm.write(str(percentile))
         final_percentile = average_percentile/masked_threshold_x.shape[0]
-        file = open(self.mask_path + "results_coco_inc.txt", 'a+')
+        file = open(self.mask_path + "results_coco.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile) + "\n")
         file.close()
         
     def make_histogram(self):
         x, y = [], []
-        file = open(self.mask_path + "results_coco_inc.txt", 'r')
+        file = open(self.mask_path + "results_coco.txt", 'r')
         for i, line in enumerate(file.readlines()):
             vals = line.split(": ")
             x.append(float(vals[0]))

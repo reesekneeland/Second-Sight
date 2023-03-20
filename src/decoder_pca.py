@@ -11,27 +11,39 @@ import pickle as pk
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
-    def __init__(self, vector):
-        super(MLP, self).__init__()
-        self.vector=vector
-        if(vector == "c_img_vd"):
+    def __init__(self, vector, numLayers):
+        super(MLP, self,).__init__()
+        # assert(vector == "c_img_vd" or vector=="c_text_vd")
+        self.vector = vector
+        if(self.vector == "c_img_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.linear2 = nn.Linear(15000, 15000)
             self.linear3 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 10000)
-            # self.linear = nn.Linear(11838, 45000)
-            # self.outlayer = nn.Linear(45000, 10000)
-        elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 25000)
-            self.outlayer = nn.Linear(25000, 10000)
+        if(self.vector == "c_text_vd"):
+            self.linear = nn.Linear(11838, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+        self.outlayer = nn.Linear(15000, 10000)
+        # layers = [nn.Linear(11838, 15000),
+        #           nn.ReLU()]
+        # for i in range(numLayers-1):
+        #     layers.append(nn.Linear(15000, 15000))
+        #     layers.append(nn.ReLU())
+        # layers.append(nn.Linear(15000, 10000))
+        
+        # self.layers = nn.Sequential(*layers)
         self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
+        # y_pred = self.layers(x)
+        if(self.vector == "c_img_vd"):
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.relu(self.linear3(y_pred))
+            y_pred = self.outlayer(y_pred)
+        if(self.vector=="c_text_vd"):
+            y_pred = self.relu(self.linear(x))
+            y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -43,6 +55,7 @@ class Decoder_PCA():
                  vector, 
                  log, 
                  lr=0.00001,
+                 numLayers=4,
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
@@ -61,7 +74,7 @@ class Decoder_PCA():
         self.pca = pk.load(open("masks/pca_" +self.vector + "_10k.pkl",'rb'))
 
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector)
+        self.model = MLP(self.vector, numLayers)
 
         # Send model to Pytorch Device 
         self.model.to(self.device)
@@ -78,7 +91,6 @@ class Decoder_PCA():
                 config={
                 "hash": self.hashNum,
                 "architecture": "MLP",
-                # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
                 "dataset": "Z scored",
                 "epochs": self.num_epochs,
@@ -87,8 +99,6 @@ class Decoder_PCA():
                 "num_workers": self.num_workers
                 }
             )
-        # print("INIT ")
-        # print_gpu_utilization()
     
 
     def train(self):
@@ -184,72 +194,42 @@ class Decoder_PCA():
         return out.to(torch.float32)
     
     def benchmark(self, average=True):
-        _, _, _, _, _, _, _, target, _, _ = load_nsd(vector=self.vector, 
+        _, _, _, _, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=False,
                                                 average=average,
                                                 pca=False)
-        _, _, _, x_test, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
+        _, _, _, x_test_pca, _, _, _, y_test_pca, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=False,
                                                 average=average,
                                                 pca=True)
-        outSize = len(x_test)
-        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
-            vecSize = 768
-        elif(self.vector == "z" or self.vector == "z_img_mixer"):
-            vecSize = 16384
-        elif(self.vector == "c_img_vd"):
-            vecSize = 10000
-        elif(self.vector == "c_text_vd"):
-            vecSize = 10000
-        out = torch.zeros((outSize, vecSize))
-        # target = torch.zeros((outSize, vecSize))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
 
-        loss = 0
-        pearson_loss = 0
-        
         criterion = nn.MSELoss()
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
+        x_test_pca = x_test_pca.to(self.device, torch.float64)
+        y_test_pca = y_test_pca.to(self.device)
+        y_test = y_test.to(self.device)
         
-            # x_test = nn.functional.pad(input=x_test, pad=(0, 2, 0, 0), mode='constant', value=0)
-        x_test = x_test.to(self.device, torch.float64)
-            # Generating predictions based on the current model
-                # print(torch.sum(torch.isnan(y_test)))
-        pred_y = self.model(x_test).cpu()
-            # print(torch.sum(torch.isnan(pred_y)))
+        pred_y_pca = self.model(x_test_pca)
         
-        out = pred_y
-        loss += criterion(pred_y.to(self.device), y_test.to(self.device))
-                # print(pred_y, y_test)
+        loss_pca = criterion(pred_y_pca, y_test_pca.to(self.device))
+              
+        pearson_pca =torch.mean(PeC(pred_y_pca.moveaxis(0,1), y_test_pca.moveaxis(0,1)))
         
-        PeC = PearsonCorrCoef(num_outputs=out.shape[0])
-        pearson_loss =torch.mean(PeC(out.moveaxis(0,1), y_test.moveaxis(0,1)))
-        out = torch.from_numpy(self.pca.inverse_transform(out.detach().numpy()))
-        pearson_loss_T = torch.mean(PeC(out.moveaxis(0,1), target.moveaxis(0,1)))
-            #print(pearson_corrcoef(out[index], target[index]))
-            
-        # print(y_test.shape[0], target.shape[0])
-        # print(y_test == target)
-        loss = loss / len(target)
+        pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.detach().numpy())).to(torch.float32)
         
-        out = out.detach()
-        target = target.detach()
-        PeC = PearsonCorrCoef()
-        r = []
-        for p in range(out.shape[1]):
-            
-            # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(out[:,p], target[:,p]))
-        r = np.array(r)
+        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        loss = criterion(pred_y, y_test)
         
-        print("Vector Correlation_PCA: ", float(pearson_loss))
-        print("Vector Correlation: ", float(pearson_loss_T))
-        print("Mean Pearson: ", np.mean(r))
+        print("Vector Correlation_PCA: ", float(pearson_pca))
+        print("Vector Correlation: ", float(pearson))
+        print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
         plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")
