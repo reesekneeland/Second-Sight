@@ -151,7 +151,7 @@ class StochasticSearch():
         _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
         _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
         
-        Dc_i = Decoder(hashNum = "594",
+        Dc_i = Decoder(hashNum = "694",
                  vector="c_img_0", 
                  log=False, 
                  device=self.device
