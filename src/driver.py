@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -27,7 +27,7 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    train_decoder()
+    # train_decoder()
     
     # train_decoder_pca()
     
@@ -41,7 +41,7 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    # reconstructNImages(experiment_title="VD 696 697", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="VD 700 697", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -158,8 +158,8 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    # hashNum = update_hash()
-    hashNum = "699"
+    hashNum = update_hash()
+    # hashNum = "699"
     D = Decoder(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
@@ -178,8 +178,8 @@ def train_decoder():
     return hashNum
 
 def train_decoder_pca():
-    # hashNum = update_hash()
-    hashNum = "696"
+    hashNum = update_hash()
+    # hashNum = "696"
     D = Decoder_PCA(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
@@ -226,7 +226,7 @@ def reconstructNImages(experiment_title, idx):
     #              log=False, 
     #              device="cuda",
     #              )
-    Dc_i = Decoder_PCA(hashNum = "696",
+    Dc_i = Decoder_PCA(hashNum = "700",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",

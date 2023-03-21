@@ -22,7 +22,7 @@ class MLP(torch.nn.Module):
             self.linear3 = nn.Linear(20000, 20000)
             self.linear4 = nn.Linear(20000, 20000)
             self.linear5 = nn.Linear(20000, 20000)
-            self.outlayer = nn.Linear(20000, 13875)
+            self.outlayer = nn.Linear(20000, 15000)
         if(self.vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 20000)
             self.linear2 = nn.Linear(20000, 20000)
@@ -82,10 +82,7 @@ class Decoder_PCA():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        if(self.vector == "c_img_vd"):
-            self.pca = pk.load(open("masks/pca_" + vector + "_13k.pkl",'rb'))
-        else:
-            self.pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
+        self.pca = None
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
@@ -200,6 +197,10 @@ class Decoder_PCA():
         
 
     def predict(self, x):
+        if(self.vector == "c_img_vd"):
+            self.pca = pk.load(open("masks/pca_" + self.vector + "_15k.pkl",'rb'))
+        else:
+            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
@@ -220,6 +221,10 @@ class Decoder_PCA():
                                                 loader=False,
                                                 average=average,
                                                 pca=True)
+        if(self.vector == "c_img_vd"):
+            self.pca = pk.load(open("masks/pca_" + self.vector + "_15k.pkl",'rb'))
+        else:
+            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
