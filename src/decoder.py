@@ -30,12 +30,12 @@ class MLP(torch.nn.Module):
             self.linear = nn.Linear(11838, 15000)
             self.outlayer = nn.Linear(15000, 59136)
         self.relu = nn.ReLU()
-        self.half()
+        # self.half()
     def forward(self, x):
         if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
-            y_pred = self.relu(self.linear(x.half()))
+            y_pred = self.linear(x)
             # y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred).to(torch.float32)
+            y_pred = self.outlayer(y_pred)#.to(torch.float32)
         return y_pred
 
     
@@ -221,7 +221,7 @@ class Decoder():
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(torch.float64).to(self.device)).to(torch.float16)
+        out = self.model(x.to(self.device))#.to(torch.float16)
         return out
     
     def benchmark(self, average=True):

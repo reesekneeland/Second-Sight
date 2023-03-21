@@ -27,7 +27,7 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    # train_decoder()
+    train_decoder()
     
     # train_decoder_pca()
     
@@ -41,7 +41,7 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    reconstructNImages(experiment_title="VD 700 697", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="VD 701 697", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -158,8 +158,8 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    hashNum = update_hash()
-    # hashNum = "699"
+    # hashNum = update_hash()
+    hashNum = "702"
     D = Decoder(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
@@ -221,16 +221,16 @@ def reconstructNImages(experiment_title, idx):
     
     _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
     _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    # Dc_i = Decoder(hashNum = "671",
-    #              vector="c_img_vd", 
-    #              log=False, 
-    #              device="cuda",
-    #              )
-    Dc_i = Decoder_PCA(hashNum = "700",
+    Dc_i = Decoder(hashNum = "701",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
                  )
+    # Dc_i = Decoder_PCA(hashNum = "700",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda",
+    #              )
     outputs_c_i = Dc_i.predict(x=x_param[idx])
     del Dc_i
     Dc_t = Decoder_PCA(hashNum = "697",
