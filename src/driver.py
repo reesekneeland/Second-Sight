@@ -33,11 +33,11 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImages(experiment_title="New MLP Params 2", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="MLP 694 695", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
-    train_autoencoder()
+    # train_autoencoder()
 
     # train_ss_decoder()
 
@@ -139,9 +139,9 @@ def train_ss_decoder():
 
 def train_decoder():
     hashNum = update_hash()
-    # hashNum = "597"
+    # hashNum = "689"
     D = Decoder(hashNum = hashNum,
-                 lr=0.0000005,
+                 lr=0.000001,
                  vector="c_text_0", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
@@ -159,37 +159,17 @@ def train_decoder():
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
-    Dz = Decoder(hashNum = "531",
-                 vector="z_img_mixer",
-                 log=False, 
-                 device="cuda"
-                 )
-    
-    Dc_i = Decoder(hashNum = "604",
+    Dc_i = Decoder(hashNum = "694",
                  vector="c_img_0", 
                  log=False, 
                  device="cuda"
                  )
-    SS_Dc_i = SS_Decoder(hashNum = "541",
-                 vector="c_img_0",
-                 encoderHash="536",
-                 log=False, 
-                 device="cuda:0"
-                 )
     
-    Dc_t = Decoder(hashNum = "606",
+    Dc_t = Decoder(hashNum = "695",
                  vector="c_text_0",
                  log=False, 
                  device="cuda"
                  )
-    AE = AutoEncoder(hashNum = "540",
-                 lr=0.0000001,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="536",
-                 log=False, 
-                 batch_size=750,
-                 device="cuda"
-                )
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -207,7 +187,6 @@ def reconstructNImages(experiment_title, idx):
     
     outputs_c_i = Dc_i.predict(x=x_param)
     outputs_c_t = Dc_t.predict(x=x_param)
-    outputs_z = Dz.predict(x=x_param)
     strength_c = 1
     strength_z = 0
     R = Reconstructor()
@@ -215,29 +194,36 @@ def reconstructNImages(experiment_title, idx):
         
         c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
         c_combined_target = format_clip(torch.stack([targets_c_i[i], targets_c_t[i]]))
-        # c_combined = format_clip(outputs_c_i[i])
-        # c_combined_target = format_clip(targets_c_i[i])
+        c_i = format_clip(outputs_c_i[i])
+        c_i_t = format_clip(targets_c_i[i])
+        c_t = format_clip(outputs_c_t[i])
+        c_t_t = format_clip(targets_c_t[i])
         
         # Make the c reconstrution images. 
         reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
         
-        # # Make the z reconstrution images. 
-        reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
-        reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
+        reconstructed_output_c_i = R.reconstruct(c=c_i, strength=strength_c)
+        reconstructed_target_c_i = R.reconstruct(c=c_i_t, strength=strength_c)
         
-        # # Make the z and c reconstrution images. 
-        z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=c_combined, strength=0.85)
+        reconstructed_output_c_t = R.reconstruct(c=c_t, strength=strength_c)
+        reconstructed_target_c_t = R.reconstruct(c=c_t_t, strength=strength_c)
+        
+        # # Make the z reconstrution images. 
+        # reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
+        # reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
+        
         
         # returns a numpy array 
         nsdId = param_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        rows = 3
+        empty = Image.new('RGB', (512, 512), color='white')
+        rows = 4
         columns = 2
-        images = [ground_truth, z_c_reconstruction, reconstructed_target_c, reconstructed_output_c, reconstructed_target_z, reconstructed_output_z]
-        captions = ["Ground Truth", "Z and C Reconstructed", "Reconstructed Target C", "Reconstructed Output C", "Reconstructed Target Z", "Reconstructed Output Z"]
+        images = [ground_truth, empty, reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t]
+        captions = ["Ground Truth", "", "Target C_c", "Output C_c", "Target C_i", "Output C_i", "Target C_t", "Output C_t"]
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         

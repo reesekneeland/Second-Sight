@@ -3,6 +3,7 @@ src/__pycache__
 *.pt
 *.png
 *.npy
+*.pkl
 hash
 /wandb
 /reconstructions
