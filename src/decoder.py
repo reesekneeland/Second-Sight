@@ -23,8 +23,9 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 8000)
-            self.outlayer = nn.Linear(8000, 197376)
+            self.linear = nn.Linear(11838, 10800)
+            # self.linear2 = nn.Linear(15000, 10000)
+            self.outlayer = nn.Linear(10800, 197376)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(11838, 15000)
             self.outlayer = nn.Linear(15000, 59136)
@@ -33,6 +34,7 @@ class MLP(torch.nn.Module):
     def forward(self, x):
         if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -104,8 +106,8 @@ class Decoder():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        optimizer = Adam(self.model.parameters(), lr = self.lr)
-        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
+        # optimizer = Adam(self.model.parameters(), lr = self.lr)
+        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
         # print_gpu_utilization()
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
@@ -219,74 +221,30 @@ class Decoder():
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device)) #.to(torch.float16)
+        out = self.model(x.to(torch.float64).to(self.device)).to(torch.float16)
         return out
     
     def benchmark(self, average=True):
-        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
+        _, _, _, x_test, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
-                                                loader=True,
-                                                average=average)
-        outSize = len(self.testLoader.dataset)
-        if(self.vector=="c_img_0" or self.vector=="c_text_0"):
-            vecSize = 768
-        elif(self.vector == "z" or self.vector == "z_img_mixer"):
-            vecSize = 16384
-        elif(self.vector == "c_img_vd"):
-            vecSize = 197376
-        elif(self.vector == "c_text_vd"):
-            vecSize = 59136
-        out = torch.zeros((outSize, vecSize))
-        target = torch.zeros((outSize, vecSize))
+                                                loader=False,
+                                                average=average,
+                                                pca=False)
+        # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
 
-        loss = 0
-        pearson_loss = 0
-        
         criterion = nn.MSELoss()
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        for index, data in enumerate(self.testLoader):
-            
-            x_test, y_test = data
-            # x_test = nn.functional.pad(input=x_test, pad=(0, 2, 0, 0), mode='constant', value=0)
-            PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
-            y_test = y_test.to(self.device)
-            x_test = x_test.to(self.device)
-            # Generating predictions based on the current model
-            with torch.amp.autocast(device_type="cuda", enabled=self.use_amp):
-                # print(torch.sum(torch.isnan(y_test)))
-                pred_y = self.model(x_test).to(self.device)
-                # print(torch.sum(torch.isnan(pred_y)))
-            
-                out[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = pred_y
-                target[index*self.batch_size:index*self.batch_size+pred_y.shape[0]] = y_test
-                loss += criterion(pred_y, y_test)
-                # print(pred_y, y_test)
-                pred_y = pred_y.moveaxis(0,1)
-                y_test = y_test.moveaxis(0,1)
-                pearson_loss += torch.mean(PeC(pred_y, y_test))
-            #print(pearson_corrcoef(out[index], target[index]))
-            
-            
-        loss = loss / len(self.testLoader)
+        x_test = x_test.to(self.device)
+        y_test = y_test.to(self.device)
         
-        # Vector correlation for that trial row wise
-        pearson_loss = pearson_loss / len(self.testLoader)
+        pred_y = self.model(x_test)
         
-        out = out.detach()
-        target = target.detach()
-        PeC = PearsonCorrCoef()
-        r = []
-        for p in range(out.shape[0]):
-            
-            # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(out[p], target[p]))
-        r = np.array(r)
+        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        loss = criterion(pred_y, y_test)
         
-        print("Vector Correlation: ", float(pearson_loss))
-        print("Mean Pearson: ", np.mean(r))
+        print("Vector Correlation: ", float(pearson))
         print("Loss: ", float(loss))
-        plt.hist(r, bins=40, log=True)
-        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_decoder.png")

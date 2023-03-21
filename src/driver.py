@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -28,17 +28,17 @@ def main():
     
     # train_decoder()
     
-    #train_decoder_pca()
+    # train_decoder_pca()
 
-    train_encoder()
+    # train_encoder()
     
     # mask_voxels()
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    # reconstructNImagesST(experiment_title="VD decoder unfucked", idx=[i for i in range(21)])
+    # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    # reconstructNImages(experiment_title="VD PCA decoder multi layer", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="VD 676 c_img 687 c_text", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -47,16 +47,16 @@ def main():
     # train_ss_decoder()
 
 def mask_voxels():
-    M = Masker(encoderHash="521",
-                 vector="c_img_0",
-                 device="cuda:1")
+    M = Masker(encoderHash="658",
+                 vector="c_img_vd",
+                 device="cuda:0")
 
-    thresholds = list(torch.arange(0.01, 1.0, 0.1))
+    thresholds = list(torch.arange(0.10, 1.0, 0.01))
     for t in tqdm(thresholds, desc="thresholds"): 
-        x = thresholds[t]
+        x = float(t)
         M.get_percentile_coco(x)
-    # M.make_histogram()
-    M.create_mask(threshold=-1)
+    M.make_histogram()
+    # M.create_mask(threshold=-1)
     
 def train_autoencoder():
     
@@ -93,22 +93,34 @@ def train_autoencoder():
 
 
 def train_encoder():
-    hashNum = update_hash()
-    #hashNum = "658"
+    # hashNum = update_hash()
+    hashNum = "658"
     E = Encoder(hashNum = hashNum,
                  lr=0.00001,
-                 vector="c_text_vd", #c_img_vd, c_text_vd
-                 log=True, 
+                 vector="c_img_vd", #c_img_vd, c_text_vd
+                 log=False, 
                  batch_size=750,
                  device="cuda:0",
                  num_workers=16,
                  epochs=300
                 )
-    E.train()
-    #modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    # E.train()
+    modelId = E.hashNum + "_model_" + E.vector + ".pt"
     
-    E.benchmark(average=False)
-    E.benchmark(average=True)
+    # E.benchmark(average=False)
+    # E.benchmark(average=True)
+    
+    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId, exist_ok=True)
+    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/c_img_vd/vector_73k.pt")
+    print(coco_full.shape)
+    pca = pk.load(open("masks/pca_" + E.vector + "_10k.pkl",'rb'))
+    inputs = torch.from_numpy(pca.transform(coco_full.numpy()))
+    outputs = E.predict(inputs)
+    print(outputs.shape)
+    # outputs = torch.zeros((73000,10000))
+    # for i in range(1000):
+    #     outputs[1000*i:i*1000 + 1000] = E.predict(coco_full[1000*i:i*1000 + 1000])
+    torch.save(outputs, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId + "/coco_brain_preds.pt")
     
     # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
     # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
@@ -144,18 +156,18 @@ def train_ss_decoder():
 
 def train_decoder():
     # hashNum = update_hash()
-    hashNum = "625"
+    hashNum = "682"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000001,
+                 lr=0.001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
-                 log=False, 
+                 log=True, 
                  batch_size=64,
                  device="cuda:0",
                  num_workers=4,
                  epochs=500
                 )
     
-    # D.train()
+    D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -164,10 +176,10 @@ def train_decoder():
 
 def train_decoder_pca():
     # hashNum = update_hash()
-    hashNum = "651"
+    hashNum = "687"
     D = Decoder_PCA(hashNum = hashNum,
-                 lr=0.0000001,
-                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.0001,
+                 vector="c_text_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
                  device="cuda:0",
@@ -176,7 +188,7 @@ def train_decoder_pca():
                  epochs=500
                 )
     
-    # D.train()
+    D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -187,18 +199,27 @@ def train_decoder_pca():
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
     
-    Dc_i = Decoder_PCA(hashNum = "642",
+    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
+    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+    # Dc_i = Decoder(hashNum = "671",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda",
+    #              )
+    Dc_i = Decoder_PCA(hashNum = "676",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
-                 numLayers=3
                  )
-    Dc_t = Decoder_PCA(hashNum = "640",
+    outputs_c_i = Dc_i.predict(x=x_param[idx])
+    del Dc_i
+    Dc_t = Decoder_PCA(hashNum = "687",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda",
-                 numLayers=2
                  )
+    outputs_c_t = Dc_t.predict(x=x_param[idx])
+    del Dc_t
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -206,12 +227,9 @@ def reconstructNImages(experiment_title, idx):
     nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
     os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
     
-    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
-    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
     
-    
-    outputs_c_i = Dc_i.predict(x=x_param[idx])
-    outputs_c_t = Dc_t.predict(x=x_param[idx])
+    # outputs_c_i = Dc_i.predict(x=x_param[idx])
+    # outputs_c_t = Dc_t.predict(x=x_param[idx])
     
     R = Reconstructor()
     
@@ -243,6 +261,17 @@ def reconstructNImages(experiment_title, idx):
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
 
 def reconstructNImagesST(experiment_title, idx):
+    # Dc_i = Decoder(hashNum = "634",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda"
+    #              )
+    
+    # Dc_t = Decoder(hashNum = "619",
+    #              vector="c_text_vd",
+    #              log=False, 
+    #              device="cuda"
+    #              )
     
     Dc_i = Decoder_PCA(hashNum = "642",
                  vector="c_img_vd", 
@@ -270,7 +299,8 @@ def reconstructNImagesST(experiment_title, idx):
     # outputs_c_i = SS_Dc_i.predict(x=ae_x_test)
     outputs_c_i = Dc_i.predict(x=torch.mean(x_param, dim=1))
     outputs_c_t = Dc_t.predict(x=torch.mean(x_param, dim=1))
-    print(outputs_c_i.shape, outputs_c_i[0].shape)
+    print(outputs_c_i.shape)
+    print(outputs_c_t.shape)
     
     # outputs_z = Dz.predict(x=x_param)
     strength_c = 1
@@ -301,8 +331,8 @@ def reconstructNImagesST(experiment_title, idx):
         empty = Image.new('RGB', (512, 512), color='white')
         rows = 6
         columns = 3
-        images = [ground_truth, empty, empty, TCc, TCi, TCt, OCc, OCi, OCt]
-        captions = ["Ground Truth", "", "", "Target C_c", "Target C_i", "Target C_t", "Output C_c", "Output C_i", "Output C_t"]
+        images = [ground_truth, equalize_color(ground_truth), equalize_color(OCc), TCc, TCi, TCt, OCc, OCi, OCt]
+        captions = ["Ground Truth", "Ground Truth EQ", "Output C_c EQ", "Target C_c", "Target C_i", "Target C_t", "Output C_c", "Output C_i", "Output C_t"]
         numTrials = len(OCcS)
         for k in range(numTrials):
             images.append(OCcS[k])
