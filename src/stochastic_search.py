@@ -20,28 +20,28 @@ from random import randrange
 
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
-    # S0 = StochasticSearch(device="cuda:0",
-    #                       log=True,
-    #                       n_iter=10,
-    #                       n_samples=100,
-    #                       n_branches=4)
-    S1 = StochasticSearch(device="cuda:0",
-                          log=False,
+    S0 = StochasticSearch(device="cuda:0",
+                          log=True,
                           n_iter=10,
-                          n_samples=250,
-                          n_branches=5)
+                          n_samples=100,
+                          n_branches=4)
+    # S1 = StochasticSearch(device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=250,
+    #                       n_branches=5)
     # S2 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="SCS 10:100:4 HS V1234567 Indv. AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
+    S0.generateTestSamples(experiment_title="SCS 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 20)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(0, 20)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
-    S1.generateTestSamples(experiment_title="SCS 10:250:5 HS nsd_general AE", idx=[i for i in range(60, 786)], mask=[], ae=True)
+    # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS nsd_general AE", idx=[i for i in range(60, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
@@ -148,16 +148,16 @@ class StochasticSearch():
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
         # Load data and targets
-        _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
+        _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_0", loader=False, average=True)
         
-        Dc_i = Decoder(hashNum = "604",
+        Dc_i = Decoder(hashNum = "594",
                  vector="c_img_0", 
                  log=False, 
                  device=self.device
                  )
     
-        Dc_t = Decoder(hashNum = "606",
+        Dc_t = Decoder(hashNum = "695",
                     vector="c_text_0", 
                     log=False, 
                     device=self.device
@@ -182,8 +182,8 @@ class StochasticSearch():
         # x_param = x_param_rand
         
         # Generating predicted and target vectors
-        outputs_c_i = Dc_i.predict(x=x_test)
-        outputs_c_t = Dc_t.predict(x=x_test)
+        outputs_c_i = Dc_i.predict(x=x_param)
+        outputs_c_t = Dc_t.predict(x=x_param)
         
         # Best Case Images
         # gt_images = []
@@ -205,10 +205,10 @@ class StochasticSearch():
             # x_test = AE.predict(x_test)
             #individual AE then average
             _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
-            x_test_ae = torch.zeros((x_test.shape[0], 11838))
-            for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
-                x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
-            x_test= x_test_ae
+            x_param_ae = torch.zeros((x_param.shape[0], 11838))
+            for i in tqdm(range(x_param.shape[0]), desc="Autoencoding samples and averaging"):
+                x_param_ae[i] = torch.mean(AE.predict(x_param[i]),dim=0)
+            x_param= x_param_ae
         
         for i in idx:
             c_combined = format_clip(torch.stack([outputs_c_i[i], outputs_c_t[i]]))
@@ -231,14 +231,14 @@ class StochasticSearch():
                 )
             reconstructed_output_c = self.R.reconstruct(c=c_combined, strength=1.0)
             reconstructed_target_c = self.R.reconstruct(c=c_combined_target, strength=1.0)
-            scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_test[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
+            scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_combined, x_param[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             #log the data to a file
             np.save("logs/" + experiment_title + "/" + str(i) + "_score_list.npy", np.array(score_list))
             np.save("logs/" + experiment_title + "/" + str(i) + "_var_list.npy", np.array(var_list))
             
             # returns a numpy array 
-            nsdId = test_trials[i]
+            nsdId = param_trials[i]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
             ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
