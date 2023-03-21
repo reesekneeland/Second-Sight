@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -35,7 +35,7 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 20)], mask=[], ae=True)
+    S0.generateTestSamples(experiment_title="SCS 10:100:4 MS nsd_general AE", idx=[i for i in range(3, 20)], mask=[], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
@@ -99,7 +99,7 @@ class StochasticSearch():
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # if(loss_counter > 3):
             #     break
-            strength = 1.0-0.5*(cur_iter/max_iter)
+            strength = 1.0-0.7*(cur_iter/max_iter)
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n))
             
             samples = []
