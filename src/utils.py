@@ -54,6 +54,7 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
         region_name = "whole_region_11838_old_norm.pt"
     else:
         region_name = "whole_region_11838.pt"
+        
     if(ae):
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False).to("cpu")
         y = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False).to("cpu")
