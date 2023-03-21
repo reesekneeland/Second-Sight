@@ -53,7 +53,7 @@ testy = y[0:100]
 print(c.shape, testy.shape)
 start = time.time()
 # reducedY = y_pca[0:100]
-reducedY = pca.transform(testy)
+reducedY = torch.from_numpy(pca.transform(testy))
 print(reducedY.shape)
 mid = time.time()
 print(mid - start)
