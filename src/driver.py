@@ -15,7 +15,6 @@ import copy
 from tqdm import tqdm
 from decoder import Decoder
 from decoder_pca import Decoder_PCA
-from decoder_ae import Decoder_AE
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
@@ -27,11 +26,9 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    train_decoder()
+    # train_decoder()
     
     # train_decoder_pca()
-    
-    # train_decoder_ae()
 
     # train_encoder()
     
@@ -41,7 +38,7 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    # reconstructNImages(experiment_title="VD 701 697", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="VD 710 712", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -179,10 +176,10 @@ def train_decoder():
 
 def train_decoder_pca():
     hashNum = update_hash()
-    # hashNum = "696"
+    # hashNum = "711"
     D = Decoder_PCA(hashNum = hashNum,
-                 lr=0.000001,
-                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.0001,
+                 vector="c_text_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
                  device="cuda:0",
@@ -197,43 +194,25 @@ def train_decoder_pca():
     
     return hashNum
 
-def train_decoder_ae():
-    # hashNum = update_hash()
-    hashNum = "698"
-    D = Decoder_AE(hashNum = hashNum,
-                 lr=0.00000001,
-                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
-                 log=True, 
-                 batch_size=64,
-                 device="cuda:0",
-                 num_workers=4,
-                 epochs=500
-                )
-    
-    # D.train()
-    
-    D.benchmark(average=False)
-    
-    return hashNum
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
     
     _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
     _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    Dc_i = Decoder(hashNum = "701",
-                 vector="c_img_vd", 
-                 log=False, 
-                 device="cuda",
-                 )
-    # Dc_i = Decoder_PCA(hashNum = "700",
+    # Dc_i = Decoder(hashNum = "704",
     #              vector="c_img_vd", 
     #              log=False, 
     #              device="cuda",
     #              )
+    Dc_i = Decoder_PCA(hashNum = "710",
+                 vector="c_img_vd", 
+                 log=False, 
+                 device="cuda",
+                 )
     outputs_c_i = Dc_i.predict(x=x_param[idx])
     del Dc_i
-    Dc_t = Decoder_PCA(hashNum = "697",
+    Dc_t = Decoder_PCA(hashNum = "712",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda",

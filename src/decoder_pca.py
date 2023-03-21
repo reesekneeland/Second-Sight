@@ -8,7 +8,7 @@ from utils import *
 import wandb
 from tqdm import tqdm
 import pickle as pk
-# import bitsandbytes as bnb
+import bitsandbytes as bnb
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -17,19 +17,19 @@ class MLP(torch.nn.Module):
         # assert(vector == "c_img_vd" or vector=="c_text_vd")
         self.vector = vector
         if(self.vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 20000)
-            self.linear2 = nn.Linear(20000, 20000)
-            self.linear3 = nn.Linear(20000, 20000)
-            self.linear4 = nn.Linear(20000, 20000)
-            self.linear5 = nn.Linear(20000, 20000)
-            self.outlayer = nn.Linear(20000, 15000)
+            self.linear = nn.Linear(11838, 10000)
+            # self.linear2 = nn.Linear(25000, 25000)
+            # self.linear3 = nn.Linear(25000, 25000)
+            # self.linear4 = nn.Linear(20000, 20000)
+            # self.linear5 = nn.Linear(20000, 20000)
+            # self.outlayer = nn.Linear(100000, 10000)
         if(self.vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 20000)
-            self.linear2 = nn.Linear(20000, 20000)
-            self.linear3 = nn.Linear(20000, 20000)
-            self.linear4 = nn.Linear(20000, 20000)
-            self.linear5 = nn.Linear(20000, 20000)
-            self.outlayer = nn.Linear(20000, 10000)
+            self.linear = nn.Linear(11838, 10000)
+            # self.linear2 = nn.Linear(20000, 20000)
+            # self.linear3 = nn.Linear(20000, 20000)
+            # self.linear4 = nn.Linear(20000, 20000)
+            # self.linear5 = nn.Linear(20000, 20000)
+            # self.outlayer = nn.Linear(20000, 10000)
         # layers = [nn.Linear(11838, 15000),
         #           nn.ReLU()]
         # for i in range(numLayers-1):
@@ -44,19 +44,25 @@ class MLP(torch.nn.Module):
     def forward(self, x):
         # y_pred = self.layers(x)
         if(self.vector == "c_img_vd"):
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.relu(self.linear3(y_pred))
-            y_pred = self.relu(self.linear4(y_pred))
-            y_pred = self.relu(self.linear5(y_pred))
-            y_pred = self.outlayer(y_pred)
+            y_pred = self.linear(x)
+            # y_pred = self.linear2(y_pred)
+            # y_pred = self.linear3(y_pred)
+            # y_pred = self.linear4(y_pred)
+            # y_pred = self.linear5(y_pred)
+            # y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
+            # y_pred = self.relu(self.linear3(y_pred))
+            # y_pred = self.relu(self.linear4(y_pred))
+            # y_pred = self.relu(self.linear5(y_pred))
+            # y_pred = self.outlayer(y_pred)
         if(self.vector=="c_text_vd"):
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.relu(self.linear3(y_pred))
-            y_pred = self.relu(self.linear4(y_pred))
-            y_pred = self.relu(self.linear5(y_pred))
-            y_pred = self.outlayer(y_pred)
+            y_pred = self.linear(x)
+            # y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
+            # y_pred = self.relu(self.linear3(y_pred))
+            # y_pred = self.relu(self.linear4(y_pred))
+            # y_pred = self.relu(self.linear5(y_pred))
+            # y_pred = self.outlayer(y_pred)
         return y_pred
 
     
@@ -197,10 +203,7 @@ class Decoder_PCA():
         
 
     def predict(self, x):
-        if(self.vector == "c_img_vd"):
-            self.pca = pk.load(open("masks/pca_" + self.vector + "_15k.pkl",'rb'))
-        else:
-            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
+        self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
@@ -222,7 +225,7 @@ class Decoder_PCA():
                                                 average=average,
                                                 pca=True)
         if(self.vector == "c_img_vd"):
-            self.pca = pk.load(open("masks/pca_" + self.vector + "_15k.pkl",'rb'))
+            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         else:
             self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         # Load our best model into the class to be used for predictions

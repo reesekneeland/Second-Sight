@@ -1,4 +1,5 @@
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 import pandas as pd
@@ -8,10 +9,12 @@ import torch.nn as nn
 from pearson import PearsonCorrCoef
 import h5py
 from utils import *
-import wandb
+# import wandb
 import copy
 from tqdm import tqdm
 from cuml import Ridge
+import cupy as cp
+import cudf
 
 # Main Class    
 def main():
@@ -43,18 +46,18 @@ class Decoder_Ridge():
         self.log = log
         
         # Initializes Weights and Biases to keep track of experiments and training runs
-        if(self.log):
-            wandb.init(
-                # set the wandb project where this run will be logged
-                project="decoder_ridge",
-                # track hyperparameters and run metadata
-                config={
-                "hash": self.hashNum,
-                "architecture": "Ridge Regression",
-                "vector": self.vector,
-                "dataset": "Z scored"
-                }
-            )
+        # if(self.log):
+        #     wandb.init(
+        #         # set the wandb project where this run will be logged
+        #         project="decoder_ridge",
+        #         # track hyperparameters and run metadata
+        #         config={
+        #         "hash": self.hashNum,
+        #         "architecture": "Ridge Regression",
+        #         "vector": self.vector,
+        #         "dataset": "Z scored"
+        #         }
+        #     )
         self.ridge = Ridge(alpha=1.0, fit_intercept=True, normalize=False,
               solver="cd")
     
@@ -63,49 +66,54 @@ class Decoder_Ridge():
         x_train, x_val, _, _, y_train, y_val, _, _, _, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=False,
-                                                pca=False)
-        # Set best loss to negative value so it always gets overwritten
-        best_loss = -1.0
-        loss_counter = 0
-        print(x_train.shape, x_val.shape)
-        x_train = torch.concat([x_train, x_val])
-        y_train = torch.concat([y_train, y_val])
+                                                pca=True)
+        X = cudf.DataFrame()
+        x_train = cp.array(torch.concat([x_train, x_val]).numpy())
+        y_train = cp.array(torch.concat([y_train, y_val]).numpy())
         print(x_train.shape, y_train.shape)
-        
         self.ridge.fit(x_train, y_train)
         params = self.ridge.get_params()
         print(type(params))
-        torch.save(params, "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+        cp.save(params, "models/" + self.hashNum + "_model_" + self.vector + ".npy")
+        
     def predict(self, x, batch=False, batch_size=750):
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
-        self.model.eval()
-        self.model.to(self.device)
-        out = self.model(x.to(self.device))#.to(torch.float16)
+        self.ridge.set_params(cp.load("models/" + self.hashNum + "_model_" + self.vector + ".npy"))
+        out = self.ridge.predict(x)
         return out
     
     def benchmark(self, average=True):
-        _, _, _, x_test, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
+        _, _, _, x_test, _, _, _, y_test_pca, _, _ = load_nsd(vector=self.vector, 
+                                                loader=False,
+                                                average=average,
+                                                pca=True)
+        _, _, _, _, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average,
                                                 pca=False)
         # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
-        self.model.eval()
-
+        self.ridge.set_params(cp.load("models/" + self.hashNum + "_model_" + self.vector + ".npy"))
+        
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test = x_test.to(self.device)
+        x_test = cp.array(x_test.numpy())
         y_test = y_test.to(self.device)
+        y_test_pca = y_test_pca.to(self.device)
         
-        pred_y = self.model(x_test)
+        pred_y_pca = torch.from_numpy(cp.asnumpy(self.ridge.predict(x_test))).to(self.device)
+        
+        loss_pca = criterion(pred_y_pca, y_test_pca.to(self.device))
+              
+        pearson_pca =torch.mean(PeC(pred_y_pca.moveaxis(0,1), y_test_pca.moveaxis(0,1)))
+        
+        pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.to(torch.float64).detach().cpu().numpy())).to(self.device, torch.float32)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
         
+        print("Vector Correlation_PCA: ", float(pearson_pca))
         print("Vector Correlation: ", float(pearson))
+        print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
         
 if __name__ == "__main__":

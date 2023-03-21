@@ -6,7 +6,7 @@ channels:
   - defaults
 dependencies:
   - python=3.8
-  - cuml
+  - cuml=23.02
   - pip
   - pytorch
   - torchvision

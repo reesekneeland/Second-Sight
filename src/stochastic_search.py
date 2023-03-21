@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -21,6 +21,8 @@ from random import randrange
 
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
+    # for i in range(10):
+    #     print(1.0-0.5*(math.pow(i/10, 2)))
     S0 = StochasticSearch(device="cuda:0",
                           log=False,
                           n_iter=10,
@@ -36,7 +38,7 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD PCA 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 10)], mask=[], ae=True, test=False, average=True)
+    S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:100:4 0.5 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
@@ -104,7 +106,8 @@ class StochasticSearch():
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # if(loss_counter > 3):
             #     break
-            strength = 1.0-0.5*(cur_iter/max_iter)
+            # strength = 1.0-0.5*(cur_iter/max_iter)
+            strength = 1.0-0.5*(math.pow(cur_iter/max_iter, 3))
             n_i = max(10, int(n/n_branches*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
@@ -132,14 +135,14 @@ class StochasticSearch():
             if(self.log):
                 wandb.log({'Alexnet Brain encoding pearson correlation': cur_vector_corrrelation, 'score variance': cur_var})
             tqdm.write("VC: " + str(cur_vector_corrrelation) + ", Var: " + str(cur_var))
-            images.append(equalize_color(samples[int(torch.argmax(scores))]))
+            images.append(samples[int(torch.argmax(scores))])
             iter_scores.append(cur_vector_corrrelation)
             var_scores.append(cur_var)
             for i in range(n_branches):
                 iter_images[i] = samples[int(topn_pearson.indices[i])]
             if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
                 best_vector_corrrelation = cur_vector_corrrelation
-                best_image = equalize_color(samples[int(torch.argmax(scores))])
+                best_image = samples[int(torch.argmax(scores))]
             # if cur_var < best_var or best_var == -1:
             #     best_var = cur_var
             # else:
@@ -196,14 +199,14 @@ class StochasticSearch():
         #             log=False, 
         #             device="cuda:0"
         #             )
-        Dc_i = Decoder_PCA(hashNum = "664",
+        Dc_i = Decoder_PCA(hashNum = "710",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
                  )
         outputs_c_i = Dc_i.predict(x=x)
         del Dc_i
-        Dc_t = Decoder_PCA(hashNum = "663",
+        Dc_t = Decoder_PCA(hashNum = "712",
                     vector="c_text_vd",
                     log=False, 
                     device="cuda",
@@ -259,8 +262,8 @@ class StochasticSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            reconstructed_output_c = equalize_color(self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], strength=1.0))
-            reconstructed_target_c = equalize_color(self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], strength=1.0))
+            reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], strength=1.0)
             scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_i=outputs_c_i[i], c_t=outputs_c_t[i], beta=x[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             #log the data to a file
