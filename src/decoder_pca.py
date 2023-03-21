@@ -12,7 +12,7 @@ import pickle as pk
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
-    def __init__(self, vector, numLayers):
+    def __init__(self, vector):
         super(MLP, self,).__init__()
         # assert(vector == "c_img_vd" or vector=="c_text_vd")
         self.vector = vector
@@ -22,14 +22,14 @@ class MLP(torch.nn.Module):
             self.linear3 = nn.Linear(20000, 20000)
             self.linear4 = nn.Linear(20000, 20000)
             self.linear5 = nn.Linear(20000, 20000)
-            self.outlayer = nn.Linear(20000, 10000)
+            self.outlayer = nn.Linear(20000, 13875)
         if(self.vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 12000)
-            # self.linear2 = nn.Linear(27000, 27000)
-            # self.linear3 = nn.Linear(27000, 27000)
-            # self.linear4 = nn.Linear(27000, 27000)
-            # self.linear5 = nn.Linear(27000, 27000)
-            self.outlayer = nn.Linear(12000, 10000)
+            self.linear = nn.Linear(11838, 20000)
+            self.linear2 = nn.Linear(20000, 20000)
+            self.linear3 = nn.Linear(20000, 20000)
+            self.linear4 = nn.Linear(20000, 20000)
+            self.linear5 = nn.Linear(20000, 20000)
+            self.outlayer = nn.Linear(20000, 10000)
         # layers = [nn.Linear(11838, 15000),
         #           nn.ReLU()]
         # for i in range(numLayers-1):
@@ -52,10 +52,10 @@ class MLP(torch.nn.Module):
             y_pred = self.outlayer(y_pred)
         if(self.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
-            # y_pred = self.relu(self.linear2(y_pred))
-            # y_pred = self.relu(self.linear3(y_pred))
-            # y_pred = self.relu(self.linear4(y_pred))
-            # y_pred = self.relu(self.linear5(y_pred))
+            y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.relu(self.linear3(y_pred))
+            y_pred = self.relu(self.linear4(y_pred))
+            y_pred = self.relu(self.linear5(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -67,7 +67,6 @@ class Decoder_PCA():
                  vector, 
                  log, 
                  lr=0.00001,
-                 numLayers=4,
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
@@ -83,10 +82,13 @@ class Decoder_PCA():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.pca = pk.load(open("masks/pca_" +self.vector + "_10k.pkl",'rb'))
+        if(self.vector == "c_img_vd"):
+            self.pca = pk.load(open("masks/pca_" + vector + "_13k.pkl",'rb'))
+        else:
+            self.pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
 
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, numLayers)
+        self.model = MLP(self.vector)
 
         # Send model to Pytorch Device 
         self.model.to(self.device)
@@ -98,7 +100,7 @@ class Decoder_PCA():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="decoder",
+                project="decoder_pca",
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,

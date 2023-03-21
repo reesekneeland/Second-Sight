@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
 import torch
 import numpy as np
 from PIL import Image
@@ -15,6 +15,7 @@ import copy
 from tqdm import tqdm
 from decoder import Decoder
 from decoder_pca import Decoder_PCA
+from decoder_ae import Decoder_AE
 from encoder import Encoder
 from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
@@ -26,9 +27,11 @@ from mask import Masker
 def main():
     # _, _, _, _, _, _, _, _, _, _, _ = load_nsd(vector="c_img_0", loader=False, average=True)
     
-    # train_decoder()
+    train_decoder()
     
     # train_decoder_pca()
+    
+    # train_decoder_ae()
 
     # train_encoder()
     
@@ -38,7 +41,7 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    reconstructNImages(experiment_title="VD 676 c_img 687 c_text", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="VD 696 697", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -156,9 +159,9 @@ def train_ss_decoder():
 
 def train_decoder():
     # hashNum = update_hash()
-    hashNum = "682"
+    hashNum = "699"
     D = Decoder(hashNum = hashNum,
-                 lr=0.001,
+                 lr=0.000001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
@@ -176,15 +179,14 @@ def train_decoder():
 
 def train_decoder_pca():
     # hashNum = update_hash()
-    hashNum = "687"
+    hashNum = "696"
     D = Decoder_PCA(hashNum = hashNum,
-                 lr=0.0001,
-                 vector="c_text_vd", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.000001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
                  device="cuda:0",
                  num_workers=4,
-                 numLayers=4,
                  epochs=500
                 )
     
@@ -195,6 +197,24 @@ def train_decoder_pca():
     
     return hashNum
 
+def train_decoder_ae():
+    # hashNum = update_hash()
+    hashNum = "698"
+    D = Decoder_AE(hashNum = hashNum,
+                 lr=0.00000001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
+                 log=True, 
+                 batch_size=64,
+                 device="cuda:0",
+                 num_workers=4,
+                 epochs=500
+                )
+    
+    # D.train()
+    
+    D.benchmark(average=False)
+    
+    return hashNum
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
@@ -206,14 +226,14 @@ def reconstructNImages(experiment_title, idx):
     #              log=False, 
     #              device="cuda",
     #              )
-    Dc_i = Decoder_PCA(hashNum = "676",
+    Dc_i = Decoder_PCA(hashNum = "696",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
                  )
     outputs_c_i = Dc_i.predict(x=x_param[idx])
     del Dc_i
-    Dc_t = Decoder_PCA(hashNum = "687",
+    Dc_t = Decoder_PCA(hashNum = "697",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda",
@@ -252,10 +272,11 @@ def reconstructNImages(experiment_title, idx):
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
+        empty = Image.new('RGB', (512, 512), color='white')
         rows = 4
         columns = 2
-        images = [reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t, ground_truth]
-        captions = ["Target C_2", "Output C_2", "Target C_i", "Output C_i", "Target C_t", "Output C_t", "Ground Truth"]
+        images = [ground_truth, empty, reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t]
+        captions = ["Ground Truth", "", "Target C_2", "Output C_2", "Target C_i", "Output C_i", "Target C_t", "Output C_t"]
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
