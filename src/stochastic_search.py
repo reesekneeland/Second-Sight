@@ -21,7 +21,7 @@ from random import randrange
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     S0 = StochasticSearch(device="cuda:0",
-                          log=True,
+                          log=False,
                           n_iter=10,
                           n_samples=100,
                           n_branches=4)
