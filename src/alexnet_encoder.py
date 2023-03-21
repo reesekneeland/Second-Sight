@@ -647,7 +647,7 @@ class AlexNetEncoder():
             
             else:
                 masked_params = []
-                beta_mask = ~beta_mask
+                # beta_mask = ~beta_mask
                 for params in bp:
                     masked_params.append(params[beta_mask])
                     

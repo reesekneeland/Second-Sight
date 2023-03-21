@@ -35,7 +35,7 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 20)], mask=[1,2,3,4,5,6,7], ae=True)
+    S0.generateTestSamples(experiment_title="SCS 10:100:4 HS nsd_general AE", idx=[i for i in range(0, 20)], mask=[], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
