@@ -544,3 +544,10 @@ def mse_scs(imageA, imageB):
 
 def ssim_scs(imageA, imageB):
     return ssim(imageA, imageB)
+
+def pixel_correlation(imageA, imageB):
+    a = np.array(imageA).flatten()
+    b = np.array(imageB).flatten()
+    return (np.corrcoef(a,b))[0][1]
+
+

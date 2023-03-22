@@ -1,122 +1,172 @@
-import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+import os
+import sys
 import torch
-from tqdm import tqdm
+from torchmetrics.functional import pearson_corrcoef
+from torch.autograd import Variable
 import numpy as np
+from nsd_access import NSDAccess
+import glob
 import pandas as pd
-import matplotlib as plt
 from PIL import Image
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from nsd_access import NSDAccess
+import torch.nn as nn
+from pycocotools.coco import COCO
 sys.path.append('src')
 from utils import *
-import seaborn as sns
-from matplotlib.lines import Line2D
+import wandb
+import copy
+from tqdm import tqdm
+import nibabel as nib
+from alexnet_encoder import AlexNetEncoder
+from autoencoder import AutoEncoder
+from pearson import PearsonCorrCoef
 import cv2
 
-# _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
 
-# folder_list = []
-# for it in os.scandir("/logs"):
-#     if it.is_dir():
-#         folder_list.append(it.name)
-count = 0
-
-for i in range(25):
-    ground_truth   = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Ground Truth.png')
-    reconstruction = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Search Reconstruction.png')
+class Stochastic_Search_Statistics():
     
-    ground_truth = cv2.resize(ground_truth, (425, 425))
-    reconstruction = cv2.resize(reconstruction, (425, 425))
+    def __init__(self):
 
-    ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2GRAY)
-    reconstruction = cv2.cvtColor(reconstruction, cv2.COLOR_BGR2GRAY)
+        self.directory_path = '/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS 10:250:5 HS nsd_general AE'
+        #subdirs = [os.path.join(d, o) for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
+        #length_subdirs = len(subdirs)
 
-    count += ssim_scs(ground_truth, reconstruction)
+
+    def generate_brain_predictions(self):
+        alexnet_predictions = {}
+        brain_masks = {1:[1,2], 2: [3,4], 3:[5,6], 4:[7], 5:[1,2,3,4,5,6,7]}
+        image_counter = 0
+        images = []
+        device="cuda:0"
+
+        AN =  AlexNetEncoder()
+
+        AE = AutoEncoder(hashNum = "582",
+                        lr=0.0000001,
+                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
+                        encoderHash="579",
+                        log=False, 
+                        batch_size=750,
+                        device=device
+                        )
+        mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/"
+        masks = {0:torch.full((11838,), False),
+                    1:torch.load(mask_path + "V1.pt"),
+                    2:torch.load(mask_path + "V2.pt"),
+                    3:torch.load(mask_path + "V3.pt"),
+                    4:torch.load(mask_path + "V4.pt"),
+                    5:torch.load(mask_path + "V5.pt"),
+                    6:torch.load(mask_path + "V6.pt"),
+                    7:torch.load(mask_path + "V7.pt")}
+
+        _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
+        #x_test_ae = torch.zeros((x_test.shape[0], 11838))
+        x_test_ae = torch.zeros((50, 11838))
+        # for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
+        for i in tqdm(range(50), desc="Autoencoding samples and averaging"):
+            x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
+        beta = x_test_ae
+
+        beta_mask = masks[0]
+        for i in brain_masks[5]:
+            beta_mask = torch.logical_or(beta_mask, masks[i])
+            
+        beta_mask = ~beta_mask
+        # print(type(beta_mask))
+        # print(np.unique(beta_mask, return_counts=True))
+        # print(np.unique(~beta_mask, return_counts=True))
+            
+
+        for i in range(25):
+            path = self.directory_path + "/" + str(i)
+            for filename in os.listdir(path): 
+                with open(os.path.join(path, filename), 'r') as f:
+                    if('iter' in filename):
+                        image_pil = Image.open(path + '/' + filename)
+                        images.append(image_pil)
+                        image_counter += 1
+                        if(image_counter == 10):
+                            alexnet_predictions[i] = AN.predict(images, brain_masks[5])
+                            image_counter = 0
+                            images = []
+        
+        beta_i = beta
+        for i in range(25):
+            
+            beta_primes = alexnet_predictions[i].moveaxis(0, 1).to(device)
+            
+            beta = beta_i[i][beta_mask]
+                        
+            xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(device)
+            PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(device) 
+            print(xDup.shape, beta_primes.shape)
+            scores = PeC(xDup, beta_primes)
+            scores_np = scores.detach().cpu().numpy()
+            
+            np.save("/export/raid1/home/kneel027/Second-Sight/logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy", scores_np)
+        
+    def calculate_ssim(self):
+        count = 0
+
+        for i in range(25):
+            ground_truth   = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Ground Truth.png')
+            reconstruction = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Search Reconstruction.png')
+            
+            ground_truth = cv2.resize(ground_truth, (425, 425))
+            reconstruction = cv2.resize(reconstruction, (425, 425))
+
+            ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2GRAY)
+            reconstruction = cv2.cvtColor(reconstruction, cv2.COLOR_BGR2GRAY)
+
+            count += ssim_scs(ground_truth, reconstruction)
+            
+        print(count / 25)
+        
+    def calculate_pixel_correlation(self):
+        
+        count = 0
+
+        for i in range(25):
+            ground_truth   = Image.open('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Ground Truth.png')
+            reconstruction = Image.open('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Search Reconstruction.png')
+            
+            count += pixel_correlation(ground_truth, reconstruction)
+            
+        print(count / 25)
+        
+        
+    def create_dataframe(self):
+        
+        # create an Empty DataFrame
+        # object With column names only
+        df_V1 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP'])
+        df_V2 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP'])
+        
+        # append rows to an empty DataFrame
+        for i in range(25):
+            row = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : '0', 'Strength' : '1.0', 'Brain Correlation' : '2200',
+                                'SSIM' : '1', 'Pixel Correlation' : '1', 'CLIP' : '1' }, index=[i])
+            row2 = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : '0', 'Strength' : '1.0', 'Brain Correlation' : '2200',
+                                'SSIM' : '1', 'Pixel Correlation' : '1', 'CLIP' : '1' }, index=[i + 25])
+                
+            df_V1 = pd.concat([df_V1, row])
+            df_V2 = pd.concat([df_V2, row2])
+        
+        df = pd.concat([df_V1, df_V2])
+        print(df.shape)
+        print(df)
     
-print(count / 25)
-
-
-# brain_correlation_V1            = np.empty((25, 10))
-# brain_correlation_V2            = np.empty((25, 10))
-# brain_correlation_V3            = np.empty((25, 10))
-# brain_correlation_V4            = np.empty((25, 10))
-# brain_correlation_early_visual  = np.empty((25, 10))
-# brain_correlation_higher_visual = np.empty((25, 10))
-# brain_correlation_unmasked      = np.empty((25, 10))
-
-
-# # Encoding vectors for 2819140 images
-# for i in tqdm(range(25)):
     
-#     brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
-#     brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
-#     brain_correlation_V3[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V3.npy")
-#     brain_correlation_V4[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V4.npy")
-#     brain_correlation_early_visual[i]  = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_early_visual.npy")
-#     brain_correlation_higher_visual[i] = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy")
-#     brain_correlation_unmasked[i]      = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list.npy")
-
-
-# brain_correlation_V1            = np.average(brain_correlation_V1, axis=0)
-# brain_correlation_V2            = np.average(brain_correlation_V2, axis=0)
-# brain_correlation_V3            = np.average(brain_correlation_V3, axis=0)
-# brain_correlation_V4            = np.average(brain_correlation_V4, axis=0)
-# brain_correlation_unmasked      = np.average(brain_correlation_unmasked, axis=0)
-# brain_correlation_early_visual  = np.average(brain_correlation_early_visual, axis=0)
-# brain_correlation_higher_visual = np.average(brain_correlation_higher_visual, axis=0)
-
-
-# strength  = np.arange(1.0, 0.5, -0.05)
-# iteration = np.arange(0.0, 10.0)
-
-# # print(var.dtype, brain_correlation.dtype, strength.dtype, iteration.dtype)
-
-# df = pd.DataFrame(np.stack((iteration, brain_correlation_V1, brain_correlation_V2, 
-#                             brain_correlation_V3, brain_correlation_V4, brain_correlation_early_visual,
-#                             brain_correlation_higher_visual, brain_correlation_unmasked), axis=1), 
-#                             columns = ['iteration', 'brain_correlation_V1', 'brain_correlation_V2', 'brain_correlation_V3', 
-#                                        'brain_correlation_V4', 'brain_correlation_early_visual', 'brain_correlation_higher_visual', 
-#                                        'brain_correlation_visual_cortex'])
-
-# # df = pd.DataFrame(np.stack((iteration, brain_correlation_V1, brain_correlation_V2, 
-# #                             brain_correlation_V3, brain_correlation_V4, brain_correlation_early_visual,
-# #                             brain_correlation_unmasked), axis=1), 
-# #                             columns = ['iteration', 'brain_correlation_V1', 'brain_correlation_V2', 'brain_correlation_V3', 
-# #                                        'brain_correlation_V4', 'brain_correlation_early_visual', 
-# #                                        'brain_correlation_visual_cortex'])
-
-# g = sns.lineplot(data=df['brain_correlation_V1'], color = '#FF5733')
-# sns.lineplot(data=df['brain_correlation_V2'], color = '#EA891B', ax=g.axes.twinx())
-# sns.lineplot(data=df['brain_correlation_V3'], color = '#FDFD03', ax=g.axes.twinx())
-# sns.lineplot(data=df['brain_correlation_V4'], color = '#3B8809', ax=g.axes.twinx())
-# sns.lineplot(data=df['brain_correlation_early_visual'], color = '#00FCCB', ax=g.axes.twinx())
-# sns.lineplot(data=df['brain_correlation_visual_cortex'], color = '#001FFC', ax=g.axes.twinx())
-# sns.lineplot(data=df['brain_correlation_higher_visual'], color = '#A800FC', ax=g.axes.twinx())
-
-# # sns.lineplot(data=df['var'], color="b", ax=g.axes.twinx())
-# # sns.lineplot(data=df['strength'], color="r", ax=g.axes.twinx())
-# g.axes.spines.right.set_position(("axes", 1.2))
-# g.legend(handles=[Line2D([], [], marker='_', color = '#FF5733', label='brain_correlation_V1'), Line2D([], [], marker='_', color = '#EA891B', label='brain_correlation_v2'), 
-#                   Line2D([], [], marker='_', color = '#FDFD03', label='brain_correlation_V3'), Line2D([], [], marker='_', color = '#3B8809', label='brain_correlation_V4'), 
-#                   Line2D([], [], marker='_', color = '#00FCCB', label='brain_correlation_early_visual'), Line2D([], [], marker='_', color = '#A800FC', label='brain_correlation_higher_visual'),
-#                   Line2D([], [], marker='_', color = '#001FFC', label='brain_correlation_visual_cortex')])
-
-
-# # ax = plt.figure(figsize=(10,6), tight_layout=True)
-# #plotting
-# # ax = df.plot(x='iteration', y='brain_correlation', legend=False, color="b")
-# # # sns.lineplot(data=df['brain_correlation'], linewidth=2, color="b")
-# # ax2 = ax.twinx()
-# # df.plot(x='iteration', y='var', ax=ax2, legend=False, color="r")
-# # ax3 = ax.twinx()
-# # df.plot(x='iteration', y='strength', ax=ax3, legend=False, color="g")
-# # ax.figure.legend()
-# # sns.lineplot(data=df['var'], linewidth=2, color="g")
-# #customization
-# g.set(xlabel='Search Iteration', ylabel='Brain Pearson Correlation', title='Encoded Brain Pearson Correlation in Early Visual Cortex ', xticks=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-# # ax.legend(title='Players', title_fontsize = 13)
-# # plt.xticks([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-# # plt.xlabel('Search Iteration')
-# # plt.ylabel('Brain Correlation')
-# # plt.title('Encoded Brain Pearson Correlation in Early Visual Cortex ')
-# # plt.legend(title='Players', title_fontsize = 13, labels=['L. Messi', 'Cristiano Ronaldo', 'K. De Bruyne', 'V. van Dijk', 'K. Mbappé'])
-# plt.savefig("charts/brain_correlation_plot_twin.png")
+def main():
+    
+    SCS = Stochastic_Search_Statistics()
+    
+    #SCS.generate_brain_predictions() 
+    #SCS.calculate_ssim()    
+    #SCS.calculate_pixel_correlation()
+    SCS.create_dataframe()
+        
+if __name__ == "__main__":
+    main()
