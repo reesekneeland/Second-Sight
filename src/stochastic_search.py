@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -22,27 +22,27 @@ from random import randrange
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # for i in range(10):
-    #     print(1.0-0.5*(math.pow(i/10, 2)))
-    S0 = StochasticSearch(device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
-    # S1 = StochasticSearch(device="cuda:0",
+    #     print(1.0-0.6*(math.pow(i/10, 2)))
+    # S0 = StochasticSearch(device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
-    #                       n_samples=250,
-    #                       n_branches=5)
+    #                       n_samples=100,
+    #                       n_branches=4)
+    S1 = StochasticSearch(device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=250,
+                          n_branches=5)
     # S2 = StochasticSearch(device="cuda:0",
     #                       log=True,
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:100:4 0.5 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:100:4 0.5 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(0, 20)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exponential Strength AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
@@ -81,7 +81,7 @@ class StochasticSearch():
                                                 c_i=c_i, 
                                                 c_t=c_t, 
                                                 n_samples=1, 
-                                                textstrength=0.0,
+                                                textstrength=0.5,
                                                 strength=strength))
         return images
 
@@ -107,8 +107,8 @@ class StochasticSearch():
             # if(loss_counter > 3):
             #     break
             # strength = 1.0-0.5*(cur_iter/max_iter)
-            strength = 1.0-0.5*(math.pow(cur_iter/max_iter, 3))
-            n_i = max(10, int(n/n_branches*strength))
+            strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
+            n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
             samples = []
@@ -118,6 +118,12 @@ class StochasticSearch():
                                                 c_t=c_t, 
                                                 n=n_i,  
                                                 strength=strength)
+                if not(best_image in iter_images):
+                    samples += self.generateNSamples(image=best_image, 
+                                                    c_i=c_i, 
+                                                    c_t=c_t, 
+                                                    n=n_i,  
+                                                    strength=strength)
         
 
             beta_primes = self.Alexnet.predict(samples, mask)
@@ -177,13 +183,14 @@ class StochasticSearch():
         if(ae):
             x_pruned_ae = torch.zeros((len(idx), 11838))
         x_pruned = torch.zeros((len(idx), 11838))
-        for i in tqdm(range(len(idx)), desc="Pruning samples"):# and averaging"):
+        for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
+            tqdm.write(str(i) + " " + str(index))
             if(average):
                 if(ae):
-                    x_pruned_ae[i] = torch.mean(AE.predict(x[i]),dim=0)
-                x_pruned[i] = torch.mean(x[i], dim=0)
+                    x_pruned_ae[i] = torch.mean(AE.predict(x[index]),dim=0)
+                x_pruned[i] = torch.mean(x[index], dim=0)
             else:
-                x_pruned[i] = x[i, randrange(0,3)]
+                x_pruned[i] = x[index, randrange(0,3)]
                 if(ae):
                     x_pruned_ae[i] = AE.predict(x_pruned[i])
         x = x_pruned
@@ -243,8 +250,8 @@ class StochasticSearch():
    
         PeC = PearsonCorrCoef(num_outputs=len(idx)).to("cpu")
         #Log the CLIP scores
-        np.save("logs/" + experiment_title + "/" + "c_img_PeC.npy", np.array(PeC(outputs_c_i[idx].moveaxis(0,1).to("cpu"), targets_c_i[idx].moveaxis(0,1).to("cpu")).detach()))
-        np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t[idx].moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
+        np.save("logs/" + experiment_title + "/" + "c_img_PeC.npy", np.array(PeC(outputs_c_i.moveaxis(0,1).to("cpu"), targets_c_i[idx].moveaxis(0,1).to("cpu")).detach()))
+        np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t.moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
         
         for i, val in enumerate(idx):
             os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + "/", exist_ok=True)
