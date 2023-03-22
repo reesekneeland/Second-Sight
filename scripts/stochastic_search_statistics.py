@@ -21,8 +21,10 @@ from tqdm import tqdm
 import nibabel as nib
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
+from reconstructor import Reconstructor
 from pearson import PearsonCorrCoef
 import cv2
+from random import randrange
 
 
 class Stochastic_Search_Statistics():
@@ -32,6 +34,7 @@ class Stochastic_Search_Statistics():
         self.directory_path = '/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS 10:250:5 HS nsd_general AE'
         #subdirs = [os.path.join(d, o) for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
         #length_subdirs = len(subdirs)
+        self.R = Reconstructor(device="cuda:0")
 
 
     def generate_brain_predictions(self):
@@ -136,6 +139,21 @@ class Stochastic_Search_Statistics():
             
         print(count / 25)
         
+    def calculate_clip_similarity(self, ground_truth, image):
+        gt_feature = self.R.encode_image(ground_truth).flatten()
+        reconstruct_feature = self.R.encode_image(image).flatten()
+        rand_image_feature = self.R.encode_image(Image.open("/export/raid1/home/kneel027/Second-Sight/logs/shared1000_images/" + str(randrange(0,999)) + ".png")).flatten()
+        
+        rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
+        gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
+        reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
+        print(reconstruct_feature.shape, gt_feature.shape, rand_image_feature.shape)
+        test_images = torch.stack([rand_image_feature, reconstruct_feature])
+        similarity = list(torch.nn.functional.softmax(torch.matmul(gt_feature,test_images.T)))
+        print(similarity[1])
+        return similarity[1]
+        
+        
         
     def create_dataframe(self):
         
@@ -166,7 +184,13 @@ def main():
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
-    SCS.create_dataframe()
+    # SCS.create_dataframe()
+    
+    im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd5.png")
+    gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog.png")
+    surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
+    SCS.calculate_clip_similarity(gt, im1)
+    SCS.calculate_clip_similarity(gt, surfer)
         
 if __name__ == "__main__":
     main()
