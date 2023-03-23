@@ -23,6 +23,7 @@ from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from pearson import PearsonCorrCoef
 import cv2
+import math
 
 
 class Stochastic_Search_Statistics():
@@ -124,7 +125,7 @@ class Stochastic_Search_Statistics():
             
         print(count / 25)
         
-    def calculate_pixel_correlation(self):
+    def calculate_pixel_correlation(self, ground_truth, reconstruction):
         
         count = 0
 
@@ -137,22 +138,36 @@ class Stochastic_Search_Statistics():
         print(count / 25)
         
         
-    def create_dataframe(self):
+    def create_dataframe(self,  ):
+        
+        brain_correlation_V1            = np.empty((25, 10))
+        brain_correlation_V2            = np.empty((25, 10))
+
+        # Encoding vectors for 2819140 images
+        for i in tqdm(range(25)):
+            
+            brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
+            brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
         
         # create an Empty DataFrame
         # object With column names only
-        df_V1 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP'])
-        df_V2 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP'])
+        df_V1 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
+        df_V2 = pd.DataFrame(columns = ['ROI', 'ID', 'Iter', 'Strength', 'Brain Correlation', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
         
         # append rows to an empty DataFrame
         for i in range(25):
-            row = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : '0', 'Strength' : '1.0', 'Brain Correlation' : '2200',
+            for j in range(10):
+                
+                strength = 1.0-0.4*(math.pow(j/10, 3))
+                
+                row = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : str(j), 'Strength' : str(strength), 'Brain Correlation' : str(brain_correlation_V1[i][j]),
                                 'SSIM' : '1', 'Pixel Correlation' : '1', 'CLIP' : '1' }, index=[i])
-            row2 = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : '0', 'Strength' : '1.0', 'Brain Correlation' : '2200',
+                
+                row2 = pd.DataFrame({'ROI' : 'V1', 'ID' : str(i), 'Iter' : '0', 'Strength' : '1.0', 'Brain Correlation' : '2200',
                                 'SSIM' : '1', 'Pixel Correlation' : '1', 'CLIP' : '1' }, index=[i + 25])
                 
-            df_V1 = pd.concat([df_V1, row])
-            df_V2 = pd.concat([df_V2, row2])
+                df_V1 = pd.concat([df_V1, row])
+                df_V2 = pd.concat([df_V2, row2])
         
         df = pd.concat([df_V1, df_V2])
         print(df.shape)
