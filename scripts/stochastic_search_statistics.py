@@ -21,10 +21,17 @@ from tqdm import tqdm
 import nibabel as nib
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
+from reconstructor import Reconstructor
 from pearson import PearsonCorrCoef
 import cv2
+<<<<<<< HEAD
 import math
 
+=======
+from random import randrange
+import transformers
+from transformers import CLIPTokenizerFast, AutoProcessor, CLIPModel, CLIPVisionModelWithProjection
+>>>>>>> f7f280056404f12cdd50bcb87780c2f504760c5d
 
 class Stochastic_Search_Statistics():
     
@@ -33,6 +40,12 @@ class Stochastic_Search_Statistics():
         self.directory_path = '/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS 10:250:5 HS nsd_general AE'
         #subdirs = [os.path.join(d, o) for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
         #length_subdirs = len(subdirs)
+        # self.R = Reconstructor(device=self.device)
+        self.device="cuda:1"
+        model_id = "openai/clip-vit-large-patch14"
+        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.model = CLIPModel.from_pretrained(model_id).to(self.device)
+        self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
 
 
     def generate_brain_predictions(self):
@@ -138,16 +151,30 @@ class Stochastic_Search_Statistics():
         print(count / 25)
         
         
-    def create_dataframe(self,  ):
-        
-        brain_correlation_V1            = np.empty((25, 10))
-        brain_correlation_V2            = np.empty((25, 10))
+    #two_way_prob is the two way identification experiment between the given image and a random test sample with respect to the ground truth
+    #clip_pearson is the pearson correlation score between the clips of the two given images
+    def calculate_clip_similarity(self, ground_truth, image):
+        random_image = Image.open("/export/raid1/home/kneel027/Second-Sight/logs/shared1000_images/" + str(randrange(0,999)) + ".png")
+        PeC = PearsonCorrCoef().to(self.device)
 
-        # Encoding vectors for 2819140 images
-        for i in tqdm(range(25)):
-            
-            brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
-            brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
+        inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
+        outputs = self.visionmodel(**inputs)
+        
+        gt_feature = outputs.image_embeds[0].reshape((768))
+        reconstruct_feature = outputs.image_embeds[1].reshape((768))
+        rand_image_feature = outputs.image_embeds[2].reshape((768))
+        rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
+        gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
+        reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
+        
+        loss = torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) * 100
+        two_way_prob = loss.softmax(dim=0)[1]
+        clip_pearson = PeC(gt_feature.flatten(), reconstruct_feature.flatten())
+        return two_way_prob, clip_pearson
+        
+        
+        
+    def create_dataframe(self):
         
         # create an Empty DataFrame
         # object With column names only
@@ -181,7 +208,13 @@ def main():
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
-    SCS.create_dataframe()
+    # SCS.create_dataframe()
+    
+    gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/3/Ground Truth.png")
+    im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
+    surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
+    SCS.calculate_clip_similarity(gt, im1)
+    SCS.calculate_clip_similarity(gt, surfer)
         
 if __name__ == "__main__":
     main()

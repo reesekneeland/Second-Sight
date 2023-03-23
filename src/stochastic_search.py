@@ -38,11 +38,11 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:100:4 0.5 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exponential Strength AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
@@ -254,7 +254,7 @@ class StochasticSearch():
         np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t.moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
         
         for i, val in enumerate(idx):
-            os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + "/", exist_ok=True)
+            os.makedirs("reconstructions/" + experiment_title + "/" + str(val) + "/", exist_ok=True)
             
             if(self.log):
                 wandb.init(
@@ -263,19 +263,19 @@ class StochasticSearch():
                     # track hyperparameters and run metadata
                     config={
                     "experiment": experiment_title,
-                    "sample": i,
+                    "sample": val,
                     "masks": mask,
                     "n_iter": self.n_iter,
                     "n_samples": self.n_samples
                     }
                 )
             reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], strength=1.0)
-            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[val], c_t=targets_c_t[val], strength=1.0)
             scs_reconstruction, image_list, score_list, var_list = self.zSearch(c_i=outputs_c_i[i], c_t=outputs_c_t[i], beta=x[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
             
             #log the data to a file
-            np.save("logs/" + experiment_title + "/" + str(i) + "_score_list.npy", np.array(score_list))
-            np.save("logs/" + experiment_title + "/" + str(i) + "_var_list.npy", np.array(var_list))
+            np.save("logs/" + experiment_title + "/" + str(val) + "_score_list.npy", np.array(score_list))
+            np.save("logs/" + experiment_title + "/" + str(val) + "_var_list.npy", np.array(var_list))
             
             # returns a numpy array 
             nsdId = trials[val]
@@ -290,19 +290,19 @@ class StochasticSearch():
                 images.append(image_list[j])
                 captions.append("BC: " + str(round(score_list[j], 3)) + " VAR: " + str(round(var_list[j], 3)))
             print(len(images), len(captions), rows, columns)
-            figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
+            figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
             if(self.log):
                 wandb.finish()
             
-            figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
+            figure.save('reconstructions/' + experiment_title + '/' + str(val) + '.png')
             try:
                 count = 0
                 for j in range(len(images)):
                     if("BC" in captions[j]):
-                        images[j].save('reconstructions/' + experiment_title + "/" + str(i) + "/iter_" + str(count) + '.png')
+                        images[j].save('reconstructions/' + experiment_title + "/" + str(val) + "/iter_" + str(count) + '.png')
                         count +=1
                     else:
-                        images[j].save('reconstructions/' + experiment_title + "/" + str(i) + "/" + captions[j] + '.png')
+                        images[j].save('reconstructions/' + experiment_title + "/" + str(val) + "/" + captions[j] + '.png')
             except:
                 pass
 if __name__ == "__main__":
