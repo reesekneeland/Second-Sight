@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -30,7 +30,7 @@ def main():
     
     # train_decoder_pca()
 
-    # train_encoder()
+    train_encoder()
     
     # mask_voxels()
 
@@ -38,7 +38,7 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    reconstructNImages(experiment_title="VD 710 712", idx=[i for i in range(21)])
+    # reconstructNImages(experiment_title="VD 720 712", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
@@ -94,10 +94,10 @@ def train_autoencoder():
 
 def train_encoder():
     # hashNum = update_hash()
-    hashNum = "658"
+    hashNum = "660"
     E = Encoder(hashNum = hashNum,
                  lr=0.00001,
-                 vector="c_img_vd", #c_img_vd, c_text_vd
+                 vector="c_text_vd", #c_img_vd, c_text_vd
                  log=False, 
                  batch_size=750,
                  device="cuda:0",
@@ -111,7 +111,7 @@ def train_encoder():
     # E.benchmark(average=True)
     
     os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId, exist_ok=True)
-    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/c_img_vd/vector_73k.pt")
+    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/c_text_vd/vector_73k.pt")
     print(coco_full.shape)
     pca = pk.load(open("masks/pca_" + E.vector + "_10k.pkl",'rb'))
     inputs = torch.from_numpy(pca.transform(coco_full.numpy()))
@@ -155,10 +155,10 @@ def train_ss_decoder():
 
 
 def train_decoder():
-    # hashNum = update_hash()
-    hashNum = "702"
+    hashNum = update_hash()
+    # hashNum = "714"
     D = Decoder(hashNum = hashNum,
-                 lr=0.000001,
+                 lr=0.0001,
                  vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
                  batch_size=64,
@@ -175,13 +175,13 @@ def train_decoder():
     return hashNum
 
 def train_decoder_pca():
-    hashNum = update_hash()
-    # hashNum = "711"
+    # hashNum = update_hash()
+    hashNum = "714"
     D = Decoder_PCA(hashNum = hashNum,
-                 lr=0.0001,
-                 vector="c_text_vd", #c_img_0 , c_text_0, z_img_mixer
+                 lr=0.001,
+                 vector="c_img_vd", #c_img_0 , c_text_0, z_img_mixer
                  log=True, 
-                 batch_size=64,
+                 batch_size=256,
                  device="cuda:0",
                  num_workers=4,
                  epochs=500
@@ -200,16 +200,16 @@ def reconstructNImages(experiment_title, idx):
     
     _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
     _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    # Dc_i = Decoder(hashNum = "704",
-    #              vector="c_img_vd", 
-    #              log=False, 
-    #              device="cuda",
-    #              )
-    Dc_i = Decoder_PCA(hashNum = "710",
+    Dc_i = Decoder(hashNum = "720",
                  vector="c_img_vd", 
                  log=False, 
                  device="cuda",
                  )
+    # Dc_i = Decoder_PCA(hashNum = "713",
+    #              vector="c_img_vd", 
+    #              log=False, 
+    #              device="cuda",
+    #              )
     outputs_c_i = Dc_i.predict(x=x_param[idx])
     del Dc_i
     Dc_t = Decoder_PCA(hashNum = "712",

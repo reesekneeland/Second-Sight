@@ -8,7 +8,9 @@ from utils import *
 import wandb
 from tqdm import tqdm
 import pickle as pk
-import bitsandbytes as bnb
+import seaborn as sns
+import matplotlib.pylab as plt
+# import bitsandbytes as bnb
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -88,7 +90,9 @@ class Decoder_PCA():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.pca = None
+        self.pca_c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_" + self.vector + "_10k_components.pt", map_location=self.device)
+        self.pca_m = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_" + self.vector + "_10k_mean.pt", map_location=self.device)
+        # pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
@@ -107,7 +111,7 @@ class Decoder_PCA():
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "PCA MLP",
+                "architecture": "PCA MLP Cross Entropy",
                 "vector": self.vector,
                 "dataset": "Z scored",
                 "epochs": self.num_epochs,
@@ -123,13 +127,14 @@ class Decoder_PCA():
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
                                                         loader=True,
-                                                        pca=True)
+                                                        pca=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss(reduction='sum')
+        # criterion = nn.MSELoss(reduction='sum')
+        criterion = nn.CrossEntropyLoss()
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
         # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
@@ -147,11 +152,18 @@ class Decoder_PCA():
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
+                # y_data /= torch.norm(y_data)
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
+                scaled_pred_y = ((pred_y.to(torch.float64) @ self.pca_c) + self.pca_m).to(torch.float32)
+                # scaled_pred_y /= torch.norm(y_data)
+                labels = torch.diag(torch.ones((y_data.shape[0]), dtype=torch.float)).to(self.device)
+                cosine_sim = y_data @ scaled_pred_y.T
+                logits = nn.functional.softmax(cosine_sim, dim=0)
+                
                 # Compute the loss between the predicted y and the y data. 
-                loss = criterion(pred_y, y_data)
+                loss = criterion(logits, labels)
                 loss.backward()
                 optimizer.step()
                 # Zero gradients in the optimizer
@@ -175,10 +187,22 @@ class Decoder_PCA():
                 y_data = y_data.to(self.device)
                 # Generating predictions based on the current model
                 pred_y = self.model(x_data).to(self.device)
-        
-                # Compute the test loss 
-                loss = criterion(pred_y, y_data)
-
+                
+                scaled_pred_y = ((pred_y.to(torch.float64) @ self.pca_c) + self.pca_m).to(torch.float32)
+                # scaled_pred_y /= torch.norm(y_data)
+                labels = torch.diag(torch.ones((y_data.shape[0]), dtype=torch.float)).to(self.device)
+                cosine_sim = y_data @ scaled_pred_y.T
+                logits = nn.functional.softmax(cosine_sim, dim=0)
+                
+                # Compute the loss between the predicted y and the y data. 
+                loss = criterion(logits, labels)
+                if i==0:
+                    plt.clf()
+                    ax = sns.heatmap(logits.cpu().detach().numpy())
+                    plt.title("CLIP Probability (Higher is better)")
+                    plt.ylabel("Ground Truth Clip")
+                    plt.xlabel("Predicted Clip")
+                    plt.savefig("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/training_heatmaps/" + str(epoch) + ".png")
                 running_test_loss += loss.item()
             test_loss = running_test_loss / len(self.valLoader)
                 
@@ -203,12 +227,12 @@ class Decoder_PCA():
         
 
     def predict(self, x):
-        self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
+        
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device)).cpu().detach().numpy() #.to(torch.float16)
-        out = torch.from_numpy(self.pca.inverse_transform(out)).to(torch.float32)
+        out = self.model(x.to(self.device))#.cpu().detach().numpy() #.to(torch.float16)
+        out = ((out.to(torch.float64) @ self.pca_c) + self.pca_m).to("cpu", torch.float32)
         return out
     
     def benchmark(self, average=True):
@@ -224,10 +248,6 @@ class Decoder_PCA():
                                                 loader=False,
                                                 average=average,
                                                 pca=True)
-        if(self.vector == "c_img_vd"):
-            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
-        else:
-            self.pca = pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
@@ -244,13 +264,23 @@ class Decoder_PCA():
         loss_pca = criterion(pred_y_pca, y_test_pca.to(self.device))
               
         pearson_pca =torch.mean(PeC(pred_y_pca.moveaxis(0,1), y_test_pca.moveaxis(0,1)))
+
+        pred_y = ((pred_y_pca.to(torch.float64) @ self.pca_c) + self.pca_m).to(torch.float32)
         
-        pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.to(torch.float64).detach().cpu().numpy())).to(self.device, torch.float32)
+        # pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.to(torch.float64).detach().cpu().numpy())).to(self.device, torch.float32)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
+
+        global_y_pred = pred_y.reshape((y_test.shape[0], 1,257,768))[:,:,0,:]
+        global_y_test = y_test.reshape((y_test.shape[0], 1,257,768))[:,:,0,:]
+
+        global_pearson = torch.mean(PeC(global_y_pred.reshape((768, y_test.shape[0])), global_y_test.reshape((768, y_test.shape[0]))))
+        global_loss = criterion(global_y_pred, global_y_test)
         
         print("Vector Correlation_PCA: ", float(pearson_pca))
         print("Vector Correlation: ", float(pearson))
+        print("Vector Correlation Global: ", float(global_pearson))
         print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
+        print("Loss Global: ", float(global_loss))

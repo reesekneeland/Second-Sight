@@ -38,11 +38,12 @@ def main():
     #                       n_iter=20,
     #                       n_samples=60,
     #                       n_branches=3)
-    # S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exponential Strength AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S0.generateTestSamples(experiment_title="SCS VD PCA LR 10:100:4 0.4 Exp AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(35, 50)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(75, 100)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
@@ -107,7 +108,7 @@ class StochasticSearch():
             # if(loss_counter > 3):
             #     break
             # strength = 1.0-0.5*(cur_iter/max_iter)
-            strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
+            strength = 1.0-0.6*(math.pow(cur_iter/max_iter, 3))
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
@@ -118,12 +119,12 @@ class StochasticSearch():
                                                 c_t=c_t, 
                                                 n=n_i,  
                                                 strength=strength)
-                if not(best_image in iter_images):
-                    samples += self.generateNSamples(image=best_image, 
-                                                    c_i=c_i, 
-                                                    c_t=c_t, 
-                                                    n=n_i,  
-                                                    strength=strength)
+            if not(best_image in iter_images):
+                samples += self.generateNSamples(image=best_image, 
+                                                c_i=c_i, 
+                                                c_t=c_t, 
+                                                n=n_i,  
+                                                strength=strength)
         
 
             beta_primes = self.Alexnet.predict(samples, mask)

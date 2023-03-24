@@ -30,9 +30,11 @@ x_pca, y_pca = load_nsd(vector = "c_img_vd", loader = False, split = False, pca=
 pca = PCA(n_components=15000)
 # pca.fit(y)
 # pk.dump(pca, open("masks/pca_c_img_vd_15k.pkl","wb"))
-pca = pk.load(open("masks/pca_c_img_vd_15k.pkl",'rb'))
+pca = pk.load(open("masks/pca_c_text_vd_10k.pkl",'rb'))
 c = torch.from_numpy(pca.components_)
 m = torch.from_numpy(pca.mean_)
+torch.save(c, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_c_text_vd_10k_components.pt")
+torch.save(m, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_c_text_vd_10k_mean.pt")
 # for i, (x,y) in enumerate(tqdm(dataloader)):
     # pca.partial_fit(y)
 

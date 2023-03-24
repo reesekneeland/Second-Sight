@@ -23,17 +23,17 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(11838, 10800)
+            self.linear = nn.Linear(11838, 1000)
             # self.linear2 = nn.Linear(15000, 10000)
-            self.outlayer = nn.Linear(10800, 197376)
+            self.outlayer = nn.Linear(1000, 197376)
         elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(11838, 15000)
-            self.outlayer = nn.Linear(15000, 59136)
-        self.relu = nn.ReLU()
+            self.linear = nn.Linear(11838, 8000)
+            self.outlayer = nn.Linear(8000, 59136)
+        self.relu = nn.Sigmoid()
         # self.half()
     def forward(self, x):
         if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
-            y_pred = self.linear(x)
+            y_pred = self.relu(self.linear(x))
             # y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)#.to(torch.float32)
         return y_pred
@@ -61,7 +61,6 @@ class Decoder():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-        self.use_amp=False
 
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
@@ -106,8 +105,8 @@ class Decoder():
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
         # Set the optimizer to Adam
-        # optimizer = Adam(self.model.parameters(), lr = self.lr)
-        optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
+        optimizer = Adam(self.model.parameters(), lr = self.lr)
+        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
         # print_gpu_utilization()
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
@@ -177,42 +176,42 @@ class Decoder():
             # Entering validation stage
             # Set model to evaluation mode
             self.model.eval()
-            running_test_loss = 0.0
-            for i, data in enumerate(self.valLoader):
-                
-                # Loading in the test data
-                x_data, y_data = data
-                # x_data = nn.functional.pad(input=x_data, pad=(0, 2, 0, 0), mode='constant', value=0)
-                x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                # with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
-                    # Generating predictions based on the current model
-                with torch.amp.autocast(device_type="cuda", enabled=self.use_amp):
+            with torch.no_grad():
+                running_test_loss = 0.0
+                for i, data in enumerate(self.valLoader):
+                    
+                    # Loading in the test data
+                    x_data, y_data = data
+                    # x_data = nn.functional.pad(input=x_data, pad=(0, 2, 0, 0), mode='constant', value=0)
+                    x_data = x_data.to(self.device)
+                    y_data = y_data.to(self.device)
+                    # with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
+                        # Generating predictions based on the current model
                     pred_y = self.model(x_data).to(self.device)
             
                     # Compute the test loss 
                     loss = criterion(pred_y, y_data)
 
-                running_test_loss += loss.item()
-            test_loss = running_test_loss / len(self.valLoader)
-                
-            # Printing and logging loss so we can keep track of progress
-            tqdm.write('[%d] test loss: %.8f' %
-                        (epoch + 1, test_loss))
-            if(self.log):
-                wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
+                    running_test_loss += loss.item()
+                test_loss = running_test_loss / len(self.valLoader)
                     
-            # Check if we need to save the model
-            # Early stopping
-            if(best_loss == -1.0 or test_loss < best_loss):
-                best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
-                loss_counter = 0
-            else:
-                loss_counter += 1
-                tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 5):
-                    break
+                # Printing and logging loss so we can keep track of progress
+                tqdm.write('[%d] test loss: %.8f' %
+                            (epoch + 1, test_loss))
+                if(self.log):
+                    wandb.log({'epoch': epoch+1, 'test_loss': test_loss})
+                        
+                # Check if we need to save the model
+                # Early stopping
+                if(best_loss == -1.0 or test_loss < best_loss):
+                    best_loss = test_loss
+                    torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                    loss_counter = 0
+                else:
+                    loss_counter += 1
+                    tqdm.write("loss counter: " + str(loss_counter))
+                    if(loss_counter >= 5):
+                        break
                 
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
@@ -246,5 +245,15 @@ class Decoder():
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
         
+        global_y_pred = pred_y.reshape((y_test.shape[0], 257,768))[:,0,:]
+        global_y_test = y_test.reshape((y_test.shape[0], 257,768))[:,0,:]
+        
+        print(global_y_pred.shape, global_y_test.shape)
+        
+        global_pearson = torch.mean(PeC(global_y_pred.moveaxis(0,1), global_y_test.moveaxis(0,1)))
+        global_loss = criterion(global_y_pred, global_y_test)
+        
         print("Vector Correlation: ", float(pearson))
+        print("Vector Correlation Global: ", float(global_pearson))
         print("Loss: ", float(loss))
+        print("Loss Global: ", float(global_loss))

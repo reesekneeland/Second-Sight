@@ -24,7 +24,7 @@ from autoencoder import AutoEncoder
 from reconstructor import Reconstructor
 from pearson import PearsonCorrCoef
 import cv2
-from random import randrange
+import random
 import transformers
 from transformers import CLIPTokenizerFast, AutoProcessor, CLIPModel, CLIPVisionModelWithProjection
 import math
@@ -40,7 +40,6 @@ class Stochastic_Search_Statistics():
         self.device="cuda:3"
         model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
-        self.model = CLIPModel.from_pretrained(model_id).to(self.device)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
         self.PeC = PearsonCorrCoef().to(self.device)
 
@@ -140,10 +139,16 @@ class Stochastic_Search_Statistics():
         
     #two_way_prob is the two way identification experiment between the given image and a random test sample with respect to the ground truth
     #clip_pearson is the pearson correlation score between the clips of the two given images
-    def calculate_clip_similarity(self, ground_truth, image):
+    def calculate_clip_similarity(self, experiment_name, sample):
         with torch.no_grad():
-            random_image = Image.open("/export/raid1/home/kneel027/Second-Sight/logs/shared1000_images/" + str(randrange(0,999)) + ".png")
-
+            exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
+            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir()])
+            rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
+            rand_index = random.choice(rand_list)#random.choice(list(set(range(0, len(folders))) - set(sample)))
+            random_image = Image.open(exp_path + str(folders[rand_index]) + "/Search Reconstruction.png")
+            image = Image.open(exp_path + str(sample) + "/Search Reconstruction.png")
+            ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
+            
             inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
             outputs = self.visionmodel(**inputs)
             
@@ -154,8 +159,8 @@ class Stochastic_Search_Statistics():
             gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
             reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
             
-            loss = (torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) * 100)
-            two_way_prob = loss.softmax(dim=0)[1]
+            loss = (torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) *100)
+            two_way_prob = loss.softmax(dim=0)[0]
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
         return float(two_way_prob), float(clip_pearson)
         
@@ -208,6 +213,14 @@ class Stochastic_Search_Statistics():
                 ground_truth_path = path + '/' + 'Ground Truth.png'
                 ground_truth = Image.open(ground_truth_path)
                 
+                # Ground Truth CLIP Image
+                ground_truth_CLIP_path = path + '/' + 'Ground Truth CLIP.png'
+                ground_truth_CLIP = Image.open(ground_truth_CLIP_path)
+                
+                # Decoded CLIP Only Image
+                decoded_CLIP_only_path = path + '/' + 'Decoded CLIP Only.png'
+                decoded_CLIP_only = Image.open(decoded_CLIP_only_path)
+                
                 # Search Reconstruction Image
                 search_reconstruction_path = path + '/' + 'Search Reconstruction.png'
                 
@@ -248,9 +261,23 @@ class Stochastic_Search_Statistics():
                         iter_count += 1
                         df_row_num += 1
                         
+                # Make data frame row for decoded clip only
+                pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
+                ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
+                row_decoded = pd.DataFrame({'ID' : "Decoded CLIP Only: " + str(i), 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+                df_row_num += 1
+                df = pd.concat([df, row_decoded])
+                
+                # Make data frame row for ground truth CLIP
+                pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, ground_truth_CLIP)
+                ssim_decoded = self.calculate_ssim(ground_truth_path, ground_truth_CLIP_path)
+                row_decoded = pd.DataFrame({'ID' : "Ground Truth CLIP: " + str(i), 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+                df_row_num += 1
+                df = pd.concat([df, row_decoded])
+                        
         print(df.shape)
         print(df)
-        df.to_csv(log_path + "statistics_df.csv")
+        #df.to_csv(log_path + "statistics_df.csv")
     
     
 def main():
@@ -260,13 +287,16 @@ def main():
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
+    
     SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
     
-    # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/3/Ground Truth.png")
-    # im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
+    # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
+    # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
+    # reconstruct = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Search Reconstruction.png")
     # surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
-    # SCS.calculate_clip_similarity(gt, im1)
-    # SCS.calculate_clip_similarity(gt, surfer)
+    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
+    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
+    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
         
 if __name__ == "__main__":
     main()
