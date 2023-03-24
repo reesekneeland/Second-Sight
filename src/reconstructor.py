@@ -167,13 +167,20 @@ class Reconstructor(object):
         image_encoding = self.net.ctx_encode(cx, which='image')
         return image_encoding
     
+    def project_clip(self, expanded_clip):
+        reduced_clip = expanded_clip[:, 0, :]
+        reduced_clip = reduced_clip * torch.norm(reduced_clip, dim=-1, keepdim=True)
+        print("RECONSTRUCTOR REDUCED CLIP SHAPE: ", reduced_clip.shape)
+        projected_clip = self.net.ctx["image"].model.visual_projection(reduced_clip)
+        return projected_clip
+    
     def reconstruct(self, 
                     image=None, 
                     c_i=None, 
                     c_t=None, 
                     n_samples=1, 
-                    textstrength=0.45, 
-                    strength=0.8, 
+                    textstrength=0.5, 
+                    strength=1.0, 
                     color_adjust=False,
                     fcs_lvl=0.5, 
                     seed=None
@@ -186,6 +193,7 @@ class Reconstructor(object):
         if strength == 0:
             return [image]*n_samples
         else:
+            assert (c_t is not None) or (c_i is not None)
             c_info_list = []
             scale = self.scale_imgto*(1-textstrength) + self.scale_textto*textstrength
             if c_t is not None and textstrength != 0:
@@ -199,6 +207,8 @@ class Reconstructor(object):
                     'unconditional_guidance_scale':scale,
                     'ratio': textstrength, })
                 numClips +=1
+            else:
+                textstrength=0
 
             if c_i is not None and textstrength != 1:
                 c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
@@ -219,6 +229,8 @@ class Reconstructor(object):
                     'unconditional_guidance_scale':scale,
                     'ratio': (1-textstrength), })
                 numClips +=1
+            else:
+                textstrength=1
         if(image):
             image = image.resize([w, h], resample=BICUBIC)
             image_tensor = tvtrans.ToTensor()(image)[None].to(self.device).to(self.dtype)

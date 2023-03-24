@@ -39,7 +39,6 @@ class Stochastic_Search_Statistics():
         self.device="cuda:1"
         model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
-        self.model = CLIPModel.from_pretrained(model_id).to(self.device)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
 
 
@@ -155,9 +154,9 @@ class Stochastic_Search_Statistics():
         inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
         outputs = self.visionmodel(**inputs)
         
-        gt_feature = outputs.image_embeds[0].reshape((768))
-        reconstruct_feature = outputs.image_embeds[1].reshape((768))
-        rand_image_feature = outputs.image_embeds[2].reshape((768))
+        gt_feature = outputs.image_embeds[0]
+        reconstruct_feature = outputs.image_embeds[1]
+        rand_image_feature = outputs.image_embeds[2]
         rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
         gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
         reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)

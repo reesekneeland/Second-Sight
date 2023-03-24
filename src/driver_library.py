@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch.autograd import Variable
 import numpy as np
@@ -22,8 +22,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 
 def main():
-    benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
-    # reconstructNImages(experiment_title="coco top 5 comparison z alexnet V1", idx=[i for i in range(1,20)])
+    # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
+    reconstructNImages(experiment_title="coco top 5 VD MLP Encoders", idx=[i for i in range(20)])
 
 
 def predictVector_cc3m(encModel, vector, x, device="cuda:0"):
@@ -71,6 +71,10 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
             datasize = 768
         elif(vector == "z_img_mixer"):
             datasize = 16384
+        elif(vector == "c_img_vd"):
+            datasize = 197376
+        elif(vector == "c_text_vd"):
+            datasize = 59136
         prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
         latent_path = "latent_vectors/"
         # Save to latent vectors
@@ -88,7 +92,6 @@ def predictVector_coco(encModel, vector, x, device="cuda:0"):
                 y[count] = y_full[pred]
                 count+=1
         PeC = PearsonCorrCoef(num_outputs=21000).to(device)
-        outputPeC = PearsonCorrCoef(num_outputs=620).to(device)
         
         out = torch.zeros((x.shape[0], 5, datasize))
         average_pearson = 0
@@ -220,9 +223,8 @@ def reconstructNImages(experiment_title, idx):
     # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
     # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
     # outputs_c_i = [outputs_c_i[i] for i in idx]
-    _, _, _, x_test, _, _, _, targets_c_i, _, test_trials = load_nsd(vector="c_img_0", loader=False, average=True, old_norm=True)
-    _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_0", loader=False, average=True, old_norm=True)
-    _, _, _, _, _, _, _, targets_z, _, _ = load_nsd(vector="z_img_mixer", loader=False, average=True, old_norm=True)
+    _, _, x_param, x_test, _, _, y_param_i, y_test_i, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True, old_norm=True)
+    _, _, _, _, _, _, y_param_t, y_test_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True, old_norm=True)
     # AE = AutoEncoder(hashNum = "540",
     #              lr=0.0000001,
     #              vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
@@ -232,7 +234,8 @@ def reconstructNImages(experiment_title, idx):
     #              device="cuda"
     #             )
     # ae_x_test = AE.predict(x_test)
-
+    outputs_c_i = predictVector_coco(encModel="658_model_c_img_vd.pt", vector="c_img_vd", x=x_param[idx].reshape((len(idx),11838)))
+    outputs_c_t = predictVector_coco(encModel="660_model_c_text_vd.pt", vector="c_text_vd", x=x_param[idx].reshape((len(idx),11838)))
     
     strength_c = 1
     strength_z = 0
@@ -244,9 +247,9 @@ def reconstructNImages(experiment_title, idx):
         # outputs_c_t[i] = torch.load(rootdir + "c_text_0/" + str(i) + ".pt")
         # outputs_z[i] = torch.load(rootdir + "z_img_mixer/" + str(i) + ".pt")
         print(i)
-        # outputs_c_i = predictVector_coco(encModel="521_model_c_img_0.pt", vector="c_img_0", x=x_test[i].reshape((1,11838)))
+        
         # outputs_z = predictVector_cc3m(encModel="543_model_z_img_mixer.pt", vector="z_img_mixer", x=x_test[i].reshape((1,11838)))
-        outputs_z = predictVector_Alexnet_coco(encModel="alexnet_encoder", vector="z_img_mixer", x=x_test[i].reshape((1,11838)), device="cuda:0")
+        # outputs_z = predictVector_Alexnet_coco(encModel="alexnet_encoder", vector="z_img_mixer", x=x_test[i].reshape((1,11838)), device="cuda:0")
         # outputs_c_i = outputs_c_i.reshape((5, 768))
         # c_combined = format_clip(outputs_c_i)
         # c_combined_target = format_clip(targets_c_i[i])
@@ -255,50 +258,76 @@ def reconstructNImages(experiment_title, idx):
         # c_2 = format_clip(outputs_c_i[2])
         # c_3 = format_clip(outputs_c_i[3])
         # c_4 = format_clip(outputs_c_i[4])
-        outputs_z = outputs_z.reshape((5, 16384))
-        z_combined = torch.mean(outputs_z, dim=0)
-        print(z_combined.shape)
-        z_0 = outputs_z[0]
-        z_1 = outputs_z[1]
-        z_2 = outputs_z[2]
-        z_3 = outputs_z[3]
-        z_4 = outputs_z[4]
+        # outputs_c_i = outputs
+        c_i_combined = torch.mean(outputs_c_i[i], dim=0)
+        print(c_i_combined.shape)
+        ci_0 = outputs_c_i[i,0]
+        ci_1 = outputs_c_i[i,1]
+        ci_2 = outputs_c_i[i,2]
+        ci_3 = outputs_c_i[i,3]
+        ci_4 = outputs_c_i[i,4]
+        
+        # outputs_c_t = outputs_c_t
+        c_t_combined = torch.mean(outputs_c_t[i], dim=0)
+        print(c_t_combined.shape)
+        ct_0 = outputs_c_t[i,0]
+        ct_1 = outputs_c_t[i,1]
+        ct_2 = outputs_c_t[i,2]
+        ct_3 = outputs_c_t[i,3]
+        ct_4 = outputs_c_t[i,4]
     
         # Make the c reconstrution images. 
         # reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         # reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
+        target_c_i = R.reconstruct(c_i=y_param_i[i])
+        output_ci = R.reconstruct(c_i=c_i_combined)
+        output_ci_0 = R.reconstruct(c_i=ci_0)
+        output_ci_1 = R.reconstruct(c_i=ci_1)
+        output_ci_2 = R.reconstruct(c_i=ci_2)
+        output_ci_3 = R.reconstruct(c_i=ci_3)
+        output_ci_4 = R.reconstruct(c_i=ci_4)
         
-        # reconstructed_output_c_0 = R.reconstruct(c=c_0, strength=strength_c)
-        # reconstructed_output_c_1 = R.reconstruct(c=c_1, strength=strength_c)
-        # reconstructed_output_c_2 = R.reconstruct(c=c_2, strength=strength_c)
-        # reconstructed_output_c_3 = R.reconstruct(c=c_3, strength=strength_c)
-        # reconstructed_output_c_4 = R.reconstruct(c=c_4, strength=strength_c)
-        #make the z reconstruction images
-        reconstructed_output_c = R.reconstruct(z=z_combined, strength=strength_z)
-        reconstructed_target_c = R.reconstruct(z=targets_z[i], strength=strength_z)
+        target_c_t = R.reconstruct(c_t=y_param_t[i])
+        output_ct = R.reconstruct(c_t=c_t_combined)
+        output_ct_0 = R.reconstruct(c_t=ct_0)
+        output_ct_1 = R.reconstruct(c_t=ct_1)
+        output_ct_2 = R.reconstruct(c_t=ct_2)
+        output_ct_3 = R.reconstruct(c_t=ct_3)
+        output_ct_4 = R.reconstruct(c_t=ct_4)
         
-        reconstructed_output_c_0 = R.reconstruct(z=z_0, strength=strength_z)
-        reconstructed_output_c_1 = R.reconstruct(z=z_1, strength=strength_z)
-        reconstructed_output_c_2 = R.reconstruct(z=z_2, strength=strength_z)
-        reconstructed_output_c_3 = R.reconstruct(z=z_3, strength=strength_z)
-        reconstructed_output_c_4 = R.reconstruct(z=z_4, strength=strength_z)
-        
-        # # Make the z reconstrution images. 
-        # reconstructed_output_z = R.reconstruct(z=outputs_z[i], strength=strength_z)
-        # reconstructed_target_z = R.reconstruct(z=targets_z[i], strength=strength_z)
-        
-        # # Make the z and c reconstrution images. 
-        # z_c_reconstruction = R.reconstruct(z=outputs_z[i], c=outputs_c_i[i], strength=0.8)
+        target_c_c = R.reconstruct(c_i=y_param_i[i], c_t=y_param_t[i])
+        output_cc = R.reconstruct(c_i=c_i_combined, c_t=c_t_combined)
+        output_cc_0 = R.reconstruct(c_i=ci_0, c_t=ct_0)
+        output_cc_1 = R.reconstruct(c_i=ci_1, c_t=ct_1)
+        output_cc_2 = R.reconstruct(c_i=ci_2, c_t=ct_2)
+        output_cc_3 = R.reconstruct(c_i=ci_3, c_t=ct_3)
+        output_cc_4 = R.reconstruct(c_i=ci_4, c_t=ct_4)
+       
         
         # returns a numpy array 
-        nsdId = test_trials[i]
+        nsdId = param_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=False)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        rows = 4
-        columns = 2
-        images = [ground_truth, reconstructed_target_c, reconstructed_output_c, reconstructed_output_c_0, reconstructed_output_c_1, reconstructed_output_c_2, reconstructed_output_c_3, reconstructed_output_c_4]
-        captions = ["Ground Truth", "Target Z", "Output 5 Zs", "Z_0", "Z_1","Z_2","Z_3","Z_4"]
+        empty = Image.new('RGB', (512, 512), color='white')
+        rows = 8
+        columns = 3
+        images = [ground_truth, empty, empty,
+                  target_c_c, target_c_i, target_c_t,
+                  output_cc, output_ci, output_ct,
+                  output_cc_0, output_ci_0, output_ct_0,
+                  output_cc_1, output_ci_1, output_ct_1,
+                  output_cc_2, output_ci_2, output_ct_2,
+                  output_cc_3, output_ci_3, output_ct_3,
+                  output_cc_4, output_ci_4, output_ct_4]
+        captions = ["ground_truth", "", "",
+                  "target_c_c", "target_c_i", "target_c_t",
+                  "output_cc", "output_ci", "output_ct",
+                  "output_cc_0", "output_ci_0", "output_ct_0",
+                  "output_cc_1", "output_ci_1", "output_ct_1",
+                  "output_cc_2", "output_ci_2", "output_ct_2",
+                  "output_cc_3", "output_ci_3", "output_ct_3",
+                  "output_cc_4", "output_ci_4", "output_ct_4"]
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
         
         figure.save('reconstructions/' + experiment_title + '/' + str(i) + '.png')
