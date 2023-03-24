@@ -161,10 +161,17 @@ class Stochastic_Search_Statistics():
         
         
         
-    def create_dataframe(self):
+    def create_dataframe(self, folder):
+        
+        log_path = "/export/raid1/home/kneel027/Second-Sight/logs/" + folder + "/"
         
         brain_correlation_V1            = np.empty((25, 10))
         brain_correlation_V2            = np.empty((25, 10))
+        brain_correlation_V3            = np.empty((25, 10))
+        brain_correlation_V4            = np.empty((25, 10))
+        brain_correlation_early_visual  = np.empty((25, 10))
+        brain_correlation_higher_visual = np.empty((25, 10))
+        brain_correlation_unmasked      = np.empty((25, 10))
 
 
         # Encoding vectors for 2819140 images
@@ -172,10 +179,17 @@ class Stochastic_Search_Statistics():
             
             brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
             brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
+            brain_correlation_V3[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V3.npy")
+            brain_correlation_V4[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V4.npy")
+            brain_correlation_early_visual[i]  = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_early_visual.npy")
+            brain_correlation_higher_visual[i] = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy")
+            brain_correlation_unmasked[i]      = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list.npy")
         
         # create an Empty DataFrame
         # object With column names only
-        df = pd.DataFrame(columns = ['ID', 'Iter', 'Final Sample', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
+        df = pd.DataFrame(columns = ['ID', 'Iter', 'Final Sample', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+                                     'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
+                                     'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
         
         # Append rows to an empty DataFrame
         iter_count = 0
@@ -222,8 +236,10 @@ class Stochastic_Search_Statistics():
                         # Make data frame row
                         row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Final Sample' : str(ssim_search_reconstruction == 1.00), 'Strength' : str(round(strength, 10)), 
                                             'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
-                                            'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 'CLIP Pearson' : str(round(clip_pearson, 10)), 
-                                            'CLIP Two-way' : str(round(two_way_prob, 10)) }, index=[df_row_num])
+                                            'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
+                                            'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
+                                            'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
+                                            'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10)) }, index=[df_row_num])
                         
                         # Add the row to the dataframe
                         df = pd.concat([df, row])
@@ -234,6 +250,7 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
+        df.to_csv(log_path + "statistics_df.csv")
     
     
 def main():
@@ -243,7 +260,7 @@ def main():
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
-    SCS.create_dataframe()
+    SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/3/Ground Truth.png")
     # im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
