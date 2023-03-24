@@ -192,7 +192,12 @@ class Stochastic_Search_Statistics():
         
         # create an Empty DataFrame
         # object With column names only
-        df = pd.DataFrame(columns = ['ID', 'Iter', 'Final Sample', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+        # Sample Indicator: 
+        #   0 --> Ground Truth
+        #   1 --> Ground Truth CLIP
+        #   2 --> Decoded CLIP Only
+        #   3 --> Search Reconstruction
+        df = pd.DataFrame(columns = ['ID', 'Iter', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
         
@@ -224,6 +229,9 @@ class Stochastic_Search_Statistics():
                 # Search Reconstruction Image
                 search_reconstruction_path = path + '/' + 'Search Reconstruction.png'
                 
+                # CLIP metrics calculation
+                two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i)
+                
                 with open(os.path.join(path, filename), 'r') as f:
                     if('iter' in filename):
                         
@@ -232,9 +240,6 @@ class Stochastic_Search_Statistics():
                         
                         # Iter reconstruction image
                         reconstruction = Image.open(reconstruction_path)
-                        
-                        # CLIP metrics calculation
-                        two_way_prob, clip_pearson = self.calculate_clip_similarity(ground_truth, reconstruction)
                         
                         # Pix Corr metrics calculation
                         pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
@@ -247,12 +252,20 @@ class Stochastic_Search_Statistics():
                         strength = 1.0-0.6*(math.pow(iter_count/10, 3))
                 
                         # Make data frame row
-                        row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Final Sample' : str(ssim_search_reconstruction == 1.00), 'Strength' : str(round(strength, 10)), 
-                                            'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
-                                            'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
-                                            'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
-                                            'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
-                                            'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10)) }, index=[df_row_num])
+                        if(ssim_search_reconstruction == 1.00):
+                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "3", 'Strength' : str(round(strength, 10)), 
+                                                'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
+                                                'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
+                                                'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
+                                                'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
+                                                'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10)) }, index=[df_row_num])
+                        
+                        else:
+                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Strength' : str(round(strength, 10)), 
+                                                'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
+                                                'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
+                                                'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
+                                                'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10))}, index=[df_row_num])
                         
                         # Add the row to the dataframe
                         df = pd.concat([df, row])
@@ -261,23 +274,28 @@ class Stochastic_Search_Statistics():
                         iter_count += 1
                         df_row_num += 1
                         
-                # Make data frame row for decoded clip only
-                pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
-                ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-                row_decoded = pd.DataFrame({'ID' : "Decoded CLIP Only: " + str(i), 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
-                df_row_num += 1
-                df = pd.concat([df, row_decoded])
-                
-                # Make data frame row for ground truth CLIP
-                pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, ground_truth_CLIP)
-                ssim_decoded = self.calculate_ssim(ground_truth_path, ground_truth_CLIP_path)
-                row_decoded = pd.DataFrame({'ID' : "Ground Truth CLIP: " + str(i), 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
-                df_row_num += 1
-                df = pd.concat([df, row_decoded])
+            # Make data frame row for decoded clip only
+            pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
+            ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
+            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_decoded])
+            
+            # Make data frame row for ground truth CLIP
+            pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, ground_truth_CLIP)
+            ssim_decoded = self.calculate_ssim(ground_truth_path, ground_truth_CLIP_path)
+            row_ground_truth_CLIP = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "1", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_ground_truth_CLIP])
+            
+            # Make data frame row for ground truth Image
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0"}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_ground_truth])
                         
         print(df.shape)
         print(df)
-        #df.to_csv(log_path + "statistics_df.csv")
+        df.to_csv(log_path + "statistics_df.csv")
     
     
 def main():
