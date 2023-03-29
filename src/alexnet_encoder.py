@@ -224,6 +224,8 @@ class Torch_fwRF_voxel_block(nn.Module):
         _mst = torch.transpose(torch.transpose(_mst, 0, 2), 1, 2) # [#voxels, #samples, features]
         _r = torch.squeeze(torch.bmm(_mst, torch.unsqueeze(self.weights, 2))).t() # [#samples, #voxels]
         if self.bias is not None:
+            # print(self.bias)
+            # print(self.bias.shape)
             _r += torch.unsqueeze(self.bias, 0)
         return _r
 
@@ -487,8 +489,6 @@ class AlexNetEncoder():
         
         torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_73k.pt")
         
-    #def calulate_predict(self):
-        
         
     def predict_cc3m(self):
         
@@ -546,7 +546,7 @@ class AlexNetEncoder():
                         
                         
                         
-    def predict(self, images, mask = []):
+    def predict(self, images, mask, unmasked=True):
         
         self.image_data = {}
         data = []
@@ -560,10 +560,6 @@ class AlexNetEncoder():
             
         self.image_data[1] = np.moveaxis(np.array(data), 3, 1)
         
-        beta_mask = self.masks[0]
-        for i in mask:
-            beta_mask = torch.logical_or(beta_mask, self.masks[i])        
-        
         voxel_batch_size = 200 # 200
         _log_act_func = lambda _x: torch.log(1 + torch.abs(_x)) 
 
@@ -571,19 +567,18 @@ class AlexNetEncoder():
         _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
         _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
                                         _nonlinearity=_log_act_func, input_shape=self.image_data[self.subjects[0]].shape, aperture=1.0)
-        
         sample_batch_size = 1000
 
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            if(len(mask) == 0):
+            if(unmasked):
                 subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
                 break
             
             else:
                 masked_params = []
                 for params in bp:
-                    masked_params.append(params[beta_mask])
+                    masked_params.append(params[mask])
                 
                 subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
                 break
@@ -643,14 +638,14 @@ def main():
     
     AN = AlexNetEncoder(predict_normal_flag = False, predict_73k = False)
     
-    # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
-    # data = []
-    # for i in tqdm(range(100), desc="loading in images"):
+    subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
+    data = []
+    for i in tqdm(range(1), desc="loading in images"):
         
-    #     nsdId = subj1_train.iloc[i]['nsdId']
-    #     ground_truth_np_array = nsda.read_images([nsdId], show=False)
-    #     ground_truth = Image.fromarray(ground_truth_np_array[0])
-    #     data.append(ground_truth)
+        nsdId = subj1_train.iloc[i]['nsdId']
+        ground_truth_np_array = nsda.read_images([nsdId], show=False)
+        ground_truth = Image.fromarray(ground_truth_np_array[0])
+        data.append(ground_truth)
     
     #AN.predict_cc3m()
     # AN.predict_73k_coco()
@@ -660,7 +655,22 @@ def main():
     #AN.load_data()
     #AN.predict_normal()
     
-    # AN.predict(data, [1])
+    mask_path = "masks/"
+    masks = {0:torch.full((11838,), False),
+                1:torch.load(mask_path + "V1.pt"),
+                2:torch.load(mask_path + "V2.pt"),
+                3:torch.load(mask_path + "V3.pt"),
+                4:torch.load(mask_path + "V4.pt"),
+                5:torch.load(mask_path + "V5.pt"),
+                6:torch.load(mask_path + "V6.pt"),
+                7:torch.load(mask_path + "V7.pt")}
+    
+    beta_mask = masks[0]
+    for i in [1,2]:
+        beta_mask = torch.logical_or(beta_mask, masks[i])        
+        
+    
+    AN.predict(data, beta_mask, True)
            
         
 if __name__ == "__main__":
