@@ -24,11 +24,21 @@ class MLP(torch.nn.Module):
             self.linear = nn.Linear(10000, 15000)
             self.linear2 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 11838)
+            # self.double()
+            # self.linear = nn.Linear(768, 15000)
+            # self.outlayer = nn.Linear(15000, 11838)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(10000, 15000)
             self.linear2 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 11838)
-        self.double()
+        
+            # self.linear = nn.Linear(768, 15000)
+            # self.outlayer = nn.Linear(15000, 11838)
+        elif(vector == "c_img_0"):
+            self.linear = nn.Linear(768, 10000)
+            self.linear2 = nn.Linear(10000, 12000)
+            self.outlayer = nn.Linear(12000, 11838)   
+        # self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
@@ -36,6 +46,10 @@ class MLP(torch.nn.Module):
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)
+        if(self.vector == "c_img_0"):
+            y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.outlayer(y_pred)  
         return y_pred
 
     
@@ -96,7 +110,7 @@ class Encoder():
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
                                                         loader=True,
-                                                        pca=True)
+                                                        pca=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -124,7 +138,8 @@ class Encoder():
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device, torch.float64)
+                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
+                y_data = y_data.to(self.device)
                 
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
@@ -157,8 +172,8 @@ class Encoder():
                 # x_data = Clip vector Data
                 # y_data = Brain Data
                 y_data, x_data = data
-                
                 x_data = x_data.to(self.device)
+                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
                 y_data = y_data.to(self.device, torch.float64)
                 
                 # Generating predictions based on the current model
@@ -191,12 +206,12 @@ class Encoder():
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
-    def predict(self, x, batch=False, batch_size=750):
+    def predict(self, x):
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device, torch.float64))
-        return out.to(torch.float32)
+        out = self.model(x.to(self.device))
+        return out
         
         
     def benchmark(self, average=True):
@@ -219,7 +234,7 @@ class Encoder():
         x_test_pca = x_test_pca.to(self.device)
         y_test = y_test.to(self.device)
         
-        pred_y = self.model(x_test_pca)
+        pred_y = self.model(x_test_pca.to(torch.float32))
         
         loss = criterion(pred_y, y_test)
               
