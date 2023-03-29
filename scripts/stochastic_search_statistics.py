@@ -42,54 +42,97 @@ class Stochastic_Search_Statistics():
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
         self.PeC = PearsonCorrCoef().to(self.device)
+        self.brain_masks =  {1:[1,2], 2: [3,4], 3:[5,6], 4:[7], 5:[1,2,3,4,5,6,7]}
+        self.mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/"
+        self.masks = {0:torch.full((11838,), False),
+                    1:torch.load(self.mask_path + "V1.pt"),
+                    2:torch.load(self.mask_path + "V2.pt"),
+                    3:torch.load(self.mask_path + "V3.pt"),
+                    4:torch.load(self.mask_path + "V4.pt"),
+                    5:torch.load(self.mask_path + "V5.pt"),
+                    6:torch.load(self.mask_path + "V6.pt"),
+                    7:torch.load(self.mask_path + "V7.pt")}
 
-
-    def generate_brain_predictions(self):
-        alexnet_predictions = {}
-        brain_masks = {1:[1,2], 2: [3,4], 3:[5,6], 4:[7], 5:[1,2,3,4,5,6,7]}
-        image_counter = 0
-        images = []
-        device="cuda:0"
-
-        AN =  AlexNetEncoder()
-
+    def autoencoded_brain_samples(self):
+        
         AE = AutoEncoder(hashNum = "582",
                         lr=0.0000001,
                         vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
                         encoderHash="579",
                         log=False, 
                         batch_size=750,
-                        device=device
+                        device="cuda:0"
                         )
-        mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/"
-        masks = {0:torch.full((11838,), False),
-                    1:torch.load(mask_path + "V1.pt"),
-                    2:torch.load(mask_path + "V2.pt"),
-                    3:torch.load(mask_path + "V3.pt"),
-                    4:torch.load(mask_path + "V4.pt"),
-                    5:torch.load(mask_path + "V5.pt"),
-                    6:torch.load(mask_path + "V6.pt"),
-                    7:torch.load(mask_path + "V7.pt")}
-
-        _, _, x_param, x_test, _, _, _, _, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=False, nest=True)
+        
+        # Load the test samples
+        _, _, x_param, x_test, _, _, _, y_test, param_trials, test_trials = load_nsd(vector="images", loader=False, average=False, nest=True)
+        #print(y_test[0].reshape((425,425,3)).numpy().shape)
+        # test = Image.fromarray(y_test[0].reshape((425,425,3)).numpy().astype(np.uint8))
+        # test.save("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/logs/test.png")
+        
+        
         #x_test_ae = torch.zeros((x_test.shape[0], 11838))
         x_test_ae = torch.zeros((50, 11838))
+        
+        # 
         # for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
-        for i in tqdm(range(50), desc="Autoencoding samples and averaging"):
+        for i in tqdm(range(50), desc = "Autoencoding samples and averaging" ):
             x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
-        beta = x_test_ae
-
-        beta_mask = masks[0]
-        for i in brain_masks[5]:
-            beta_mask = torch.logical_or(beta_mask, masks[i])
+        
+        return x_test_ae
+    
+    def return_all_masks(self):
+        
+        # Instantiate all the mask variales
+        brain_mask_V1 = self.masks[0]
+        brain_mask_V2 = self.masks[0]
+        brain_mask_V3 = self.masks[0]
+        brain_mask_V4 = self.masks[0]
+        brain_mask_early_visual = self.masks[0]
+        brain_mask_higher_visual = self.masks[0]
+        
+        # Fill V1 mask
+        for i in self.brain_masks[1]:
+            brain_mask_V1 = torch.logical_or(brain_mask_V1, self.masks[i])
+        
+        # Fill V2 mask
+        for i in self.brain_masks[2]:
+            brain_mask_V2 = torch.logical_or(brain_mask_V2, self.masks[i])
+        
+        # Fill V3 Mask
+        for i in self.brain_masks[3]:
+            brain_mask_V3 = torch.logical_or(brain_mask_V3, self.masks[i])
+        
+        # Fill V4 Mask
+        for i in self.brain_masks[4]:
+            brain_mask_V4 = torch.logical_or(brain_mask_V4, self.masks[i])
             
-        beta_mask = ~beta_mask
-        # print(type(beta_mask))
-        # print(np.unique(beta_mask, return_counts=True))
-        # print(np.unique(~beta_mask, return_counts=True))
+        # Fill early visual mask
+        for i in self.brain_masks[5]:
+            brain_mask_early_visual = torch.logical_or(brain_mask_early_visual, self.masks[i])
+           
+        # Negate the early visual cortex to get the higher visual cortex region.  
+        brain_mask_higher_visual = ~brain_mask_early_visual
+        
+        return brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual, brain_mask_higher_visual
+
+    def generate_brain_predictions(self):
+        
+        alexnet_predictions = {}
+        image_counter = 0
+        images = []
+        device = "cuda:0"
+
+        AN =  AlexNetEncoder()
+
+        # Autoencoded avearged brain samples 
+        beta = self.autoencoded_brain_samples()
+        
+        # Grab the necessary brain masks
+        brain_mask_V1, _, _, _, _, _ = self.return_all_masks()
             
 
-        for i in range(25):
+        for i in range(1):
             path = self.directory_path + "/" + str(i)
             for filename in os.listdir(path): 
                 with open(os.path.join(path, filename), 'r') as f:
@@ -98,24 +141,73 @@ class Stochastic_Search_Statistics():
                         images.append(image_pil)
                         image_counter += 1
                         if(image_counter == 10):
-                            alexnet_predictions[i] = AN.predict(images, brain_masks[5])
+                            alexnet_predictions[i] = AN.predict(images, brain_mask_V1)
                             image_counter = 0
                             images = []
         
         beta_i = beta
-        for i in range(25):
+        for i in range(1):
             
+            print(alexnet_predictions[i].shape)
             beta_primes = alexnet_predictions[i].moveaxis(0, 1).to(device)
+            print(beta_primes.shape)
             
-            beta = beta_i[i][beta_mask]
+            beta = beta_i[i][brain_mask_V1]
                         
             xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(device)
             PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(device) 
             print(xDup.shape, beta_primes.shape)
             scores = PeC(xDup, beta_primes)
             scores_np = scores.detach().cpu().numpy()
+            print(scores_np)
             
-            np.save("/export/raid1/home/kneel027/Second-Sight/logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy", scores_np)
+            #np.save("/export/raid1/home/kneel027/Second-Sight/logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy", scores_np)
+            
+    def generate_pearson_correlation(self, alexnet_predictions, beta_sample, brain_mask, unmasked = True):
+        
+        # print(alexnet_prediction.shape)
+        # # For a single prediction reshape the prediction to work. 
+        # if(len(alexnet_prediction.shape) < 2): 
+        #     alexnet_prediction = alexnet_prediction[None,:]
+            
+        # # Mask the beta scan. 
+        # if(not unmasked):
+        #     beta = beta_sample[brain_mask]
+        # else:
+        #     beta = beta_sample
+        
+        # # Move the axis of the numpy array. 
+        # beta_primes = alexnet_prediction.moveaxis(0, 1).to(self.device)
+        
+        # # Calculate the pearson correlation   
+        # xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+        # PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+        # print(xDup.shape, beta_primes.shape)
+        # if(xDup.shape[1] == 1):
+        #     scores = PeC(xDup[:,0], beta_primes[:,0])
+        # else:
+        #     scores = PeC(xDup, beta_primes)
+        # scores_np = scores.detach().cpu().numpy()
+        # print(scores_np)
+        
+            
+        # print(alexnet_predictions[i].shape)
+        beta_primes = alexnet_predictions.moveaxis(0, 1).to(self.device)
+        print(beta_primes.shape)
+        
+        if(not unmasked):
+            beta = beta_sample[brain_mask]
+        else:
+            beta = beta_sample
+                    
+        xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+        PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+        print(xDup.shape, beta_primes.shape)
+        scores = PeC(xDup, beta_primes)
+        scores_np = scores.detach().cpu().numpy()
+        print(scores_np)
+        
+        return scores_np
         
     def calculate_ssim(self, ground_truth_path, reconstruction_path):
 
@@ -137,8 +229,8 @@ class Stochastic_Search_Statistics():
         
         
         
-    #two_way_prob is the two way identification experiment between the given image and a random test sample with respect to the ground truth
-    #clip_pearson is the pearson correlation score between the clips of the two given images
+    # two_way_prob is the two way identification experiment between the given image and a random test sample with respect to the ground truth
+    # clip_pearson is the pearson correlation score between the clips of the two given images
     def calculate_clip_similarity(self, experiment_name, sample):
         with torch.no_grad():
             exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
@@ -168,27 +260,18 @@ class Stochastic_Search_Statistics():
         
     def create_dataframe(self, folder):
         
-        log_path = "/export/raid1/home/kneel027/Second-Sight/logs/" + folder + "/"
+        # Path to the folder
+        log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/" + folder + "/"
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+         
+        # Instantiate the alexnet class for predicts
+        AN =  AlexNetEncoder()
         
-        brain_correlation_V1            = np.empty((25, 10))
-        brain_correlation_V2            = np.empty((25, 10))
-        brain_correlation_V3            = np.empty((25, 10))
-        brain_correlation_V4            = np.empty((25, 10))
-        brain_correlation_early_visual  = np.empty((25, 10))
-        brain_correlation_higher_visual = np.empty((25, 10))
-        brain_correlation_unmasked      = np.empty((25, 10))
-
-
-        # Encoding vectors for 2819140 images
-        for i in tqdm(range(25)):
-            
-            brain_correlation_V1[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V1.npy")
-            brain_correlation_V2[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V2.npy")
-            brain_correlation_V3[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V3.npy")
-            brain_correlation_V4[i]            = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_V4.npy")
-            brain_correlation_early_visual[i]  = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_early_visual.npy")
-            brain_correlation_higher_visual[i] = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list_higher_visual.npy")
-            brain_correlation_unmasked[i]      = np.load("logs/SCS 10:250:5 HS nsd_general AE/" + str(i) + "_score_list.npy")
+        # Autoencoded avearged brain samples 
+        beta_samples = self.autoencoded_brain_samples()
+        
+        # Grab the necessary brain masks
+        brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual, brain_mask_higher_visual = self.return_all_masks()
         
         # create an Empty DataFrame
         # object With column names only
@@ -201,22 +284,28 @@ class Stochastic_Search_Statistics():
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
         
-        # Append rows to an empty DataFrame
+        # Seach iteration count. 
         iter_count = 0
+        
+        # Dataframe index count. 
         df_row_num = 0
-        for i in tqdm(range(25), desc="creating dataframe rows"):
+        
+        # Set of images in a folder that need to be AlexNet predicted. 
+        folder_image_set = []
+        
+        # Append rows to an empty DataFrame
+        for i in tqdm(range(22), desc="creating dataframe rows"):
             
             # Create the path
-            path = self.directory_path + "/" + str(i)
-            
-            # Reset the iter_count for the next 
-            iter_count = 0
+            path = directory_path + str(i)
             
             for filename in os.listdir(path): 
                 
                 # Ground Truth Image
                 ground_truth_path = path + '/' + 'Ground Truth.png'
                 ground_truth = Image.open(ground_truth_path)
+                ground_truth.save("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/logs/test_" + str(i) + ".png")
+                
                 
                 # Ground Truth CLIP Image
                 ground_truth_CLIP_path = path + '/' + 'Ground Truth CLIP.png'
@@ -240,6 +329,7 @@ class Stochastic_Search_Statistics():
                         
                         # Iter reconstruction image
                         reconstruction = Image.open(reconstruction_path)
+                        folder_image_set.append(reconstruction)
                         
                         # Pix Corr metrics calculation
                         pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
@@ -253,19 +343,14 @@ class Stochastic_Search_Statistics():
                 
                         # Make data frame row
                         if(ssim_search_reconstruction == 1.00):
-                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "3", 'Strength' : str(round(strength, 10)), 
-                                                'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
-                                                'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
-                                                'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
-                                                'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
-                                                'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10)) }, index=[df_row_num])
+                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "3", 'Strength' : str(round(strength, 10)),
+                                                'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)),
+                                                'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
                         
                         else:
                             row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Strength' : str(round(strength, 10)), 
-                                                'Brain Correlation V1' : str(round(brain_correlation_V1[i][iter_count], 10)), 'Brain Correlation V2' : str(round(brain_correlation_V2[i][iter_count], 10)), 
-                                                'Brain Correlation V3' : str(round(brain_correlation_V3[i][iter_count], 10)), 'Brain Correlation V4' : str(round(brain_correlation_V4[i][iter_count], 10)),
-                                                'Brain Correlation Early Visual' : str(round(brain_correlation_early_visual[i][iter_count], 10)), 'Brain Correlation Higher Visual' : str(round(brain_correlation_higher_visual[i][iter_count], 10)),
-                                                'Brain Correlation Unmasked' : str(round(brain_correlation_unmasked[i][iter_count], 10)), 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10))}, index=[df_row_num])
+                                                'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
+                                                'CLIP Pearson' : str(round(clip_pearson, 10))},  index=[df_row_num])
                         
                         # Add the row to the dataframe
                         df = pd.concat([df, row])
@@ -273,6 +358,30 @@ class Stochastic_Search_Statistics():
                         # Iterate the counts
                         iter_count += 1
                         df_row_num += 1
+                        
+
+            # Add the images for alexnet predictions
+            folder_image_set.append(decoded_CLIP_only)
+            folder_image_set.append(ground_truth_CLIP)
+            folder_image_set.append(ground_truth)
+                        
+            # Alexnet predictions for each region
+            alexnet_prediction_V1               = AN.predict(folder_image_set, brain_mask_V1, False)
+            alexnet_prediction_V2               = AN.predict(folder_image_set, brain_mask_V2, False)
+            alexnet_prediction_V3               = AN.predict(folder_image_set, brain_mask_V3, False)
+            alexnet_prediction_V4               = AN.predict(folder_image_set, brain_mask_V4, False)
+            alexnet_prediction_early_visual     = AN.predict(folder_image_set, brain_mask_early_visual, False)
+            alexnet_prediction_higher_visual    = AN.predict(folder_image_set, brain_mask_higher_visual, False)
+            alexnet_prediction_unmasked         = AN.predict(folder_image_set, brain_mask_higher_visual, True)
+            
+            # Pearson correlations for each reconstruction region
+            pearson_correlation_V1              = self.generate_pearson_correlation(alexnet_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
+            pearson_correlation_V2              = self.generate_pearson_correlation(alexnet_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
+            pearson_correlation_V3              = self.generate_pearson_correlation(alexnet_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
+            pearson_correlation_V4              = self.generate_pearson_correlation(alexnet_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
+            pearson_correlation_early_visual    = self.generate_pearson_correlation(alexnet_prediction_early_visual, beta_samples[i], brain_mask_early_visual, unmasked=False)
+            pearson_correlation_higher_visual   = self.generate_pearson_correlation(alexnet_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
+            pearson_correlation_unmasked        = self.generate_pearson_correlation(alexnet_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
                         
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
@@ -289,13 +398,28 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth_CLIP])
             
             # Make data frame row for ground truth Image
-            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0"}, index=[df_row_num])
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10))}, index=[df_row_num])
             df_row_num += 1
             df = pd.concat([df, row_ground_truth])
+            
+            for image_index in range(len(folder_image_set)): 
+                print(((df_row_num - len(folder_image_set)) + image_index))
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V1']             =  pearson_correlation_V1[image_index] 
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V2']             =  pearson_correlation_V2[image_index]      
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V3']             =  pearson_correlation_V3[image_index]
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V4']             =  pearson_correlation_V4[image_index]
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation Early Visual']   =  pearson_correlation_early_visual[image_index]
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation Higher Visual']  =  pearson_correlation_higher_visual[image_index]  
+                df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation Unmasked']       =  pearson_correlation_unmasked[image_index]  
+                
+            # Reset the iter_count and folder_image for the next folder. 
+            iter_count = 0
+            folder_image_set = []    
+                                           
                         
         print(df.shape)
         print(df)
-        df.to_csv(log_path + "statistics_df.csv")
+        df.to_csv(log_path + "statistics_df_23.csv")
     
     
 def main():
@@ -306,7 +430,8 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
+    #SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
+    SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
