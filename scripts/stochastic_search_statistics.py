@@ -28,6 +28,7 @@ import random
 import transformers
 from transformers import CLIPTokenizerFast, AutoProcessor, CLIPModel, CLIPVisionModelWithProjection
 import math
+import re
 
 class Stochastic_Search_Statistics():
     
@@ -193,7 +194,6 @@ class Stochastic_Search_Statistics():
             
         # print(alexnet_predictions[i].shape)
         beta_primes = alexnet_predictions.moveaxis(0, 1).to(self.device)
-        print(beta_primes.shape)
         
         if(not unmasked):
             beta = beta_sample[brain_mask]
@@ -205,7 +205,6 @@ class Stochastic_Search_Statistics():
         print(xDup.shape, beta_primes.shape)
         scores = PeC(xDup, beta_primes)
         scores_np = scores.detach().cpu().numpy()
-        print(scores_np)
         
         return scores_np
         
@@ -255,6 +254,29 @@ class Stochastic_Search_Statistics():
             two_way_prob = loss.softmax(dim=0)[0]
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
         return float(two_way_prob), float(clip_pearson)
+    
+    
+    def image_indices(self, folder):
+        
+        # Directory path
+        dir_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        
+        # Grab the list of files
+        files = []
+        for path in os.listdir(dir_path):
+            
+            # check if current path is a file
+            if os.path.isfile(os.path.join(dir_path, path)):
+                files.append(path)
+        
+        # Get just the image number and then sort the list. 
+        indicies = []
+        for i in range(len(files)):
+            indicies.append(int(re.search(r'\d+', files[i]).group()))
+       
+        indicies.sort()
+        
+        return indicies
         
         
         
@@ -263,6 +285,11 @@ class Stochastic_Search_Statistics():
         # Path to the folder
         log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/" + folder + "/"
         directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        
+        
+        # List of image numbers created. 
+        #idx = self.image_indices(folder)
+        idx = [0, 1, 2, 3, 4, 25, 26, 27, 28, 29]
          
         # Instantiate the alexnet class for predicts
         AN =  AlexNetEncoder()
@@ -294,7 +321,7 @@ class Stochastic_Search_Statistics():
         folder_image_set = []
         
         # Append rows to an empty DataFrame
-        for i in tqdm(range(22), desc="creating dataframe rows"):
+        for i in tqdm(idx, desc="creating dataframe rows"):
             
             # Create the path
             path = directory_path + str(i)
@@ -304,8 +331,6 @@ class Stochastic_Search_Statistics():
                 # Ground Truth Image
                 ground_truth_path = path + '/' + 'Ground Truth.png'
                 ground_truth = Image.open(ground_truth_path)
-                ground_truth.save("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/logs/test_" + str(i) + ".png")
-                
                 
                 # Ground Truth CLIP Image
                 ground_truth_CLIP_path = path + '/' + 'Ground Truth CLIP.png'
@@ -403,7 +428,6 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth])
             
             for image_index in range(len(folder_image_set)): 
-                print(((df_row_num - len(folder_image_set)) + image_index))
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V1']             =  pearson_correlation_V1[image_index] 
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V2']             =  pearson_correlation_V2[image_index]      
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V3']             =  pearson_correlation_V3[image_index]
@@ -419,7 +443,7 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
-        df.to_csv(log_path + "statistics_df_23.csv")
+        df.to_csv(log_path + "statistics_df_10.csv")
     
     
 def main():
@@ -430,8 +454,9 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    #SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
     SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.6 Exp3 AE")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
