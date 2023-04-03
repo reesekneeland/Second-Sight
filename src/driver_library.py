@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 from torch.autograd import Variable
 import numpy as np
@@ -24,7 +24,8 @@ from pearson import PearsonCorrCoef, pearson_corrcoef
 
 def main():
     # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
-    reconstructNImages(experiment_title="coco top 5 VD 722 AE Clip Extract", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # reconstructNImages(experiment_title="coco top 5 VD 722 AE Clip Extract", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[], test=True, average=True, ae=True)
 
 def predictVector_cc3m(encModel, vector, x, mask=[], device="cuda:0"):
         
@@ -181,10 +182,18 @@ def reconstructNImages(experiment_title, idx, mask=[], ae=False, test=True, aver
     #                 batch_size=750,
     #                 device="cuda:0"
     #                 )
-    AE = AutoEncoder(hashNum = "724",
+    AE1 = AutoEncoder(hashNum = "724",
                     lr=0.0000001,
                     vector="c_img_vd", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="521",
+                    encoderHash="722",
+                    log=False, 
+                    batch_size=750,
+                    device="cuda:0"
+                    )
+    AE2 = AutoEncoder(hashNum = "727",
+                    lr=0.0000001,
+                    vector="c_text_vd", #c_img_0, c_text_0, z_img_mixer
+                    encoderHash="660",
                     log=False, 
                     batch_size=750,
                     device="cuda:0"
@@ -196,8 +205,8 @@ def reconstructNImages(experiment_title, idx, mask=[], ae=False, test=True, aver
     else:
         _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
-    if(ae):
-        x_pruned_ae = torch.zeros((len(idx), 11838))
+    
+    x_pruned_ae = torch.zeros((len(idx), 11838))
     x_pruned = torch.zeros((len(idx), 11838))
     for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
         tqdm.write(str(i) + " " + str(index))
@@ -216,8 +225,8 @@ def reconstructNImages(experiment_title, idx, mask=[], ae=False, test=True, aver
     
     # output_images = predictVector_coco(encModel="alexnet_encoder", vector="images", x=x)
     # output_images = predictVector_cc3m(encModel="alexnet_encoder", vector="images", x=x)
-    # output_images = predictVector_coco(encModel=["521_model_c_img_0.pt", "alexnet_encoder"], vector="images", x=x, mask=mask)
-    output_images = predictVector_coco(encModel="722_model_c_img_vd.pt", vector="images", x=x)
+    output_images = predictVector_coco(encModel=["722_model_c_img_vd.pt", "660_model_c_text_vd"], vector="images", x=x, mask=mask)
+    # output_images = predictVector_coco(encModel="722_model_c_img_vd.pt", vector="images", x=x)
     
     R = Reconstructor(device="cuda:0")
     for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):
@@ -370,6 +379,54 @@ def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, 
     print("Loss: ", float(loss))
     plt.hist(r, bins=40, log=True)
     plt.savefig("charts/" + encModel + "_pearson_histogram_library_decoder.png")
+
+
+
+def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True, ae=True):
+    if(len(idx) == 0):
+        for file in os.listdir("reconstructions/" + experiment_title + "/"):
+            if file.endswith(".png") and file not in ["Search Iterations.png", "Results.png"]:
+                idx.append(int(file[:-4]))
+        idx = sorted(idx)
+
+    AE = AutoEncoder(hashNum = "582",
+                    lr=0.0000001,
+                    vector="alexnet_encoder_sub1", 
+                    encoderHash="579",
+                    log=False, 
+                    batch_size=750,
+                    device="cuda:0"
+                    )
+    if test:
+        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+    else:
+        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+    
+    x_pruned_ae = torch.zeros((len(idx), 11838))
+    x_pruned = torch.zeros((len(idx), 11838))
+    for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
+        tqdm.write(str(i) + " " + str(index))
+        if(average):
+            if(ae):
+                x_pruned_ae[i] = torch.mean(AE.predict(x[index]),dim=0)
+            x_pruned[i] = torch.mean(x[index], dim=0)
+        else:
+            x_pruned[i] = x[index, random.randrange(0,3)]
+            if(ae):
+                x_pruned_ae[i] = AE.predict(x_pruned[i])
+    if ae:
+        x = x_pruned_ae
+    else:
+        x = x_pruned
+
+    output_images = predictVector_coco(encModel="alexnet_encoder", vector="images", x=x)
+    for i, image in enumerate(output_images):
+        top_choice = image[0].reshape(425, 425, 3)
+        top_choice = top_choice.detach().cpu().numpy().astype(np.uint8)
+        pil_image = Image.fromarray(top_choice).resize((512, 512), resample=Image.Resampling.LANCZOS)
+        pil_image.save("reconstructions/" + experiment_title + "/" + str(idx[i]) + "/Library Reconstruction.png")
 
 if __name__ == "__main__":
     main()

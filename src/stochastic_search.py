@@ -15,7 +15,7 @@ from decoder_pca import Decoder_PCA
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from reconstructor import Reconstructor
-from driver_library import predictVector_coco
+# from driver_library import predictVector_coco
 from random import randrange
 
 
@@ -24,34 +24,38 @@ def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # for i in range(10):
     #     print(1.0-0.6*(math.pow(i/10, 2)))
-    S0 = StochasticSearch(device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
-    # S1 = StochasticSearch(device="cuda:0",
+    # S0 = StochasticSearch(device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
-    #                       n_samples=250,
-    #                       n_branches=5)
+    #                       n_samples=100,
+    #                       n_branches=4)
+    S1 = StochasticSearch(device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=250,
+                          n_branches=5)
     # S2 = StochasticSearch(device="cuda:0",
-    #                       log=True,
-    #                       n_iter=20,
-    #                       n_samples=60,
-    #                       n_branches=3)
-    S0.generateTestSamples(experiment_title="SCS VD Library Coco 10:100:4 0.4 Exp AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True, library=True)
+    #                       log=False,
+    #                       n_iter=2,
+    #                       n_samples=10,
+    #                       n_branches=2)
+    # S0.generateTestSamples(experiment_title="SCS VD Library Coco 10:100:4 0.4 Exp AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True, library=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(37, 50)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(75, 100)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(13, 25)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(50, 75)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(0, 15)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(45, 60)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(15, 30)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(60, 75)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(30, 45)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(75, 90)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(78, 100)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234567 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1 AE", idx=[i for i in range(0, 10)], mask=[1], ae=True)
     # S2.generateTestSamples(experiment_title="SCS 20:60:3 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1, 2, 3, 4], ae=True)
+    # S2.generateTestSamples(experiment_title="SCS Test Run New Average", idx=[i for i in range(0, 5)], mask=[], ae=True, average=True)
 
 class StochasticSearch():
     def __init__(self, 
@@ -99,7 +103,7 @@ class StochasticSearch():
     #cross validate says whether to cross validate between scans
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
-    def zSearch(self, beta, c_i, c_t=None, n=10, max_iter=10, n_branches=1, mask=[]):
+    def zSearch(self, beta, c_i, c_t=None, n=10, max_iter=10, n_branches=1, mask=[], average=True):
         best_image = None
         iter_images = [None] * n_branches
         images, iter_scores, var_scores = [], [], []
@@ -111,12 +115,13 @@ class StochasticSearch():
             beta_mask = self.masks[0]
             for i in mask:
                 beta_mask = torch.logical_or(beta_mask, self.masks[i])
-            beta = beta[beta_mask]
+                
+            beta = beta[:, beta_mask]
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # if(loss_counter > 3):
             #     break
             # strength = 1.0-0.5*(cur_iter/max_iter)
-            strength = 1.0-0.6*(math.pow(cur_iter/max_iter, 3))
+            strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
@@ -135,15 +140,21 @@ class StochasticSearch():
                                                 strength=strength)
         
 
-            beta_primes = self.Alexnet.predict(samples, mask)
+            beta_primes = self.Encoder.predict(samples, mask)
             # beta_primes = beta_primes[:, beta_mask]
-            
             beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
-            
-            xDup = beta.repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+            scores = []
             PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
-            print(xDup.shape, beta_primes.shape)
-            scores = PeC(xDup, beta_primes)
+            if(average):
+                for i in range(beta.shape[0]):
+                    xDup = beta[i].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+                    if(torch.count_nonzero(xDup) > 0):
+                        scores.append(PeC(xDup, beta_primes))
+                scores = torch.stack(scores)
+                scores = torch.mean(scores, dim=0)
+            else:
+                xDup = beta[0].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+                scores = PeC(xDup, beta_primes)
             cur_var = float(torch.var(scores))
             topn_pearson = torch.topk(scores, n_branches)
             cur_vector_corrrelation = float(torch.max(scores))
@@ -182,26 +193,18 @@ class StochasticSearch():
                 )
          # Load data and targets
         if test:
-            _, _, _, _, _, _, _, targets_c_i, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
+            _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
             _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-            _, _, _, x, _, _, _, _, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         else:
-            _, _, _, _, _, _, targets_c_i, _, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True)
+            _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
             _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-            _, _, x, _, _, _, _, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         if(ae):
-            x_pruned_ae = torch.zeros((len(idx), 11838))
-        x_pruned = torch.zeros((len(idx), 11838))
-        for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
-            tqdm.write(str(i) + " " + str(index))
-            if(average):
-                if(ae):
-                    x_pruned_ae[i] = torch.mean(AE.predict(x[index]),dim=0)
-                x_pruned[i] = torch.mean(x[index], dim=0)
-            else:
-                x_pruned[i] = x[index, randrange(0,3)]
-                if(ae):
-                    x_pruned_ae[i] = AE.predict(x_pruned[i])
+            x_pruned_ae = torch.zeros((len(idx), 3, 11838))
+        x_pruned = torch.zeros((len(idx), 3, 11838))
+        for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):
+            x_pruned[i] = x[index]
+            if(ae):
+                x_pruned_ae[i] = AE.predict(x_pruned[i])
         x = x_pruned
         outputs_c_i, outputs_c_t = [None] * len(idx), [None] * len(idx)
         # Dc_i = Decoder(hashNum = "634",
@@ -232,14 +235,14 @@ class StochasticSearch():
                     log=False, 
                     device="cuda",
                     )
-            outputs_c_i = Dc_i.predict(x=x)
+            outputs_c_i = Dc_i.predict(x=torch.mean(x, dim=1))
             del Dc_i
             Dc_t = Decoder_PCA(hashNum = "712",
                         vector="c_text_vd",
                         log=False, 
                         device="cuda",
                         )
-            outputs_c_t = Dc_t.predict(x=x)
+            outputs_c_t = Dc_t.predict(x=torch.mean(x, dim=1))
             del Dc_t
             if(ae):
                 x = x_pruned_ae
@@ -292,7 +295,7 @@ class StochasticSearch():
                 )
             reconstructed_output_c = self.R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], strength=1.0)
             reconstructed_target_c = self.R.reconstruct(c_i=targets_c_i[val], c_t=targets_c_t[val], strength=1.0)
-            scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x[i], c_i=outputs_c_i[i], c_t=outputs_c_t[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask)
+            scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x[i], c_i=outputs_c_i[i], c_t=outputs_c_t[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
             
             #log the data to a file
             np.save("logs/" + experiment_title + "/" + str(val) + "_score_list.npy", np.array(score_list))
@@ -310,7 +313,6 @@ class StochasticSearch():
             for j in range(len(image_list)):
                 images.append(image_list[j])
                 captions.append("BC: " + str(round(score_list[j], 3)) + " VAR: " + str(round(var_list[j], 3)))
-            print(len(images), len(captions), rows, columns)
             figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
             if(self.log):
                 wandb.finish()

@@ -21,12 +21,12 @@ class MLP(torch.nn.Module):
         super(MLP, self).__init__()
         self.vector=vector
         if(vector == "c_img_vd"):
-            self.linear = nn.Linear(10000, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
-            # self.double()
-            # self.linear = nn.Linear(768, 15000)
+            # self.linear = nn.Linear(10000, 15000)
+            # self.linear2 = nn.Linear(15000, 15000)
             # self.outlayer = nn.Linear(15000, 11838)
+            # self.double()
+            self.linear = nn.Linear(768, 15000)
+            self.outlayer = nn.Linear(15000, 11838)
         elif(vector == "c_text_vd"):
             self.linear = nn.Linear(10000, 15000)
             self.linear2 = nn.Linear(15000, 15000)
@@ -42,7 +42,11 @@ class MLP(torch.nn.Module):
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        if(self.vector == "c_img_vd" or self.vector=="c_text_vd"):
+        if(self.vector == "c_img_vd"):
+            y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.outlayer(y_pred)
+        if (elf.vector=="c_text_vd"):
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)
