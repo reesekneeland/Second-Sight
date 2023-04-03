@@ -452,26 +452,45 @@ def process_data_full(vector):
         full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt").reshape(datashape)
         vec_target[i] = full_vec
     torch.save(vec_target, prep_path + vector + "/vector_73k.pt")
+#useTitle = 0 means no title at all
+#useTitle = 1 means normal centered title at the top
+#useTitle = 2 means title uses the captions list for a column wise title
+def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True):
+    
+    bigW = 512 * w
+    if(rowCaptions):
+        bigH = 576 * h 
+        rStep = 576
+    else:
+        bigH = 512 * h
+        rStep = 512
+    if useTitle:
+        hStart = 128
+        height = bigH + 128
+    else:
+        hStart = 0
+        height = bigH
 
-def tileImages(title, images, captions, h, w):
-    bigH = 576 * h
-    bigW = 512 * w 
-    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
-    line = Image.new('RGB', (bigW, 8), color='black')
-    canvas.paste(line, (0,120))
+    canvas = Image.new('RGB', (bigW, height), color='white')
     font = ImageFont.truetype("arial.ttf", 36)
-    titleFont = ImageFont.truetype("arial.ttf", 48)
+    titleFont = ImageFont.truetype("arial.ttf", 40)
     textLabeler = ImageDraw.Draw(canvas)
-    _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
-    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    if useTitle == 1:
+        _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
+        textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    elif useTitle == 2:
+        for i in range(w):
+            _, _, w, h = textLabeler.textbbox((0, 0), captions[i], font=titleFont)
+            textLabeler.text((i*512 + (512-w)/2, 32), captions[i], font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(512,64), color="white")
     count = 0
-    for j in range(128, bigH, 576):
+    for j in range(hStart, bigH, rStep):
         for i in range(0, bigW, 512):
             if(count < len(images)):
                 canvas.paste(images[count], (i,j))
-                canvas.paste(label, (i, j+512))
-                textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
+                if(rowCaptions):
+                    canvas.paste(label, (i, j+512))
+                    textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
                 count+=1
     return canvas
 

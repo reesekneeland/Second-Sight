@@ -160,7 +160,7 @@ class AutoEncoder():
                 # Add up the loss for this training round
                 running_loss += loss.item()
                 
-            train_loss = running_loss/len(self.trainLoader)
+            train_loss = running_loss/len(self.trainLoader.dataset)
             tqdm.write('[%d] train loss: %.8f' %
                 (epoch + 1, train_loss ))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
@@ -185,7 +185,7 @@ class AutoEncoder():
 
                 running_test_loss += loss.item()
                 
-            test_loss = running_test_loss / len(self.valLoader)
+            test_loss = running_test_loss / len(self.valLoader.dataset)
                 
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
@@ -202,7 +202,7 @@ class AutoEncoder():
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
-                if(loss_counter >= 3):
+                if(loss_counter >= 5):
                     break
                 
         # Load our best model into the class to be used for predictions

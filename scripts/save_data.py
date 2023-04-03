@@ -39,7 +39,8 @@ import nibabel as nib
 # Input: The vector you want processed as a string
 # process_data(vector = "c_img_vd", subject = "subj2")
 # process_data(vector = "c_text_vd", subject = "subj2")
-process_data(vector = "images", subject = "subj1")
+# process_data(vector = "images", subject = "subj1")
+load_nsd("c_img_vd", loader=False, average=False)
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
