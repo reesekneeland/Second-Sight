@@ -228,14 +228,14 @@ class Stochastic_Search_Statistics():
         
         
         
-    # two_way_prob is the two way identification experiment between the given image and a random test sample with respect to the ground truth
-    # clip_pearson is the pearson correlation score between the clips of the two given images
+    #two_way_prob is the two way identification experiment between the given image and a random search reconstruction of a different sample with respect to the ground truth
+    #clip_pearson is the pearson correlation score between the clips of the two given images
     def calculate_clip_similarity(self, experiment_name, sample):
         with torch.no_grad():
             exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
             folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir()])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
-            rand_index = random.choice(rand_list)#random.choice(list(set(range(0, len(folders))) - set(sample)))
+            rand_index = random.choice(rand_list)
             random_image = Image.open(exp_path + str(folders[rand_index]) + "/Search Reconstruction.png")
             image = Image.open(exp_path + str(sample) + "/Search Reconstruction.png")
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")

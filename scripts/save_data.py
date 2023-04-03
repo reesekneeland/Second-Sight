@@ -39,6 +39,7 @@ import nibabel as nib
 # Input: The vector you want processed as a string
 # process_data(vector = "c_img_vd", subject = "subj2")
 # process_data(vector = "c_text_vd", subject = "subj2")
+process_data(vector = "images", subject = "subj1")
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
@@ -52,8 +53,8 @@ import nibabel as nib
 # extract_dim("c_img_mixer", 0)
 
 # process_data_full("z_img_mixer")
-process_data_full("c_img_vd")
-process_data_full("c_text_vd")
+# process_data_full("c_img_vd")
+# process_data_full("c_text_vd")
 # process_data_full("c_combined")
 
 # load_nsd("z_img_mixer", loader=False)

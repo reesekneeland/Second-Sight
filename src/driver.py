@@ -60,21 +60,22 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    hashNum = update_hash()
-    # hashNum = "582"
+    # hashNum = update_hash()
+    hashNum = "724"
     
     AE = AutoEncoder(hashNum = hashNum,
-                        lr=0.0001,
-                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="579",
+                        lr=0.000001,
+                        vector="c_img_vd", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="722",
                         log=True, 
                         device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
     
-    AE.train()
-    AE.benchmark(encodedPass=False, average=True)
+    # AE.train()
+    AE.benchmark(encodedPass=True, average=False)
+    AE.benchmark(encodedPass=True, average=True)
     
     # AN = AlexNetEncoder()
     
@@ -94,10 +95,11 @@ def train_autoencoder():
 
 def train_encoder():
     # hashNum = update_hash()
-    hashNum = "660"
+    
+    hashNum = "658"
     E = Encoder(hashNum = hashNum,
-                 lr=0.00001,
-                 vector="c_text_vd", #c_img_vd, c_text_vd
+                 lr=0.0001,
+                 vector="c_img_vd", #c_img_vd, c_text_vd
                  log=False, 
                  batch_size=750,
                  device="cuda:0",
@@ -110,22 +112,22 @@ def train_encoder():
     # E.benchmark(average=False)
     # E.benchmark(average=True)
     
-    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId, exist_ok=True)
-    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/c_text_vd/vector_73k.pt")
-    print(coco_full.shape)
+    
+    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/" + E.vector + "/vector_73k.pt")#.reshape((73000, 257, 768))[:,0,:]
     pca = pk.load(open("masks/pca_" + E.vector + "_10k.pkl",'rb'))
-    inputs = torch.from_numpy(pca.transform(coco_full.numpy()))
-    outputs = E.predict(inputs)
-    print(outputs.shape)
+    coco_full = torch.from_numpy(pca.transform(coco_full.numpy()))
+    print(coco_full.shape)
+    encodings = E.predict(coco_full)
+    pruned_encodings = prune_predictions(encodings)
     # outputs = torch.zeros((73000,10000))
     # for i in range(1000):
     #     outputs[1000*i:i*1000 + 1000] = E.predict(coco_full[1000*i:i*1000 + 1000])
-    torch.save(outputs, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId + "/coco_brain_preds.pt")
+    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId + "/coco_brain_preds.pt")
     
     # os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
     # _, y = load_nsd(vector = E.vector, batch_size = E.batch_size, 
-    #                 num_workers = E.num_workers, loader = False, split = False)
-    # outputs = E.predict(y)
+    #                 num_workers = E.num_workers, loader = False, split = False, pca=True)
+    # outputs = E.predict(y)#.reshape((y.shape[0], 257, 768))[:,0,:])
     # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
     
     # E.predict_73K_coco(model=modelId)

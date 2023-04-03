@@ -1,9 +1,11 @@
 import os, sys
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
+from autoencoder import AutoEncoder
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -292,12 +294,12 @@ def get_predictions(data, _fmaps_fn, _fwrf_fn, params, sample_batch_size=100):
 class AlexNetEncoder():
     
     def __init__(self,
-                predict_normal=False,
+                predict_normal_flag=False,
                 predict_73k=False,
                 device = "cuda"):
         
         # Input Variables
-        self.normal_predict = predict_normal
+        self.normal_predict = predict_normal_flag
         self.predict_73K = predict_73k
         
         # Setting up Cuda
@@ -344,7 +346,7 @@ class AlexNetEncoder():
         
     def load_data(self):
         
-        if(self.predict_normal):
+        if(self.normal_predict):
             
             # ONE SUBJECTS 
             # ----------- Load data ------------
@@ -385,20 +387,20 @@ class AlexNetEncoder():
                     np.min(self.image_data[1]), np.max(self.image_data[1]))
                 
         elif(self.predict_73K):
-            
             # ----------- Load Stimuli Whole COCO ------------
             self.image_data = {}
             data = []
-            w, h = 227, 227  # resize to integer multiple of 64
-            for i in tqdm(range(73000), desc="loading in images"):
-                
+            w, h = 227, 227  
+            
+            for i in tqdm(range(73000), desc="loading in images and saving"):
                 ground_truth_np_array = nsda.read_images([i], show=False)
                 ground_truth = Image.fromarray(ground_truth_np_array[0])
-                
+                ground_truth.save("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_73k/" + str(i) + ".png")
                 imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
                 image = np.array(imagePil).astype(np.float32) / 255.0
             
                 data.append(image)
+                
                 
                 
             imgs = []
@@ -466,6 +468,7 @@ class AlexNetEncoder():
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/alexnet_hist.png")
         
     def predict_73k_coco(self):
+        self.load_data()
         
         voxel_batch_size = 500 # 200
         _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
@@ -583,10 +586,57 @@ class AlexNetEncoder():
         print(subject_image_pred[1].shape)
         return torch.from_numpy(subject_image_pred[1])
       
+    def benchmark(self, average=True, ae=False):
+        if(ae):
+            AE = AutoEncoder(hashNum = "582",
+                    lr=0.0000001,
+                    vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
+                    encoderHash="579",
+                    log=False, 
+                    batch_size=750,
+                    device="cuda:0"
+                    )
+            
+            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
+                                                    loader=False,
+                                                    average=False)
+            x_test = AE.predict(x_test)
+            # x_test = []
+            # for i, beta_trials in enumerate(tqdm(x_test_nest, desc="Averaging and autoencoding samples")):
+            #     if(average):
+            #         x_test.append(torch.mean(AE.predict(beta_trials),dim=0))
+            #     else:
+            #         for i in range(len(beta_trials)):
+            #             x_test.append(beta_trials[i]) 
+            # x_test = torch.stack(x_test)
+        else:
+            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
+                                                    loader=False,
+                                                    average=average)
+        # Load our best model into the class to be used for predictions
+        images = []
+        for im in test_images:
+            images.append(process_image(im))
+        
+        
+        
+        
+        criterion = nn.MSELoss()
+        PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+        
+        x_test = x_test.to(self.device)
+        
+        pred_x = self.predict(images).to(self.device)
+        
+        pearson = torch.mean(PeC(pred_x.moveaxis(0,1), x_test.moveaxis(0,1)))
+        loss = criterion(pred_x, x_test)
+        
+        print("Vector Correlation: ", float(pearson))
+        print("Loss: ", float(loss))
 
 def main():
     
-    AN = AlexNetEncoder(predict_normal = False, predict_73k = False)
+    AN = AlexNetEncoder(predict_normal_flag = False, predict_73k = False)
     
     subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     data = []
@@ -598,6 +648,9 @@ def main():
         data.append(ground_truth)
     
     #AN.predict_cc3m()
+    # AN.predict_73k_coco()
+    # AN.benchmark(average=False)
+    AN.benchmark(average=True, ae=True)
     
     #AN.load_data()
     #AN.predict_normal()

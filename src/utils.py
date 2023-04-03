@@ -377,11 +377,16 @@ def process_data(vector="c_combined", image=False, subject = "subj1"):
     elif(vector == "c_text_vd"):
         vec_target = torch.zeros((27750, 59136))
         datashape = (1, 59136)
+    elif(vector == "images"):
+        vec_target = torch.zeros((27750, 541875))
+        datashape = (1, 541875)
 
     # Loading the description object for subejct1
     
     subjx = nsda.stim_descriptions[nsda.stim_descriptions[subjects[subject]] != 0]
     images = []
+    if vector == "images":
+        images_full = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/images/vector_73k.pt")
     for i in tqdm(range(0,27750), desc="vector loader"):
         
         # Flexible to both Z and C tensors depending on class configuration
@@ -394,13 +399,17 @@ def process_data(vector="c_combined", image=False, subject = "subj1"):
             ground_truth_image_np_array = nsda.read_images([index], show=False)
             ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
             images.append(ground_truth_PIL)
+        elif vector == "images":
+            vec_target[i] = images_full[index].flatten()
         else:
             vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
     if(image):
         return images
     else:
-        os.makedirs(prep_path + subjects + "/" + vector + "/", exist_ok=True)
-        torch.save(vec_target, prep_path + subjects + "/" + vector + "/vector.pt")
+        # os.makedirs(prep_path + subject + "/" + vector + "/", exist_ok=True)
+        # torch.save(vec_target, prep_path + subject + "/" + vector + "/vector.pt")
+        os.makedirs(prep_path + "/" + vector + "/", exist_ok=True)
+        torch.save(vec_target, prep_path + "/" + vector + "/vector.pt")
     
 def process_data_full(vector):
     
@@ -550,4 +559,35 @@ def pixel_correlation(imageA, imageB):
     b = np.array(imageB).flatten()
     return (np.corrcoef(a,b))[0][1]
 
+def get_coco_no_subject(subjectId):
+    ground_truth_np_array = nsda.read_images([i for i in range(73000)], show=False)
+    subj = nsda.stim_descriptions[nsda.stim_descriptions['subject' + str(subjectId)] != 0]
+    nsdIds = set(subj['nsdId'].tolist())
+    imgs = []
+    count = 0
+    for pred in tqdm(range(73000), desc="filtering images"):
+            if pred not in nsdIds:
+                imgs.append(ground_truth_np_array[pred])
+                count += 1
+    pruned_images = np.array(imgs)
+    np.save("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_63k_subj" + str(subjectId) + ".npy", pruned_images)
 
+#converts a torch tensor of an 425z425vimage into a PIL image and resizes it
+def process_image(imageArray):
+    imageArray = imageArray.reshape((425, 425, 3)).cpu().numpy().astype(np.uint8)
+    image = Image.fromarray(imageArray)
+    image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
+    return image
+
+def prune_predictions(predictions, subject="subject1"):
+    subj = nsda.stim_descriptions[nsda.stim_descriptions[subject] != 0]
+    nsdIds = set(subj['nsdId'].tolist())
+    
+    pruned_predictions = torch.zeros((73000-len(nsdIds), predictions.shape[1]))
+    count = 0
+    for pred in range(73000):
+        if pred not in nsdIds:
+            pruned_predictions[count] = predictions[pred]
+            count+=1
+    return pruned_predictions
+    
