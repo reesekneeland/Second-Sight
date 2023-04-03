@@ -306,7 +306,8 @@ class Stochastic_Search_Statistics():
         #   0 --> Ground Truth
         #   1 --> Ground Truth CLIP
         #   2 --> Decoded CLIP Only
-        #   3 --> Search Reconstruction
+        #   3 --> Library Reconstruction
+        #   4 --> Search Reconstruction
         df = pd.DataFrame(columns = ['ID', 'Iter', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
@@ -340,6 +341,10 @@ class Stochastic_Search_Statistics():
                 decoded_CLIP_only_path = path + '/' + 'Decoded CLIP Only.png'
                 decoded_CLIP_only = Image.open(decoded_CLIP_only_path)
                 
+                # Library Reconstructions
+                library_reconstruction_path = path + '/' + 'Library Reconstruction.png'
+                library_reconstruction = Image.open(library_reconstruction_path)
+                
                 # Search Reconstruction Image
                 search_reconstruction_path = path + '/' + 'Search Reconstruction.png'
                 
@@ -368,7 +373,7 @@ class Stochastic_Search_Statistics():
                 
                         # Make data frame row
                         if(ssim_search_reconstruction == 1.00):
-                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "3", 'Strength' : str(round(strength, 10)),
+                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "4", 'Strength' : str(round(strength, 10)),
                                                 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)),
                                                 'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
                         
@@ -386,6 +391,7 @@ class Stochastic_Search_Statistics():
                         
 
             # Add the images for alexnet predictions
+            folder_image_set.append(library_reconstruction)
             folder_image_set.append(decoded_CLIP_only)
             folder_image_set.append(ground_truth_CLIP)
             folder_image_set.append(ground_truth)
@@ -408,10 +414,20 @@ class Stochastic_Search_Statistics():
             pearson_correlation_higher_visual   = self.generate_pearson_correlation(alexnet_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
             pearson_correlation_unmasked        = self.generate_pearson_correlation(alexnet_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
                         
+                        
+            # Make data frame row for library resonstruction
+            pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
+            ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
+            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "3", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)), 
+                                         'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_decoded])
+            
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
             ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)),
+                                         'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
             df_row_num += 1
             df = pd.concat([df, row_decoded])
             
@@ -423,7 +439,8 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth_CLIP])
             
             # Make data frame row for ground truth Image
-            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10))}, index=[df_row_num])
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 
+                                              'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
             df_row_num += 1
             df = pd.concat([df, row_ground_truth])
             
@@ -443,7 +460,7 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
-        df.to_csv(log_path + "statistics_df_10.csv")
+        #df.to_csv(log_path + "statistics_df_10.csv")
     
     
 def main():
