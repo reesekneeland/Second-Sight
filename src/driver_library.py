@@ -18,148 +18,20 @@ import random
 import copy
 from tqdm import tqdm
 from reconstructor import Reconstructor
-from autoencoder  import AutoEncoder
-from pearson import PearsonCorrCoef, pearson_corrcoef
+from library_decoder import LibraryDecoder
+from pearson import PearsonCorrCoef
 
 
 def main():
     # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
-    # reconstructNImages(experiment_title="coco top 5 VD 722 AE Clip Extract", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[], test=True, average=True, ae=True)
-
-def predictVector_cc3m(encModel, vector, x, mask=[], device="cuda:0"):
-        
-        if(vector == "c_img_0" or vector == "c_text_0"):
-            datasize = 768
-        elif(vector == "z_img_mixer"):
-            datasize = 16384
-        elif(vector == "images"):
-            datasize = 541875
-        # x = x.to(device)
-        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        latent_path = "latent_vectors/"
-        
-        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
-        
-        out = torch.zeros((x.shape[0], 5, datasize))
-        average_pearson = 0
-        
-        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
-            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
-            scores = torch.zeros((2819141,))
-            # preds = torch.zeros((2819141,datasize))
-            # batch_max_x = torch.zeros((620, x.shape[1]))
-            # batch_max_y = torch.zeros((620, datasize))
-            for batch in tqdm(range(124), desc="batching sample"):
-                # y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
-                x_preds = torch.load(latent_path + encModel + "/cc3m_batches/" + str(batch) + ".pt")
-                # print(x_preds.device)
-                x_preds_t = x_preds.moveaxis(0, 1).to(device)
-                # preds[22735*batch:22735*batch+22735] = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
-                # Pearson correlation
-                scores[22735*batch:22735*batch+22735] = PeC(xDup, x_preds_t).detach()
-                # Calculating the Average Pearson Across Samples
-            top5_pearson = torch.topk(scores, 5)
-            average_pearson += torch.mean(top5_pearson.values.detach()) 
-            print(top5_pearson.indices, top5_pearson.values, scores[0:5])
-            for j, index in enumerate(top5_pearson.indices):
-                batch = int(index // 22735)
-                sample = int(index % 22735)
-                batch_preds = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
-                out[i, j] = batch_preds[sample]
-            
-        torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
-        print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
-        return out
+    reconstructNImages(experiment_title="coco top 5 LD Refactor A_I_T", idx=[i for i in range(0, 20)], mask=[], test=False, average=True)
+    # reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[], test=True, average=True, ae=True)
 
 
-
-def predictVector_coco(encModel, vector, x, mask=[], device="cuda:0"):
-    mask_path = "masks/"
-    masks = {0:torch.full((11838,), False),
-            1:torch.load(mask_path + "V1.pt"),
-            2:torch.load(mask_path + "V2.pt"),
-            3:torch.load(mask_path + "V3.pt"),
-            4:torch.load(mask_path + "V4.pt"),
-            5:torch.load(mask_path + "V5.pt"),
-            6:torch.load(mask_path + "V6.pt"),
-            7:torch.load(mask_path + "V7.pt")}
-    prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-    latent_path = "latent_vectors/"
-    
-    if(vector == "c_img_0" or vector == "c_text_0"):
-        datasize = 768
-    elif(vector == "z_img_mixer"):
-        datasize = 16384
-    elif(vector == "images"):
-        datasize = 541875
-    if isinstance(encModel, list):
-        x_preds = []
-        for model in encModel:
-            modelPreds = torch.load(latent_path + model + "/coco_brain_preds.pt", map_location=device)
-            # modelPreds = prune_predictions(modelPreds, model)
-            x_preds.append(modelPreds)
-    else:
-        x_preds = torch.load(latent_path + encModel + "/coco_brain_preds.pt", map_location=device)
-        # x_preds = prune_predictions(x_preds)
-    y_full = torch.load(prep_path + vector + "/vector_73k.pt").reshape(73000, datasize)
-    y = prune_predictions(y_full)
-    # print(x_preds.shape)
-    if(len(mask)>0):
-        beta_mask = masks[0]
-        if(mask[0] == -1):
-            maskList = [1,2,3,4,5,6,7]
-            for i in maskList:
-                beta_mask = torch.logical_or(beta_mask, masks[i])
-            beta_mask = ~beta_mask
-        else:   
-            for i in mask:
-                beta_mask = torch.logical_or(beta_mask, masks[i])
-        x = x[:, beta_mask]
-        x_preds = x_preds[:, beta_mask]
-
-    out = torch.zeros((x.shape[0], 5, datasize))
-    
-    PeC = PearsonCorrCoef(num_outputs=21000).to(device)
-    average_pearson = 0
-    
-    for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
-        # print(torch.sum(torch.count_nonzero(x[i])))
-        xDup = x[i]
-        xDup = xDup.repeat(21000, 1).moveaxis(0, 1).to(device)
-        scores = torch.zeros((63000,))
-        for batch in range(3):
-            if isinstance(x_preds, list):
-                x_preds_t = []
-                for modelPreds in x_preds:
-                    x_preds_batch = modelPreds[21000*batch:21000*batch+21000]
-                    x_preds_t = x_preds_batch.moveaxis(0, 1).to(device)
-                    modelScore = PeC(xDup, x_preds_t).cpu().detach()
-                    # print(scores.device, modelScore.device)
-                    scores[21000*batch:21000*batch+21000] += modelScore.detach()
-                scores /= len(x_preds)
-            else:
-                x_preds_batch = x_preds[21000*batch:21000*batch+21000]
-                x_preds_t = x_preds_batch.moveaxis(0, 1).to(device)
-            # Pearson correlation
-                scores[21000*batch:21000*batch+21000] = PeC(xDup, x_preds_t).detach()
-            # print(torch.sum(torch.count_nonzero(xDup)), torch.sum(torch.count_nonzero(x_preds_t)))
-            
-            # Calculating the Average Pearson Across Samples
-        top5_pearson = torch.topk(scores, 5)
-        average_pearson += torch.mean(top5_pearson.values.detach()) 
-        for j, index in enumerate(top5_pearson.indices):
-                out[i, j] = y[index]
-        
-    # torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
-    print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
-    return out
-       
-       
             
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
-def reconstructNImages(experiment_title, idx, mask=[], ae=False, test=True, average=True):
+def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -168,65 +40,21 @@ def reconstructNImages(experiment_title, idx, mask=[], ae=False, test=True, aver
     os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-    
-    # Load in the data
-    # Generating predicted and target vectors
-    # outputs_c, targets_c = Dc.predict(hashNum=Dc.hashNum, indices=idx)
-    # outputs_c_i, targets_c_i = Dc_i.predict(model=c_img_modelId)
-    # outputs_c_i = [outputs_c_i[i] for i in idx]
-    # AE = AutoEncoder(hashNum = "582",
-    #                 lr=0.0000001,
-    #                 vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-    #                 encoderHash="579",
-    #                 log=False, 
-    #                 batch_size=750,
-    #                 device="cuda:0"
-    #                 )
-    AE1 = AutoEncoder(hashNum = "724",
-                    lr=0.0000001,
-                    vector="c_img_vd", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="722",
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:0"
-                    )
-    AE2 = AutoEncoder(hashNum = "727",
-                    lr=0.0000001,
-                    vector="c_text_vd", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="660",
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:0"
-                    )
-         # Load data and targets
+    LD = LibraryDecoder(vector="images",
+                        config=["AlexNet", "c_img_vd", "c_text_vd"],
+                        device="cuda:0")
+
+    # Load data and targets
     if test:
         _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
     else:
         _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
         _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+    x = x[idx]
     
-    x_pruned_ae = torch.zeros((len(idx), 11838))
-    x_pruned = torch.zeros((len(idx), 11838))
-    for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
-        tqdm.write(str(i) + " " + str(index))
-        if(average):
-            if(ae):
-                x_pruned_ae[i] = torch.mean(AE.predict(x[index]),dim=0)
-            x_pruned[i] = torch.mean(x[index], dim=0)
-        else:
-            x_pruned[i] = x[index, random.randrange(0,3)]
-            if(ae):
-                x_pruned_ae[i] = AE.predict(x_pruned[i])
-    if ae:
-        x = x_pruned_ae
-    else:
-        x = x_pruned
     
-    # output_images = predictVector_coco(encModel="alexnet_encoder", vector="images", x=x)
-    # output_images = predictVector_cc3m(encModel="alexnet_encoder", vector="images", x=x)
-    output_images = predictVector_coco(encModel=["722_model_c_img_vd.pt", "660_model_c_text_vd"], vector="images", x=x, mask=mask)
-    # output_images = predictVector_coco(encModel="722_model_c_img_vd.pt", vector="images", x=x)
+    output_images, _ = LD.predictVector_coco(x, average=average)
     
     R = Reconstructor(device="cuda:0")
     for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):

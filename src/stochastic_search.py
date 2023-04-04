@@ -43,12 +43,12 @@ def main():
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 best case AlexNet", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=False)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 worst case random", idx=[i for i in range(0, 10)], mask=[1,2,3,4,5,6,7], ae=True)
     # S0.generateTestSamples(experiment_title="SCS 10:100:4 higher strength V1234 AE", idx=[i for i in range(0, 10)], mask=[1,2,3,4], ae=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(0, 15)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(45, 60)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(15, 30)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(60, 75)], mask=[], ae=True, test=True, average=True)
-    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(30, 45)], mask=[], ae=True, test=True, average=True)
-    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[i for i in range(75, 90)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(0, 15)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(45, 60)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(15, 30)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(60, 75)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(36, 45)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA", idx=[i for i in range(75, 90)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[i for i in range(78, 100)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS 10:250:5 HS V1234567 AE", idx=[i for i in range(20, 40)], mask=[1, 2, 3, 4, 5, 6, 7], ae=True)
     # S1.generateTestSamples(experiment_title="SCS VD ST 10:250:5 HS nsd_general AE", idx=[i for i in range(0, 786)], mask=[], ae=True)
@@ -121,7 +121,7 @@ class StochasticSearch():
             # if(loss_counter > 3):
             #     break
             # strength = 1.0-0.5*(cur_iter/max_iter)
-            strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
+            strength = 1.0-0.6*(math.pow(cur_iter/max_iter, 3))
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             

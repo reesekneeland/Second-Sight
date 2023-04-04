@@ -125,7 +125,7 @@ def train_encoder():
     # coco_preds_full = torch.zeros((73000, 11838))
     # for i in range(4):
     #     coco_preds_full[18250*i:18250*i + 18250] = E.predict(coco_full[18250*i:18250*i + 18250]).cpu()
-    # pruned_encodings = prune_predictions(coco_preds_full)
+    # pruned_encodings = prune_vector(coco_preds_full)
     # # outputs = torch.zeros((73000,10000))
     # # for i in range(1000):
     # #     outputs[1000*i:i*1000 + 1000] = E.predict(coco_full[1000*i:i*1000 + 1000])
@@ -354,7 +354,6 @@ def reconstructNImagesST(experiment_title, idx):
             images.append(empty)
             captions.append("")
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
-        
         
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
 if __name__ == "__main__":
