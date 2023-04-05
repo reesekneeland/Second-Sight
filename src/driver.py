@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 import numpy as np
 from PIL import Image
@@ -15,8 +15,10 @@ import copy
 from tqdm import tqdm
 from decoder import Decoder
 from decoder_pca import Decoder_PCA
+from decoder_uc import Decoder_UC
+from encoder_uc import Encoder_UC
 from encoder import Encoder
-from reconstructor import Reconstructor
+from diffusers import StableUnCLIPImg2ImgPipeline
 from autoencoder  import AutoEncoder
 from alexnet_encoder import AlexNetEncoder
 from ss_decoder import SS_Decoder
@@ -28,7 +30,11 @@ def main():
     
     # train_decoder()
     
+    # train_decoder_uc()
+    
     # train_decoder_pca()
+
+    # train_encoder_uc()
 
     # train_encoder()
     
@@ -38,11 +44,11 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    # reconstructNImages(experiment_title="VD 720 712", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="UC 747 neg prompt \"text, caption\" gc15", idx=[i for i in range(21)])
 
     # test_reconstruct()
 
-    train_autoencoder()
+    # train_autoencoder()
 
     # train_ss_decoder()
 
@@ -60,17 +66,17 @@ def mask_voxels():
     
 def train_autoencoder():
     
-    hashNum = update_hash()
-    # hashNum = "723"
+    # hashNum = update_hash()
+    hashNum = "742"
     
-    x, y = load_nsd(vector="c_text_vd", encoderModel="660_model_c_text_vd.pt", ae=True, loader=False, split=False)
-    PeC = PearsonCorrCoef(num_outputs=x.shape[0])
-    print(torch.mean(PeC(x.moveaxis(0,1), y.moveaxis(0,1))))
+    # x, y = load_nsd(vector="c_text_vd", encoderModel="660_model_c_text_vd.pt", ae=True, loader=False, split=False)
+    # PeC = PearsonCorrCoef(num_outputs=x.shape[0])
+    # print(torch.mean(PeC(x.moveaxis(0,1), y.moveaxis(0,1))))
      
     AE = AutoEncoder(hashNum = hashNum,
-                        lr=0.000001,
-                        vector="c_text_vd", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="660",
+                        lr=0.00001,
+                        vector="c_text_uc", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        encoderHash="739",
                         log=True, 
                         device="cuda:0",
                         num_workers=16,
@@ -97,7 +103,44 @@ def train_autoencoder():
     # outputs = AN.predict(images)
     # print("This is the output shape: ", outputs.shape)
     # torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
+def train_encoder_uc():
+    
+    # hashNum = update_hash()
+    hashNum = "738"
+    E = Encoder_UC(hashNum = hashNum,
+                 lr=0.00001,
+                 vector="c_img_uc", #c_img_vd, c_text_vd
+                 log=False, 
+                 batch_size=750,
+                 device="cuda:0",
+                 num_workers=16,
+                 epochs=300
+                )
+    # E.train()
+    
+    
+    # E.benchmark(average=False)
+    # E.benchmark(average=True)
+    
+    modelId = E.hashNum + "_model_" + E.vector + ".pt"
+    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId, exist_ok=True)
+    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/" + E.vector + "/vector_73k.pt")
+    coco_preds_full = torch.zeros((73000, 11838))
+    for i in range(4):
+        coco_preds_full[18250*i:18250*i + 18250] = E.predict(coco_full[18250*i:18250*i + 18250]).cpu()
+    pruned_encodings = prune_vector(coco_preds_full)
+    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId + "/coco_brain_preds.pt")
 
+    os.makedirs("/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId, exist_ok=True)
+    x, y = load_nsd(vector = E.vector, loader = False, split = False)
+    outputs = torch.zeros_like(x)
+    print(outputs.shape)
+    for i in range(2):
+        outputs[13875*i:13875*i + 13875] = E.predict(y[13875*i:13875*i + 13875])
+        
+    torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + "/vector.pt")
+    
+    return hashNum
 
 def train_encoder():
     # hashNum = update_hash()
@@ -183,6 +226,26 @@ def train_decoder():
     
     return hashNum
 
+def train_decoder_uc():
+    hashNum = update_hash()
+    # hashNum = "746"
+    D = Decoder_UC(hashNum = hashNum,
+                 lr=0.000001,
+                 vector="c_img_uc", #c_img_0 , c_text_0, z_img_mixer
+                 log=True, 
+                 batch_size=64,
+                 device="cuda:0",
+                 num_workers=4,
+                 epochs=500
+                )
+    
+    D.train()
+    
+    D.benchmark(average=False)
+    D.benchmark(average=True)
+    
+    return hashNum
+
 def train_decoder_pca():
     # hashNum = update_hash()
     hashNum = "714"
@@ -207,27 +270,22 @@ def train_decoder_pca():
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
     
-    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
-    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    Dc_i = Decoder(hashNum = "720",
-                 vector="c_img_vd", 
+    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_uc", loader=False, average=True)
+    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_uc", loader=False, average=True)
+    Dc_i = Decoder_UC(hashNum = "747",
+                 vector="c_img_uc", 
                  log=False, 
                  device="cuda",
                  )
-    # Dc_i = Decoder_PCA(hashNum = "713",
-    #              vector="c_img_vd", 
+    outputs_c_i = Dc_i.predict(x=x_param[idx]).reshape((len(idx), 1, 1024))
+    del Dc_i
+    # Dc_t = Decoder_UC(hashNum = "741",
+    #              vector="c_text_uc",
     #              log=False, 
     #              device="cuda",
     #              )
-    outputs_c_i = Dc_i.predict(x=x_param[idx])
-    del Dc_i
-    Dc_t = Decoder_PCA(hashNum = "712",
-                 vector="c_text_vd",
-                 log=False, 
-                 device="cuda",
-                 )
-    outputs_c_t = Dc_t.predict(x=x_param[idx])
-    del Dc_t
+    # outputs_c_t = Dc_t.predict(x=x_param[idx]).reshape((len(idx), 1, 77, 1024))
+    # del Dc_t
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -236,31 +294,41 @@ def reconstructNImages(experiment_title, idx):
     os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
     
     
-    # outputs_c_i = Dc_i.predict(x=x_param[idx])
-    # outputs_c_t = Dc_t.predict(x=x_param[idx])
+    targets_c_i = targets_c_i[idx].reshape((len(idx), 1, 1024))
+    targets_c_t = targets_c_t[idx].reshape((len(idx), 1, 77, 1024))
     
-    R = Reconstructor()
+    R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
+    R = R.to("cuda")
+    R.enable_xformers_memory_efficient_attention()
     
     for i in tqdm(idx, desc="Generating reconstructions"):
         
         # Make the c reconstrution images. 
-        reconstructed_output_c_i = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.0, strength=1)
-        reconstructed_target_c_i = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.0, strength=1)
+        # print("SHAPE: ", targets_c_i[i].device, targets_c_i[i].dtype)
+        reconstructed_output_c_i = R.reconstruct(image_embeds=outputs_c_i[i], strength=1)
+        reconstructed_target_c_i = R.reconstruct(image_embeds=targets_c_i[i], strength=1)
         
-        # # Make the z reconstrution images. 
-        reconstructed_output_c_t = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=1.0, strength=1)
-        reconstructed_target_c_t = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=1.0, strength=1)
+        reconstructed_output_c_t = R.reconstruct(image_embeds=outputs_c_i[i], negative_prompt="text, caption", strength=1, noise_level=999, guidance_scale=15)
+        reconstructed_target_c_t = R.reconstruct(image_embeds=targets_c_i[i], negative_prompt="text, caption", strength=1, noise_level=999, guidance_scale=15)
         
         # # Make the z and c reconstrution images. 
-        reconstructed_output_c = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.5, strength=1)
-        reconstructed_target_c = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.5, strength=1)
+        reconstructed_output_c = R.reconstruct(image_embeds=outputs_c_i[i], negative_prompt="text, caption", strength=1, guidance_scale=15)
+        reconstructed_target_c = R.reconstruct(image_embeds=targets_c_i[i], negative_prompt="text, caption", strength=1, guidance_scale=15)
+        
+        # # Make the z reconstrution images. 
+        # reconstructed_output_c_t = R.reconstruct(image_embeds=outputs_c_i[i], prompt_embeds=outputs_c_t[i], strength=1, noise_level=999)
+        # reconstructed_target_c_t = R.reconstruct(image_embeds=targets_c_i[i], prompt_embeds=targets_c_t[i], strength=1, noise_level=999)
+        
+        # # # Make the z and c reconstrution images. 
+        # reconstructed_output_c = R.reconstruct(image_embeds=outputs_c_i[i], prompt_embeds=outputs_c_t[i], strength=1)
+        # reconstructed_target_c = R.reconstruct(image_embeds=targets_c_i[i], prompt_embeds=targets_c_t[i], strength=1)
         
         # returns a numpy array 
         nsdId = param_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
-        ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        empty = Image.new('RGB', (512, 512), color='white')
+        ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
+        empty = Image.new('RGB', (768, 768), color='white')
         rows = 4
         columns = 2
         images = [ground_truth, empty, reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t]
@@ -270,25 +338,14 @@ def reconstructNImages(experiment_title, idx):
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
 
 def reconstructNImagesST(experiment_title, idx):
-    # Dc_i = Decoder(hashNum = "634",
-    #              vector="c_img_vd", 
-    #              log=False, 
-    #              device="cuda"
-    #              )
     
-    # Dc_t = Decoder(hashNum = "619",
-    #              vector="c_text_vd",
-    #              log=False, 
-    #              device="cuda"
-    #              )
-    
-    Dc_i = Decoder_PCA(hashNum = "642",
-                 vector="c_img_vd", 
+    Dc_i = Decoder_UC(hashNum = "731",
+                 vector="c_img_uc", 
                  log=False, 
                  device="cuda"
                  )
-    Dc_t = Decoder_PCA(hashNum = "640",
-                 vector="c_text_vd",
+    Dc_t = Decoder_UC(hashNum = "733",
+                 vector="c_text_uc",
                  log=False, 
                  device="cuda"
                  )
@@ -314,7 +371,9 @@ def reconstructNImagesST(experiment_title, idx):
     # outputs_z = Dz.predict(x=x_param)
     strength_c = 1
     strength_z = 0
-    R = Reconstructor()
+    R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
+    R = R.to("cuda")
+    R.enable_xformers_memory_efficient_attention()
     for i in tqdm(idx, desc="Generating reconstructions"):
 
         TCc = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.4, strength=strength_c)
@@ -336,8 +395,8 @@ def reconstructNImagesST(experiment_title, idx):
         nsdId = param_trials[i]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
-        ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        empty = Image.new('RGB', (512, 512), color='white')
+        ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
+        empty = Image.new('RGB', (768, 768), color='white')
         rows = 6
         columns = 3
         images = [ground_truth, equalize_color(ground_truth), equalize_color(OCc), TCc, TCi, TCt, OCc, OCi, OCt]

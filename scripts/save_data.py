@@ -1,7 +1,7 @@
 # Only GPU's in use
 import os
 import sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "2,3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 from torchmetrics.functional import pearson_corrcoef
 from torch.autograd import Variable
@@ -15,7 +15,6 @@ import torch.nn as nn
 from pycocotools.coco import COCO
 sys.path.append('src')
 from utils import *
-import wandb
 import copy
 from tqdm import tqdm
 import nibabel as nib
@@ -37,10 +36,10 @@ import nibabel as nib
 
 # Call process data 
 # Input: The vector you want processed as a string
-# process_data(vector = "c_img_vd", subject = "subj2")
-# process_data(vector = "c_text_vd", subject = "subj2")
+# process_data(vector = "c_img_uc", subject = "subj1")
+# process_data(vector = "c_text_uc", subject = "subj1")
 # process_data(vector = "images", subject = "subj1")
-load_nsd("c_img_vd", loader=False, average=False)
+# load_nsd("c_img_vd", loader=False, average=False)
 
 # Call to Index into the sample and then using y_mask to grab the correct samples. 
 # Input: 
@@ -54,8 +53,8 @@ load_nsd("c_img_vd", loader=False, average=False)
 # extract_dim("c_img_mixer", 0)
 
 # process_data_full("z_img_mixer")
-# process_data_full("c_img_vd")
-# process_data_full("c_text_vd")
+# process_data_full("c_img_uc")
+process_data_full("c_text_uc")
 # process_data_full("c_combined")
 
 # load_nsd("z_img_mixer", loader=False)

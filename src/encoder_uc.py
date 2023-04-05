@@ -21,11 +21,10 @@ class MLP(torch.nn.Module):
         super(MLP, self,).__init__()
         self.vector = vector
         if(self.vector == "c_img_uc"):
-            self.linear = nn.Linear(1024, 25000)
-            self.linear2 = nn.Linear(25000, 25000)
-            self.linear3 = nn.Linear(25000, 25000)
-    
-            self.outlayer = nn.Linear(25000, 11838)
+            self.linear = nn.Linear(1024, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.outlayer = nn.Linear(15000, 11838)
+            
         if(self.vector == "c_text_uc"):
             self.linear = nn.Linear(78848, 15000)
             self.linear2 = nn.Linear(15000, 15000)
@@ -34,17 +33,14 @@ class MLP(torch.nn.Module):
         
     def forward(self, x):
         if(self.vector == "c_img_uc"):
+             # y_pred = self.linear(x)
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.relu(self.linear3(y_pred))
             y_pred = self.outlayer(y_pred)
         if(self.vector=="c_text_uc"):
-            y_pred = self.linear(x)
+            # y_pred = self.linear(x)
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
-            # y_pred = self.relu(self.linear3(y_pred))
-            # y_pred = self.relu(self.linear4(y_pred))
-            # y_pred = self.relu(self.linear5(y_pred))
             y_pred = self.outlayer(y_pred)
         return y_pred
 
@@ -86,7 +82,7 @@ class Encoder_UC():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="encoder",
+                project="encoder_uc",
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
@@ -227,7 +223,7 @@ class Encoder_UC():
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test_pca = x_test_pca.to(self.device)
+        x_test = x_test.to(self.device)
         y_test = y_test.to(self.device)
         
         pred_y = self.model(x_test)

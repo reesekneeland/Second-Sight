@@ -17,21 +17,26 @@ import wandb
 import random
 import copy
 from tqdm import tqdm
-from reconstructor import Reconstructor
+from diffusers import StableUnCLIPImg2ImgPipeline
 from library_decoder import LibraryDecoder
 from pearson import PearsonCorrCoef
 
 
 def main():
-    # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
-    reconstructNImages(experiment_title="coco top 5 LD Refactor A_I_T", idx=[i for i in range(0, 20)], mask=[], test=False, average=True)
+    # benchmark_library("c_img_uc", average=True, config=["c_img_uc"])
+    reconstructNImages(experiment_title="coco top 500 UC 738",
+                       idx=[i for i in range(0, 20)],
+                       mask=[],
+                       test=False,
+                       average=True,
+                       config=["c_img_uc"])
     # reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[], test=True, average=True, ae=True)
 
 
             
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
-def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
+def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True, config=["AlexNet"]):
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -41,26 +46,33 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     LD = LibraryDecoder(vector="images",
-                        config=["AlexNet", "c_img_vd", "c_text_vd"],
+                        config=config,
                         device="cuda:0")
 
     # Load data and targets
     if test:
-        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_uc", loader=False, average=False, nest=True)
     else:
-        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_uc", loader=False, average=False, nest=True)
     x = x[idx]
     
     
     output_images, _ = LD.predictVector_coco(x, average=average)
-    
-    R = Reconstructor(device="cuda:0")
+    LD = LibraryDecoder(vector="c_img_uc",
+                        config=config,
+                        device="cuda:0")
+    output_clips, _ = LD.predictVector_coco(x, average=average)
+    output_clips = output_clips.reshape((len(idx), 500, 1, 1024))
+    targets_c_i = targets_c_i[idx].reshape((len(idx), 1, 1024))
+    R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
+    R = R.to("cuda")
+    R.enable_xformers_memory_efficient_attention()
     for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):
         
         print(i, val)
-        c_i_mean = torch.mean(output_images[i].to(torch.float32), dim=0)
+        c_i_mean = torch.mean(output_images[i,0:5].to(torch.float32), dim=0)
         i_combined = process_image(c_i_mean.to(torch.uint8))
         i_0 = process_image(output_images[i,0])
         i_1 = process_image(output_images[i,1])
@@ -69,12 +81,12 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
         i_4 = process_image(output_images[i,4])
         
         
-        ci_0 = R.encode_image(i_0)
-        ci_1 = R.encode_image(i_1)
-        ci_2 = R.encode_image(i_2)
-        ci_3 = R.encode_image(i_3)
-        ci_4 = R.encode_image(i_4)
-        c_i_combined = torch.mean(torch.stack([ci_0, ci_1, ci_2, ci_3, ci_4]), dim=0)
+        ci_0 = output_clips[i,0]
+        ci_1 = torch.mean(output_clips[i,0:100], dim=0)
+        ci_2 = torch.mean(output_clips[i,0:25], dim=0)
+        ci_3 = torch.mean(output_clips[i,0:10], dim=0)
+        ci_4 = output_clips[i,0]
+        c_i_combined = torch.mean(output_clips[i,0:500], dim=0)
         
         # c_i_combined = torch.mean(outputs_c_i[i], dim=0)
         # ci_0 = outputs_c_i[i,0]
@@ -94,13 +106,13 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
         # Make the c reconstrution images. 
         # reconstructed_output_c = R.reconstruct(c=c_combined, strength=strength_c)
         # reconstructed_target_c = R.reconstruct(c=c_combined_target, strength=strength_c)
-        target_c_i = R.reconstruct(c_i=targets_c_i[val])
-        output_ci = R.reconstruct(c_i=c_i_combined)
-        output_ci_0 = R.reconstruct(c_i=ci_0)
-        output_ci_1 = R.reconstruct(c_i=ci_1)
-        output_ci_2 = R.reconstruct(c_i=ci_2)
-        output_ci_3 = R.reconstruct(c_i=ci_3)
-        output_ci_4 = R.reconstruct(c_i=ci_4)
+        target_c_i = R.reconstruct(image_embeds=targets_c_i[i])
+        output_ci = R.reconstruct(image_embeds=c_i_combined)
+        output_ci_0 = R.reconstruct(image_embeds=ci_0)
+        output_ci_1 = R.reconstruct(image_embeds=ci_1)
+        output_ci_2 = R.reconstruct(image_embeds=ci_2)
+        output_ci_3 = R.reconstruct(image_embeds=ci_3)
+        output_ci_4 = R.reconstruct(image_embeds=ci_4)
         
         # target_c_t = R.reconstruct(c_t=targets_c_t[val])
         # output_ct = R.reconstruct(c_t=c_t_combined)
@@ -123,8 +135,8 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
         nsdId = trials[val]
         ground_truth_np_array = nsda.read_images([nsdId], show=False)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
-        ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
-        empty = Image.new('RGB', (512, 512), color='white')
+        ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
+        empty = Image.new('RGB', (768, 768), color='white')
         rows = 7
         columns = 2
         images = [ground_truth, target_c_i, 
@@ -135,12 +147,12 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
                   i_3,          output_ci_3,
                   i_4,          output_ci_4,]
         captions = ["ground_truth","target_c_i", 
-                  "output_i",     "output_ci", 
-                  "output_i_0",   "output_ci_0",
-                  "output_i_1",   "output_ci_1",
-                  "output_i_2",   "output_ci_2", 
-                  "output_i_3",   "output_ci_3", 
-                  "output_i_4",   "output_ci_4",]
+                  "output_i",     "top 500", 
+                  "output_i_0",   "top 100",
+                  "output_i_1",   "top 25",
+                  "output_i_2",   "top 10", 
+                  "output_i_3",   "top 5", 
+                  "output_i_4",   "top 1",]
         # images = [ground_truth, target_c_c, target_c_i, target_c_t,
         #           i_combined,   output_cc,  output_ci, output_ct,
         #           i_0,          output_cc_0, output_ci_0, output_ct_0,
@@ -160,53 +172,12 @@ def reconstructNImages(experiment_title, idx, mask=[], test=True, average=True):
         figure.save('reconstructions/' + experiment_title + '/' + str(val) + '.png')
         
     
-def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, old_norm=False):
-    print(encModel)
-    _, _, _, x_test, _, _, _, target, _, test_trials = load_nsd(vector=vector, loader=False, average=average, old_norm=old_norm)
-    # if(not os.path.isfile("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt")):
-    if(ae):
-        AE = AutoEncoder(hashNum = "577",
-                 lr=0.0000001,
-                 vector="c_img_0", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="536",
-                 log=False, 
-                 batch_size=750,
-                 device=device
-                )
-        x_test = AE.predict(x_test).to("cpu")
-    out = predictVector_coco(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
-    # out = predictVector_cc3m(encModel=encModel, vector=vector, x=x_test, device=device)[:,0]
-    # torch.save(out, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test_avg.pt")
-        
-    # else:
-        # out = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + encModel + "/library_preds_nsd_test.pt", map_location=device)
-    
-    criterion = nn.MSELoss()
-    
-    PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(device)
-    target = target.to(device)
-    out = out.to(device)
-
-    loss = criterion(out, target)
-    out = out.moveaxis(0,1).to(device)
-    target = target.moveaxis(0,1).to(device)
-    pearson_loss = torch.mean(PeC(out, target).detach())
-    
-    out = out.detach().cpu()
-    target = target.detach().cpu()
-    PeC = PearsonCorrCoef().to("cpu")
-    r = []
-    for p in range(out.shape[1]):
-        
-        # Correlation across voxels for a sample (Taking a column)
-        r.append(PeC(out[:,p], target[:,p]))
-    r = np.array(r)
-    
-    print("Vector Correlation: ", float(pearson_loss))
-    print("Mean Pearson: ", np.mean(r))
-    print("Loss: ", float(loss))
-    plt.hist(r, bins=40, log=True)
-    plt.savefig("charts/" + encModel + "_pearson_histogram_library_decoder.png")
+def benchmark_library(vector, average=True, config=["AlexNet"]):
+    device = "cuda"
+    LD = LibraryDecoder(vector=vector,
+                        config=config,
+                        device=device)
+    LD.benchmark(average=average)
 
 
 
@@ -226,11 +197,11 @@ def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True,
                     device="cuda:0"
                     )
     if test:
-        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_uc", loader=False, average=False, nest=True)
     else:
-        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
+        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_uc", loader=False, average=False, nest=True)
     
     x_pruned_ae = torch.zeros((len(idx), 11838))
     x_pruned = torch.zeros((len(idx), 11838))
@@ -253,7 +224,7 @@ def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True,
     for i, image in enumerate(output_images):
         top_choice = image[0].reshape(425, 425, 3)
         top_choice = top_choice.detach().cpu().numpy().astype(np.uint8)
-        pil_image = Image.fromarray(top_choice).resize((512, 512), resample=Image.Resampling.LANCZOS)
+        pil_image = Image.fromarray(top_choice).resize((768, 768), resample=Image.Resampling.LANCZOS)
         pil_image.save("reconstructions/" + experiment_title + "/" + str(idx[i]) + "/Library Reconstruction.png")
 
 if __name__ == "__main__":

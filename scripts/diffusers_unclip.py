@@ -24,6 +24,7 @@ init_image2 = init_image2.resize((768, 768))
 image_embeds = R.encode_image_raw(
         image=init_image,
         device="cuda:0")
+print("TYPE: ", image_embeds.dtype)
 
 image_embeds5 = R.encode_image_raw(
         image=init_image2,

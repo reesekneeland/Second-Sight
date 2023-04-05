@@ -380,6 +380,12 @@ def process_data(vector="c_combined", image=False, subject = "subj1"):
     elif(vector == "images"):
         vec_target = torch.zeros((27750, 541875))
         datashape = (1, 541875)
+    elif(vector == "c_img_uc"):
+        vec_target = torch.zeros((73000, 1024))
+        datashape = (1,1024)
+    elif(vector == "c_text_uc"):
+        vec_target = torch.zeros((73000, 78848))
+        datashape = (1,78848)
 
     # Loading the description object for subejct1
     
@@ -431,6 +437,12 @@ def process_data_full(vector):
     elif(vector == "c_text_vd"):
         vec_target = torch.zeros((73000, 59136))
         datashape = (1,59136)
+    elif(vector == "c_img_uc"):
+        vec_target = torch.zeros((73000, 1024))
+        datashape = (1,1024)
+    elif(vector == "c_text_uc"):
+        vec_target = torch.zeros((73000, 78848))
+        datashape = (1,78848)
 
     # Flexible to both Z and C tensors depending on class configuration
     # if vec_target2 is not None:
@@ -456,14 +468,14 @@ def process_data_full(vector):
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title
 def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True):
-    
-    bigW = 512 * w
+    imW, imH = images[0].size
+    bigW = imW * w
     if(rowCaptions):
-        bigH = 576 * h 
-        rStep = 576
+        bigH = (imH + 64) * h 
+        rStep = imH + 64
     else:
-        bigH = 512 * h
-        rStep = 512
+        bigH = imH * h
+        rStep = imH
     if useTitle:
         hStart = 128
         height = bigH + 128
@@ -481,16 +493,16 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
     elif useTitle == 2:
         for i in range(w):
             _, _, w, h = textLabeler.textbbox((0, 0), captions[i], font=titleFont)
-            textLabeler.text((i*512 + (512-w)/2, 32), captions[i], font=titleFont, fill='black')
-    label = Image.new(mode="RGBA", size=(512,64), color="white")
+            textLabeler.text((i*imH + (imW-w)/2, 32), captions[i], font=titleFont, fill='black')
+    label = Image.new(mode="RGBA", size=(imW,64), color="white")
     count = 0
     for j in range(hStart, bigH, rStep):
-        for i in range(0, bigW, 512):
+        for i in range(0, bigW, imW):
             if(count < len(images)):
-                canvas.paste(images[count], (i,j))
+                canvas.paste(images[count].resize((imH, imW), resample=Image.Resampling.LANCZOS), (i,j))
                 if(rowCaptions):
-                    canvas.paste(label, (i, j+512))
-                    textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
+                    canvas.paste(label, (i, j+imH))
+                    textLabeler.text((i+32, j+imH+8), captions[count], font=font, fill='black')
                 count+=1
     return canvas
 
