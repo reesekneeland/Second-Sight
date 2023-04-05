@@ -51,21 +51,6 @@ class LibraryDecoder():
                                                 log=False, 
                                                 device=self.device))
                 self.EncModels.append("alexnet_encoder")
-            elif param == "c_img_vd":
-                self.AEModels.append(AutoEncoder(hashNum = "724",
-                                        vector="c_img_vd", #c_img_0, c_text_0, z_img_mixer
-                                        encoderHash="722",
-                                        log=False, 
-                                        batch_size=750,
-                                        device=self.device))
-                self.EncModels.append("722_model_c_img_vd.pt")
-            elif param == "c_text_vd":
-                self.AEModels.append(AutoEncoder(hashNum = "727",
-                                                vector="c_text_vd", #c_img_0, c_text_0, z_img_mixer
-                                                encoderHash="660",
-                                                log=False, 
-                                                device=self.device))
-                self.EncModels.append("660_model_c_text_vd.pt")
             elif param == "c_img_uc":
                 self.AEModels.append(AutoEncoder(hashNum = "743",
                                         vector="c_img_uc", #c_img_0, c_text_0, z_img_mixer

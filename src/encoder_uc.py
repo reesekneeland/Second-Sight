@@ -51,7 +51,7 @@ class Encoder_UC():
     def __init__(self, 
                  hashNum,
                  vector, 
-                 log, 
+                 log=False, 
                  lr=0.00001,
                  batch_size=750,
                  device="cuda",
@@ -199,11 +199,13 @@ class Encoder_UC():
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
-    def predict(self, x):
+    def predict(self, x, mask=None):
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device))
+        out = self.model(x.to(self.device, torch.float32))
+        if mask:
+            out = out[mask]
         return out
         
         

@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -10,6 +10,7 @@ import math
 import wandb
 from tqdm import tqdm
 from decoder_uc import Decoder_UC
+from encoder_uc import Encoder_UC
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
@@ -21,34 +22,54 @@ from random import randrange
 def main():
     # os.chdir("/export/raid1/home/kneel027/Second-Sight/")
     # for i in range(10):
-    #     print(1.0-0.6*(math.pow(i/10, 2)))
-    S0 = StochasticSearch(device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
-    # S1 = StochasticSearch(device="cuda:0",
+    #     print(int(250-250*(1/(1+math.exp(-((i/10)/0.1 - 5))))))
+    # for i in range(10):
+    #     print(0.3+0.4*(math.pow(i/10, 2)))
+    # for i in range(10):
+    #     print(int(500-500*(1/(1+math.exp(-((i/10)/0.1 - 5))))))
+    # for i in range(10):
+    #     print(0.1+0.8*(math.pow(i/10, 2)))
+    # S0 = StochasticSearch(config=["AlexNet"],
+    #                       device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=100,
+    #                       n_branches=4)
+    # S1 = StochasticSearch(config=["AlexNet"],.
+    #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
     #                       n_samples=250,
     #                       n_branches=5)
-    # S2 = StochasticSearch(device="cuda:0",
+    # S2 = StochasticSearch(config=["AlexNet"],
+    #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=2,
     #                       n_samples=10,
     #                       n_branches=2)
-    S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    S4 = StochasticSearch(config=["c_img_uc"],
+                          device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=100,
+                          n_branches=4)
+    # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE", idx=[i for i in range(45, 75)], mask=[], ae=True, test=True, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 1", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 2", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 3", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
 
 class StochasticSearch():
     def __init__(self, 
+                config=["AlexNet"],
                 device="cuda:0",
                 log=True,
                 n_iter=10,
                 n_samples=10,
                 n_branches=1):
+        self.config = config
         self.log = log
         self.device = device
         self.n_iter = n_iter
@@ -57,8 +78,9 @@ class StochasticSearch():
         self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
         self.R = self.R.to("cuda")
         self.R.enable_xformers_memory_efficient_attention()
-        self.Encoder = AlexNetEncoder()
-        # self.Encoder = Encoder()
+        self.EncModels = []
+        self.EncType = []
+        self.AEModels = []
         self.nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
         mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
         self.masks = {0:torch.full((11838,), False),
@@ -69,13 +91,34 @@ class StochasticSearch():
                       5:torch.load(mask_path + "V5.pt"),
                       6:torch.load(mask_path + "V6.pt"),
                       7:torch.load(mask_path + "V7.pt")}
+        for param in config:
+            if param == "AlexNet":
+                self.AEModels.append(AutoEncoder(hashNum = "582",
+                                                vector="alexnet_encoder_sub1", 
+                                                encoderHash="579",
+                                                log=False, 
+                                                device=self.device))
+                self.EncModels.append(AlexNetEncoder(device=self.device))
+                self.EncType.append("images")
+            elif param == "c_img_uc":
+                self.AEModels.append(AutoEncoder(hashNum = "743",
+                                        vector="c_img_uc", #c_img_0, c_text_0, z_img_mixer
+                                        encoderHash="738",
+                                        log=False, 
+                                        batch_size=750,
+                                        device=self.device))
+                self.EncModels.append(Encoder_UC(hashNum="738",
+                                                 vector="c_img_uc",
+                                                 device=self.device))
+                self.EncType.append("c_img_uc")
 
-    def generateNSamples(self, image, c_i, n, strength=1):
+    def generateNSamples(self, image, c_i, n, strength=1, noise_level=1):
         images = []
         for i in tqdm(range(n), desc="Generating samples"):
-            images.append(self.R.reconstruct(image=image, 
-                                                image_embeds=c_i,  
-                                                strength=strength))
+            images.append(self.R.reconstruct(image=image,
+                                             image_embeds=c_i,  
+                                             strength=strength,
+                                             noise_level=noise_level))
         return images
 
     #clip is a 5x768 clip vector
@@ -149,21 +192,82 @@ class StochasticSearch():
                 best_image = samples[int(torch.argmax(scores))]
         return best_image, images, iter_scores, var_scores
 
-
+    def zSearch_clip(self, beta, c_i, n=10, max_iter=10, n_branches=1, mask=None, average=True):
+        best_image, best_clip = None, None
+        iter_clips = [None] * n_branches
+        images, iter_scores, var_scores = [], [], []
+        best_vector_corrrelation = -1
+        if(mask):
+            beta = beta[:, mask]
+        for cur_iter in tqdm(range(max_iter), desc="search iterations"):
+            # momentum = 0.3+0.4*(math.pow(cur_iter/max_iter, 2))
+            momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
+            # noise = int(500-500*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
+            # noise = int(250-250*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
+            noise = 100
+            n_i = max(10, int(n/n_branches))
+            tqdm.write("Noise: " + str(noise) + ", N: " + str(n_i))
+            tqdm.write("Momentum: " + str(momentum) + ", N: " + str(n_i))
+            samples = []
+            sample_clips = []
+            for i in range(n_branches):
+                if cur_iter > 0:
+                    c_i = slerp(c_i, iter_clips[i], momentum)
+                samples += self.generateNSamples(image=None, 
+                                                c_i=c_i,  
+                                                n=n_i,  
+                                                strength=1,
+                                                noise_level=noise)
+            if any([(best_clip == iter_clips_).all() for iter_clips_ in iter_clips]):
+                tqdm.write("Adding best image to branches!")
+                if cur_iter > 0:
+                    c_i = slerp(c_i, best_clip, momentum)
+                samples += self.generateNSamples(image=None, 
+                                                c_i=c_i, 
+                                                n=n_i,  
+                                                strength=1,
+                                                noise_level=noise)
+            for image in tqdm(samples, desc="Encoding  samples to clip"):
+                sample_clips.append(self.R.encode_image_raw(image))
+            if(cur_iter == 0):
+                print("STACKED SHAPE: ", torch.stack(sample_clips)[:,0,:].shape)
+            beta_primes = self.EncModels[0].predict(torch.stack(sample_clips)[:,0,:], mask)#.reshape((len(sample_clips), 11838))
+            beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
+            scores = []
+            PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+            if(average):
+                for i in range(beta.shape[0]):
+                    xDup = beta[i].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+                    if(torch.count_nonzero(xDup) > 0):
+                        scores.append(PeC(xDup, beta_primes))
+                scores = torch.stack(scores)
+                scores = torch.mean(scores, dim=0)
+            else:
+                xDup = beta[0].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+                scores = PeC(xDup, beta_primes)
+            cur_var = float(torch.var(scores))
+            topn_pearson = torch.topk(scores, n_branches)
+            cur_vector_corrrelation = float(torch.max(scores))
+            if(self.log):
+                wandb.log({'Alexnet Brain encoding pearson correlation': cur_vector_corrrelation, 'score variance': cur_var})
+            tqdm.write("VC: " + str(cur_vector_corrrelation) + ", Var: " + str(cur_var))
+            images.append(samples[int(torch.argmax(scores))])
+            iter_scores.append(cur_vector_corrrelation)
+            var_scores.append(cur_var)
+            for i in range(n_branches):
+                iter_clips[i] = sample_clips[int(topn_pearson.indices[i])]
+            if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
+                best_vector_corrrelation = cur_vector_corrrelation
+                best_image = samples[int(torch.argmax(scores))]
+                best_clip = sample_clips[int(torch.argmax(scores))]
+        return best_image, images, iter_scores, var_scores
 
 
     def generateTestSamples(self, experiment_title, idx, mask=[], ae=False, test=True, average=True, library=False):    
 
         os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
         os.makedirs("logs/" + experiment_title + "/", exist_ok=True)
-        AE = AutoEncoder(hashNum = "582",
-                 lr=0.0000001,
-                 vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-                 encoderHash="579",
-                 log=False, 
-                 batch_size=750,
-                 device=self.device
-                )
+
          # Load data and targets
         if test:
             _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
@@ -175,7 +279,7 @@ class StochasticSearch():
         for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):
             x_pruned[i] = x[index]
             if(ae):
-                x_pruned_ae[i] = AE.predict(x_pruned[i])
+                x_pruned_ae[i] = self.AEModels[0].predict(x_pruned[i])
         x = x_pruned
         outputs_c_i = [None] * len(idx)
         
@@ -220,8 +324,10 @@ class StochasticSearch():
                 )
             reconstructed_output_c = self.R.reconstruct(image_embeds=outputs_c_i[i], strength=1.0)
             reconstructed_target_c = self.R.reconstruct(image_embeds=targets_c_i[val], strength=1.0)
-            scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x[i], c_i=outputs_c_i[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
-            
+            if self.config[0] == "AlexNet":
+                scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x[i], c_i=outputs_c_i[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
+            elif self.config[0] == "c_img_uc":
+                scs_reconstruction, image_list, score_list, var_list = self.zSearch_clip(beta=x[i], c_i=outputs_c_i[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
             #log the data to a file
             np.save("logs/" + experiment_title + "/" + str(val) + "_score_list.npy", np.array(score_list))
             np.save("logs/" + experiment_title + "/" + str(val) + "_var_list.npy", np.array(var_list))

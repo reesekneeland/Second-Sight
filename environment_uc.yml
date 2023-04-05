@@ -1,4 +1,4 @@
-name: SS_UC2
+name: SS_UC
 channels:
   - conda-forge
   - nvidia
