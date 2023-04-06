@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 import numpy as np
 from PIL import Image
@@ -38,11 +38,11 @@ def main():
 
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
-    # reconstructNImages(experiment_title="VD 720 712", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="VD 710 712 Paper", idx=[i for i in range(600)])
 
     # test_reconstruct()
 
-    train_autoencoder()
+    # train_autoencoder()
 
     # train_ss_decoder()
 
@@ -207,33 +207,34 @@ def train_decoder_pca():
 # Strength parameter controls the weighting between the two tensors
 def reconstructNImages(experiment_title, idx):
     
-    _, _, x_param, x_test, _, _, targets_c_i, _, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
-    _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
-    Dc_i = Decoder(hashNum = "720",
-                 vector="c_img_vd", 
-                 log=False, 
-                 device="cuda",
-                 )
-    # Dc_i = Decoder_PCA(hashNum = "713",
+    # ------------ Using Test Trails ----------------------
+    
+    _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_vd", loader=False, average=True)
+    _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=True)
+    # Dc_i = Decoder(hashNum = "710",
     #              vector="c_img_vd", 
     #              log=False, 
     #              device="cuda",
     #              )
-    outputs_c_i = Dc_i.predict(x=x_param[idx])
+    Dc_i = Decoder_PCA(hashNum = "710",
+                 vector="c_img_vd", 
+                 log=False, 
+                 device="cuda",
+                 )
+    outputs_c_i = Dc_i.predict(x=x_test[idx])
     del Dc_i
     Dc_t = Decoder_PCA(hashNum = "712",
                  vector="c_text_vd",
                  log=False, 
                  device="cuda",
                  )
-    outputs_c_t = Dc_t.predict(x=x_param[idx])
+    outputs_c_t = Dc_t.predict(x=x_test[idx])
     del Dc_t
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
     # Object for the NSDAccess package
     nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
-    os.makedirs("reconstructions/" + experiment_title + "/", exist_ok=True)
     
     
     # outputs_c_i = Dc_i.predict(x=x_param[idx])
@@ -242,6 +243,8 @@ def reconstructNImages(experiment_title, idx):
     R = Reconstructor()
     
     for i in tqdm(idx, desc="Generating reconstructions"):
+        
+        os.makedirs("reconstructions/" + experiment_title + "/" + str(i) + '/', exist_ok=True)
         
         # Make the c reconstrution images. 
         reconstructed_output_c_i = R.reconstruct(c_i=outputs_c_i[i], c_t=outputs_c_t[i], textstrength=0.0, strength=1)
@@ -256,8 +259,10 @@ def reconstructNImages(experiment_title, idx):
         reconstructed_target_c = R.reconstruct(c_i=targets_c_i[i], c_t=targets_c_t[i], textstrength=0.5, strength=1)
         
         # returns a numpy array 
-        nsdId = param_trials[i]
-        ground_truth_np_array = nsda.read_images([nsdId], show=True)
+        nsdId = test_trials[i]
+        # print(nsdId)
+        # print(type(nsdId))
+        ground_truth_np_array = nsda.read_images([int(nsdId)], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((512, 512), resample=Image.Resampling.LANCZOS)
         empty = Image.new('RGB', (512, 512), color='white')
@@ -266,8 +271,14 @@ def reconstructNImages(experiment_title, idx):
         images = [ground_truth, empty, reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i, reconstructed_target_c_t, reconstructed_output_c_t]
         captions = ["Ground Truth", "", "Target C_2", "Output C_2", "Target C_i", "Output C_i", "Target C_t", "Output C_t"]
         figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
-        
-        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '.png')
+        ground_truth.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '/' + 'Ground Truth' + '.png')
+        reconstructed_target_c.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/'  + str(i) + '/' + 'Target Combined CLIP' + '.png')
+        reconstructed_output_c.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/'  + str(i) + '/' + 'Decoded CLIP Only' + '.png')
+        reconstructed_target_c_i.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/'  + str(i) + '/' + 'Target CLIP C_I' + '.png')
+        reconstructed_output_c_i.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/'  + str(i) + '/' + 'Decoded CLIP C_I' + '.png')
+        reconstructed_target_c_t.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/'  + str(i) + '/' + 'Target CLIP C_T' + '.png')
+        reconstructed_output_c_t.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '/' + 'Decoded CLIP C_T' + '.png')
+        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/' + experiment_title + '/' + str(i) + '/' + str(i) + '.png')
 
 def reconstructNImagesST(experiment_title, idx):
     # Dc_i = Decoder(hashNum = "634",

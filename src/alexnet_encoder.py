@@ -1,5 +1,4 @@
 import os, sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
