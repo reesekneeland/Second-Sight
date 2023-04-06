@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 import numpy as np
 from PIL import Image
@@ -35,7 +35,7 @@ def main():
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4)
-    # S1 = StochasticSearch(config=["AlexNet"],.
+    # S1 = StochasticSearch(config=["AlexNet"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
@@ -56,10 +56,12 @@ def main():
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    # S1.generateTestSamples(experiment_title="SCS VD PCA LR 10:250:5 0.4 Exp3 AE", idx=[i for i in range(45, 75)], mask=[], ae=True, test=True, average=True)
-    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 1", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 2", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 3", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(0, 25)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(50, 75)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
+    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(75, 100)], mask=[], ae=True, test=True, average=True)
+    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 4", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 5", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
 
 class StochasticSearch():
     def __init__(self, 
@@ -114,11 +116,13 @@ class StochasticSearch():
 
     def generateNSamples(self, image, c_i, n, strength=1, noise_level=1):
         images = []
-        for i in tqdm(range(n), desc="Generating samples"):
+        for i in range(n):
             images.append(self.R.reconstruct(image=image,
-                                             image_embeds=c_i,  
+                                             image_embeds=c_i, 
                                              strength=strength,
-                                             noise_level=noise_level))
+                                             noise_level=noise_level,
+                                             prompt="photorealistic", 
+                                             negative_prompt="cartoon, art, saturated, text, caption"))
         return images
 
     #clip is a 5x768 clip vector
@@ -144,7 +148,7 @@ class StochasticSearch():
             # if(loss_counter > 3):
             #     break
             # strength = 1.0-0.5*(cur_iter/max_iter)
-            strength = 1.0-0.6*(math.pow(cur_iter/max_iter, 3))
+            strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: " + str(strength) + ", N: " + str(n_i))
             
@@ -160,9 +164,7 @@ class StochasticSearch():
                                                 n=n_i,  
                                                 strength=strength)
         
-
-            beta_primes = self.Encoder.predict(samples, mask)
-            # beta_primes = beta_primes[:, beta_mask]
+            beta_primes = self.EncModels[0].predict(samples, mask)
             beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
             scores = []
             PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
@@ -200,14 +202,14 @@ class StochasticSearch():
         if(mask):
             beta = beta[:, mask]
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
-            # momentum = 0.3+0.4*(math.pow(cur_iter/max_iter, 2))
+            # momentum = 0.1+0.4*(math.pow(cur_iter/max_iter, 2))
             momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
+            # momentum = 0.5
             # noise = int(500-500*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            # noise = int(250-250*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            noise = 100
+            noise = int(200-200*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
+            # noise = 100
             n_i = max(10, int(n/n_branches))
-            tqdm.write("Noise: " + str(noise) + ", N: " + str(n_i))
-            tqdm.write("Momentum: " + str(momentum) + ", N: " + str(n_i))
+            tqdm.write("Noise: " + str(noise) + ", Momentum: " + str(momentum) +", N: " + str(n_i))
             samples = []
             sample_clips = []
             for i in range(n_branches):
@@ -218,20 +220,21 @@ class StochasticSearch():
                                                 n=n_i,  
                                                 strength=1,
                                                 noise_level=noise)
-            if any([(best_clip == iter_clips_).all() for iter_clips_ in iter_clips]):
-                tqdm.write("Adding best image to branches!")
-                if cur_iter > 0:
+            
+            if cur_iter > 0:
+                if not any([torch.equal(best_clip,clip) for clip in iter_clips]):
+                    tqdm.write("Adding best image to branches!")
                     c_i = slerp(c_i, best_clip, momentum)
-                samples += self.generateNSamples(image=None, 
-                                                c_i=c_i, 
-                                                n=n_i,  
-                                                strength=1,
-                                                noise_level=noise)
-            for image in tqdm(samples, desc="Encoding  samples to clip"):
+                    samples += self.generateNSamples(image=None, 
+                                                    c_i=c_i, 
+                                                    n=n_i,  
+                                                    strength=1,
+                                                    noise_level=noise)
+
+            for image in samples:
                 sample_clips.append(self.R.encode_image_raw(image))
-            if(cur_iter == 0):
-                print("STACKED SHAPE: ", torch.stack(sample_clips)[:,0,:].shape)
-            beta_primes = self.EncModels[0].predict(torch.stack(sample_clips)[:,0,:], mask)#.reshape((len(sample_clips), 11838))
+
+            beta_primes = self.EncModels[0].predict(torch.stack(sample_clips)[:,0,:], mask)
             beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
             scores = []
             PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
@@ -250,7 +253,7 @@ class StochasticSearch():
             cur_vector_corrrelation = float(torch.max(scores))
             if(self.log):
                 wandb.log({'Alexnet Brain encoding pearson correlation': cur_vector_corrrelation, 'score variance': cur_var})
-            tqdm.write("VC: " + str(cur_vector_corrrelation) + ", Var: " + str(cur_var))
+            tqdm.write("Brain Correlation: " + str(cur_vector_corrrelation) + ", Var: " + str(cur_var))
             images.append(samples[int(torch.argmax(scores))])
             iter_scores.append(cur_vector_corrrelation)
             var_scores.append(cur_var)
@@ -273,6 +276,9 @@ class StochasticSearch():
             _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
         else:
             _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
+            
+        targets_c_i = targets_c_i[idx]
+
         if(ae):
             x_pruned_ae = torch.zeros((len(idx), 3, 11838))
         x_pruned = torch.zeros((len(idx), 3, 11838))
@@ -298,15 +304,17 @@ class StochasticSearch():
                     )
             outputs_c_i = Dc_i.predict(x=torch.mean(x, dim=1))
             del Dc_i
-            if(ae):
-                x = x_pruned_ae
+        if(ae):
+            x = x_pruned_ae
                 
         PeC = PearsonCorrCoef(num_outputs=len(idx)).to("cpu")
+        PeC1 = PearsonCorrCoef(num_outputs=1).to("cpu")
         #Log the CLIP scores
-        np.save("logs/" + experiment_title + "/" + "c_img_PeC.npy", np.array(PeC(outputs_c_i.moveaxis(0,1).to("cpu"), targets_c_i[idx].moveaxis(0,1).to("cpu")).detach()))
+        clip_scores = np.array(PeC(outputs_c_i.moveaxis(0,1).to("cpu"), targets_c_i.moveaxis(0,1).to("cpu")).detach())
+        np.save("logs/" + experiment_title + "/" + "decoded_c_img_PeC.npy", clip_scores)
         # np.save("logs/" + experiment_title + "/" + "c_text_PeC.npy", np.array(PeC(outputs_c_t.moveaxis(0,1).to("cpu"), targets_c_t[idx].moveaxis(0,1).to("cpu")).detach()))
-        
-        for i, val in enumerate(idx):
+        scs_c_i = []
+        for i, val in enumerate(tqdm(idx, desc="Reconstructing samples")):
             os.makedirs("reconstructions/" + experiment_title + "/" + str(val) + "/", exist_ok=True)
             
             if(self.log):
@@ -322,8 +330,8 @@ class StochasticSearch():
                     "n_samples": self.n_samples
                     }
                 )
-            reconstructed_output_c = self.R.reconstruct(image_embeds=outputs_c_i[i], strength=1.0)
-            reconstructed_target_c = self.R.reconstruct(image_embeds=targets_c_i[val], strength=1.0)
+            reconstructed_output_c = self.R.reconstruct(image_embeds=outputs_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1.0)
+            reconstructed_target_c = self.R.reconstruct(image_embeds=targets_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1.0)
             if self.config[0] == "AlexNet":
                 scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x[i], c_i=outputs_c_i[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
             elif self.config[0] == "c_img_uc":
@@ -331,8 +339,9 @@ class StochasticSearch():
             #log the data to a file
             np.save("logs/" + experiment_title + "/" + str(val) + "_score_list.npy", np.array(score_list))
             np.save("logs/" + experiment_title + "/" + str(val) + "_var_list.npy", np.array(var_list))
-            
-            # returns a numpy array 
+            scs_c_i.append(self.R.encode_image_raw(scs_reconstruction).reshape((1024,)))
+            tqdm.write("CLIP IMPROVEMENT: " + str(clip_scores[i]) + " -> " + str(float(PeC1(scs_c_i[i].to("cpu"), targets_c_i[i].to("cpu").detach()))))
+        #     # returns a numpy array 
             nsdId = trials[val]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])
@@ -359,5 +368,8 @@ class StochasticSearch():
                         images[j].save('reconstructions/' + experiment_title + "/" + str(val) + "/" + captions[j] + '.png')
             except:
                 pass
+        scs_c_i = torch.stack(scs_c_i)
+        scs_clip_scores = np.array(PeC(scs_c_i.moveaxis(0,1).to("cpu"), targets_c_i.moveaxis(0,1).to("cpu")).detach())
+        np.save("logs/" + experiment_title + "/" + "scs_c_img_PeC.npy", scs_clip_scores)
 if __name__ == "__main__":
     main()

@@ -54,10 +54,10 @@ import nibabel as nib
 
 # process_data_full("z_img_mixer")
 # process_data_full("c_img_uc")
-process_data_full("c_text_uc")
+# process_data_full("c_text_uc")
 # process_data_full("c_combined")
 
-# load_nsd("z_img_mixer", loader=False)
+load_nsd("c_img_uc", loader=False)
 
 # voxel_dir = "/export/raid1/home/styvesg/data/nsd/voxels/"
 # voxel_data_set = h5py.File(voxel_dir+'voxel_data_V1_4_part1.h5py', 'r')

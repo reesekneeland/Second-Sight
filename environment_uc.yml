@@ -21,6 +21,7 @@ dependencies:
       - einops
       - omegaconf
       - ipython
+      - ipykernel
       - matplotlib
       - nibabel>=5.0.0
       - numpy>=1.23.5
