@@ -42,7 +42,6 @@ def main():
 
     # load_cc3m("c_img_0", "410_model_c_img_0.pt")
 
-    reconstructNImages(experiment_title="MLP 694 695", idx=[i for i in range(21)])
     # reconstructNImagesST(experiment_title="VD mixed decoders", idx=[i for i in range(21)])
     
     reconstructNImages(experiment_title="UC 747 prompt \"photorealistic\" neg \"cartoon, art, saturated, text, caption\" gc10", idx=[i for i in range(21)])

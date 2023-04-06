@@ -614,58 +614,6 @@ def prune_vector(x, subject="subject1"):
     subj = nsda.stim_descriptions[nsda.stim_descriptions[subject] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
-
-    
-def equalize_color(image):
-    filt = ImageEnhance.Color(image)
-    return filt.enhance(0.8)
-
-
-# SCS Performance Metrics
-
-def mse_scs(imageA, imageB):
-	# the 'Mean Squared Error' between the two images is the
-	# sum of the squared difference between the two images;
-	# NOTE: the two images must have the same dimension
-	err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
-	err /= float(imageA.shape[0] * imageA.shape[1])
-	
-	# return the MSE, the lower the error, the more "similar"
-	# the two images are
-	return err
-
-def ssim_scs(imageA, imageB):
-    return ssim(imageA, imageB)
-
-def pixel_correlation(imageA, imageB):
-    a = np.array(imageA).flatten()
-    b = np.array(imageB).flatten()
-    return (np.corrcoef(a,b))[0][1]
-
-def get_coco_no_subject(subjectId):
-    ground_truth_np_array = nsda.read_images([i for i in range(73000)], show=False)
-    subj = nsda.stim_descriptions[nsda.stim_descriptions['subject' + str(subjectId)] != 0]
-    nsdIds = set(subj['nsdId'].tolist())
-    imgs = []
-    count = 0
-    for pred in tqdm(range(73000), desc="filtering images"):
-            if pred not in nsdIds:
-                imgs.append(ground_truth_np_array[pred])
-                count += 1
-    pruned_images = np.array(imgs)
-    np.save("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_63k_subj" + str(subjectId) + ".npy", pruned_images)
-
-#converts a torch tensor of an 425z425vimage into a PIL image and resizes it
-def process_image(imageArray):
-    imageArray = imageArray.reshape((425, 425, 3)).cpu().numpy().astype(np.uint8)
-    image = Image.fromarray(imageArray)
-    image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
-    return image
-
-def prune_vector(x, subject="subject1"):
-    subj = nsda.stim_descriptions[nsda.stim_descriptions[subject] != 0]
-    nsdIds = set(subj['nsdId'].tolist())
-    
     pruned_x = torch.zeros((73000-len(nsdIds), x.shape[1]))
     count = 0
     for pred in range(73000):
