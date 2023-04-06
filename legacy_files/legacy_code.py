@@ -620,3 +620,47 @@ def extract_dim(vector, dim):
                         d[k] = v   
             return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
 
+def predictVector_cc3m(encModel, vector, x, mask=[], device="cuda:0"):
+        
+        if(vector == "c_img_0" or vector == "c_text_0"):
+            datasize = 768
+        elif(vector == "z_img_mixer"):
+            datasize = 16384
+        elif(vector == "images"):
+            datasize = 541875
+        # x = x.to(device)
+        prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        latent_path = "latent_vectors/"
+        
+        PeC = PearsonCorrCoef(num_outputs=22735).to(device)
+        
+        out = torch.zeros((x.shape[0], 5, datasize))
+        average_pearson = 0
+        
+        for i in tqdm(range(x.shape[0]), desc="scanning library for " + vector):
+            xDup = x[i].repeat(22735, 1).moveaxis(0, 1).to(device)
+            scores = torch.zeros((2819141,))
+            # preds = torch.zeros((2819141,datasize))
+            # batch_max_x = torch.zeros((620, x.shape[1]))
+            # batch_max_y = torch.zeros((620, datasize))
+            for batch in tqdm(range(124), desc="batching sample"):
+                # y = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
+                x_preds = torch.load(latent_path + encModel + "/cc3m_batches/" + str(batch) + ".pt")
+                # print(x_preds.device)
+                x_preds_t = x_preds.moveaxis(0, 1).to(device)
+                # preds[22735*batch:22735*batch+22735] = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
+                # Pearson correlation
+                scores[22735*batch:22735*batch+22735] = PeC(xDup, x_preds_t).detach()
+                # Calculating the Average Pearson Across Samples
+            top5_pearson = torch.topk(scores, 5)
+            average_pearson += torch.mean(top5_pearson.values.detach()) 
+            print(top5_pearson.indices, top5_pearson.values, scores[0:5])
+            for j, index in enumerate(top5_pearson.indices):
+                batch = int(index // 22735)
+                sample = int(index % 22735)
+                batch_preds = torch.load(prep_path + vector + "/cc3m_batches/" + str(batch) + ".pt")
+                out[i, j] = batch_preds[sample]
+            
+        torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
+        print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
+        return out
