@@ -1,34 +1,38 @@
-name: SS_vd
+name: SS_UC
 channels:
   - conda-forge
+  - nvidia
+  - pytorch
   - defaults
 dependencies:
-  - python=3.8
-  - pip=22.3.1
-  - pytorch==1.12.1
-  - torchvision==0.13.1
-  - cudatoolkit=11.3
+  - python=3.10
+  - pip
+  - pytorch::pytorch==2.0.0
+  - pytorch::torchvision
+  - pytorch-cuda=11.7
   - pip:
-      - huggingface-hub==0.11.1
-      - pyyaml==5.4.1
+      - huggingface-hub
+      - pyyaml
+      - accelerate
+      - xformers
       - h5py
-      - easydict==1.9
-      - scikit-image==0.17.2
-      - einops==0.3.0
-      - omegaconf==2.1.1
-      - ipython>=8.9.0
-      - matplotlib>=3.6.3
+      - easydict
+      - scikit-image
+      - einops
+      - omegaconf
+      - ipython
+      - ipykernel
+      - matplotlib
       - nibabel>=5.0.0
       - numpy>=1.23.5
-      - opencv-python==4.5.5.64
-      - open_clip_torch==2.0.2
+      - opencv-python
       - pandas>=1.5.3
       - pillow>=9.4.0
-      - pycocotools==2.0.6
-      - torchmetrics==0.7.3
+      - pycocotools>=2.0.6
+      - torchmetrics
       - tqdm>=4.64.1
-      - transformers==4.24.0
+      - transformers
       - wandb>=0.12.21
       - seaborn
       - webdataset>=0.2.5
-      - bitsandbytes
+      - "--editable=git+https://github.com/reesekneeland/diffusers.git@main#egg=diffusers"
