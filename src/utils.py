@@ -20,6 +20,7 @@ from skimage.metrics import structural_similarity as ssim
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
 latent_path = "/export/raid1/home/kneel027/Second-Sight/latent_vectors/"
+mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
 
 # First URL: This is the original read-only NSD file path (The actual data)
 # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -50,21 +51,14 @@ def update_hash():
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False, pca=False):
-    if(old_norm):
-        region_name = "whole_region_11838_old_norm.pt"
-    else:
-        region_name = "whole_region_11838.pt"
-        
+def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False):
     if(ae):
-        x = torch.load(prep_path + "x/" + region_name).requires_grad_(False).to("cpu")
-        y = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False).to("cpu")
+        assert encoderModel is not None
+        x = torch.load(prep_path + "subject" + str(subject) + "nsd_general.pt").requires_grad_(False).to("cpu")
+        y = torch.load(prep_path + "subject" + str(subject) + "x_encoded/" + encoderModel + ".pt").requires_grad_(False).to("cpu")
     else:
-        x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
-        y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
-        if(pca):
-            pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
-            y = torch.from_numpy(pca.transform(y.numpy())).to(torch.float32)
+        x = torch.load(prep_path + "subject" + str(subject) + "nsd_general.pt").requires_grad_(False)
+        y = torch.load(prep_path + vector + ".pt").requires_grad_(False)
     
     if(not split): 
         if(loader):
@@ -73,177 +67,136 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
             return dataloader
         else:
             return x, y
+    x_train, x_val, x_test = [], [], []
+    y_train, y_val, y_test = [], [], []
+    subj_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject'+ str(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
+    subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject' + str(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
     
-    else: 
-        x_train, x_val, x_param, x_test = [], [], [], []
-        y_train, y_val, y_param, y_test = [], [], [], []
-        subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
-        subj1_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
-        subj1_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
-        alexnet_stimuli_order_list = np.where(subj1_full["shared1000"] == True)[0]
-        
-        # Loads the raw tensors into a Dataset object
-
-        # TensorDataset takes in two tensors of equal size and then maps 
-        # them to one dataset. 
-        # x is the brain data 
-        # y are the vectors
-        # train_i, test_i, val_i, voxelSelection_i, thresholdSelection_i = 0,0,0,0,0
-        alexnet_stimuli_ordering  = []
-        test_trials = []
-        param_trials = []
-        for i in tqdm(range(7500), desc="loading training samples"):
-            nsdId = subj1_train.iloc[i]['nsdId']
-            avx = []
-            avy = []
-            for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    if(average==True):
-                        avx.append(x[scanId-1])
-                        avy.append(y[scanId-1])
-                    else:
-                        x_train.append(x[scanId-1])
-                        y_train.append(y[scanId-1])
-            if(len(avx) > 0):
-                avx = torch.stack(avx)
-                x_train.append(torch.mean(avx, dim=0))
-                y_train.append(avy[0])
-                         
-        for i in tqdm(range(7500, 9000), desc="loading validation samples"):
-            nsdId = subj1_train.iloc[i]['nsdId']
-            avx = []
-            avy = []
-            for j in range(3):
-                scanId = subj1_train.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    if average:
-                        avx.append(x[scanId-1])
-                        avy.append(y[scanId-1])
-                    else:
-                        x_val.append(x[scanId-1])
-                        y_val.append(y[scanId-1])
-            if(len(avx) > 0):
-                avx = torch.stack(avx)
-                x_val.append(torch.mean(avx, dim=0))
-                y_val.append(avy[0])
-        
-        for i in range(200):
-            nsdId = subj1_test.iloc[i]['nsdId']
-            avx = []
-            avy = []
-            x_row = torch.zeros((3, 11838))
-            for j in range(3):
-                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    if average or nest:
-                        avx.append(x[scanId-1])
-                        avy.append(y[scanId-1])
-                    else:
-                        x_param.append(x[scanId-1])
-                        y_param.append(y[scanId-1])
-                        param_trials.append(nsdId)
-                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
-            if(len(avy)>0):
+    test_trials = []
+    param_trials = []
+    split_point = int(subj_train.shape[0]*0.85)
+    for i in tqdm(range(split_point), desc="loading training samples"):
+        nsdId = subj_train.iloc[i]['nsdId']
+        avx = []
+        avy = []
+        for j in range(3):
+            scanId = subj_train.iloc[i]['subject1_rep' + str(j)]
+            if(scanId < 27750):
+                x_train.append(x[scanId-1])
+                y_train.append(y[scanId-1])
+        if(len(avx) > 0):
+            avx = torch.stack(avx)
+            x_train.append(torch.mean(avx, dim=0))
+            y_train.append(avy[0])
+                        
+    for i in tqdm(range(split_point, subj_train.shape[0]), desc="loading validation samples"):
+        nsdId = subj_train.iloc[i]['nsdId']
+        avx = []
+        avy = []
+        for j in range(3):
+            scanId = subj_train.iloc[i]['subject1_rep' + str(j)]
+            if(scanId < 27750):
                 if average:
-                    avx = torch.stack(avx)
-                    x_param.append(torch.mean(avx, dim=0))
+                    avx.append(x[scanId-1])
+                    avy.append(y[scanId-1])
                 else:
-                    for i in range(len(avx)):
-                        x_row[i] = avx[i]
-                    x_param.append(x_row)
-                y_param.append(avy[0])
-                param_trials.append(nsdId)
-                    
-        for i in range(200, 1000):
-            nsdId = subj1_test.iloc[i]['nsdId']
-            avx = []
-            avy = []
-            x_row = torch.zeros((3, 11838))
-            for j in range(3):
-                scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
-                if(scanId < 27750):
-                    if average or nest:
-                        avx.append(x[scanId-1])
-                        avy.append(y[scanId-1])
-                    else:
-                        x_test.append(x[scanId-1])
-                        y_test.append(y[scanId-1])
-                        test_trials.append(nsdId)
-                        alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
-            if(len(avy)>0):
-                if average:
-                    avx = torch.stack(avx)
-                    x_test.append(torch.mean(avx, dim=0))
+                    x_val.append(x[scanId-1])
+                    y_val.append(y[scanId-1])
+        if(len(avx) > 0):
+            avx = torch.stack(avx)
+            x_val.append(torch.mean(avx, dim=0))
+            y_val.append(avy[0])
+    
+    for i in range(200):
+        nsdId = subj_test.iloc[i]['nsdId']
+        avx = []
+        avy = []
+        x_row = torch.zeros((3, 11838))
+        for j in range(3):
+            scanId = subj_test.iloc[i]['subject1_rep' + str(j)]
+            if(scanId < 27750):
+                if average or nest:
+                    avx.append(x[scanId-1])
+                    avy.append(y[scanId-1])
                 else:
-                    for i in range(len(avx)):
-                        x_row[i] = avx[i]
-                    x_test.append(x_row)
-                y_test.append(avy[0])
-                test_trials.append(nsdId)
-        x_train = torch.stack(x_train).to("cpu")
-        x_val = torch.stack(x_val).to("cpu")
-        x_param = torch.stack(x_param).to("cpu")
-        x_test = torch.stack(x_test).to("cpu")
-        y_train = torch.stack(y_train)
-        y_val = torch.stack(y_val)
-        y_param = torch.stack(y_param)
-        y_test = torch.stack(y_test)
-        print("shapes: ", x_train.shape, x_val.shape, x_param.shape, x_test.shape, y_train.shape, y_val.shape, y_param.shape, y_test.shape)
-
-        if(loader):
-            trainset = torch.utils.data.TensorDataset(x_train, y_train)
-            valset = torch.utils.data.TensorDataset(x_val, y_val)
-            thresholdset = torch.utils.data.TensorDataset(x_param, y_param)
-            testset = torch.utils.data.TensorDataset(x_test, y_test)
-            # Loads the Dataset into a DataLoader
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-            paramLoader = torch.utils.data.DataLoader(thresholdset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-            return trainloader, valloader, paramLoader, testloader
-        else:
-            if(return_trial): 
-                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, alexnet_stimuli_ordering, param_trials, test_trials
+                    x_param.append(x[scanId-1])
+                    y_param.append(y[scanId-1])
+                    param_trials.append(nsdId)
+        if(len(avy)>0):
+            if average:
+                avx = torch.stack(avx)
+                x_param.append(torch.mean(avx, dim=0))
             else:
-                return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, param_trials, test_trials
+                for i in range(len(avx)):
+                    x_row[i] = avx[i]
+                x_param.append(x_row)
+            y_param.append(avy[0])
+            param_trials.append(nsdId)
+                
+    for i in range(200, 1000):
+        nsdId = subj_test.iloc[i]['nsdId']
+        avx = []
+        avy = []
+        x_row = torch.zeros((3, 11838))
+        for j in range(3):
+            scanId = subj1_test.iloc[i]['subject1_rep' + str(j)]
+            if(scanId < 27750):
+                if average or nest:
+                    avx.append(x[scanId-1])
+                    avy.append(y[scanId-1])
+                else:
+                    x_test.append(x[scanId-1])
+                    y_test.append(y[scanId-1])
+                    test_trials.append(nsdId)
+                    alexnet_stimuli_ordering.append(alexnet_stimuli_order_list[i])
+        if(len(avy)>0):
+            if average:
+                avx = torch.stack(avx)
+                x_test.append(torch.mean(avx, dim=0))
+            else:
+                for i in range(len(avx)):
+                    x_row[i] = avx[i]
+                x_test.append(x_row)
+            y_test.append(avy[0])
+            test_trials.append(nsdId)
+    x_train = torch.stack(x_train).to("cpu")
+    x_val = torch.stack(x_val).to("cpu")
+    x_param = torch.stack(x_param).to("cpu")
+    x_test = torch.stack(x_test).to("cpu")
+    y_train = torch.stack(y_train)
+    y_val = torch.stack(y_val)
+    y_param = torch.stack(y_param)
+    y_test = torch.stack(y_test)
+    print("shapes: ", x_train.shape, x_val.shape, x_param.shape, x_test.shape, y_train.shape, y_val.shape, y_param.shape, y_test.shape)
+
+    if(loader):
+        trainset = torch.utils.data.TensorDataset(x_train, y_train)
+        valset = torch.utils.data.TensorDataset(x_val, y_val)
+        thresholdset = torch.utils.data.TensorDataset(x_param, y_param)
+        testset = torch.utils.data.TensorDataset(x_test, y_test)
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        paramLoader = torch.utils.data.DataLoader(thresholdset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        return trainloader, valloader, paramLoader, testloader
+    else:
+        return x_train, x_val, x_param, x_test, y_train, y_val, y_param, y_test, param_trials, test_trials
+
+def ghislain_stimuli_ordering(subject=1):
+    subj_full = nsda.stim_descriptions[(nsda.stim_descriptions['subject' + str(subject)] != 0)]
+    subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject' + str(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+    stimuli_order_list = np.where(subj_full["shared1000"] == True)[0]
+    stimuli_ordering  = []
+    for i in range(len(stimuli_order_list)):
+        for j in range(3):
+            scanId = subj_test.iloc[i]['subject1_rep' + str(j)]
+            if(scanId < 27750):
+                stimuli_ordering.append(stimuli_order_list[i])
+    return stimuli_ordering
 
 
-def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
-    x_path = latent_path + modelId + "/cc3m_batches/"
-    y_path = prep_path + vector + "/cc3m_batches/"
-    size = 2819140
-    x = torch.zeros((size, 11838)).requires_grad_(False)
-    if(vector == "z" or vector == "z_img_mixer"):
-        y = torch.zeros((size, 16384)).requires_grad_(False)
-    elif(vector == "c_img_0" or vector == "c_text_0"):
-        y = torch.zeros((size, 768)).requires_grad_(False)
-    
-    for i in tqdm(range(124), desc="loading cc3m"):
-        y[i*22735:i*22735+22735] = torch.load(y_path + str(i) + ".pt").requires_grad_(False)
-        x[i*22735:i*22735+22735] = torch.load(x_path + str(i) + ".pt").requires_grad_(False)
-    val_split = int(size*0.7)
-    test_split = int(size*0.9)
-    x_train = x[:val_split]
-    y_train = y[:val_split]
-    x_val = x[val_split:test_split]
-    y_val = y[val_split:test_split]
-    x_test = x[test_split:]
-    y_test = y[test_split:]
-
-    trainset = torch.utils.data.TensorDataset(x_train, y_train)
-    valset = torch.utils.data.TensorDataset(x_val, y_val)
-    testset = torch.utils.data.TensorDataset(x_test, y_test)
-    # Loads the Dataset into a DataLoader
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    valLoader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-    return trainLoader, valLoader, testLoader
-    
-    
-
-
-def create_whole_region_unnormalized(whole=False, subject = "subj1"):
+def create_whole_region_unnormalized(subject = 1, whole=False):
     
     #  Subject #1
     #   - NSD General = 11838
@@ -255,37 +208,36 @@ def create_whole_region_unnormalized(whole=False, subject = "subj1"):
     #   - Brain Shape = (82, 106, 84)
     #   - Flatten Brain Shape = 730128
     #
-
-    nsd_general = nib.load("masks/" + subject + "/brainmask_nsdgeneral_1.0.nii").get_fdata()
+    numScans = {1: 40, 2: 40, 3:32, 4: 30, 5:40, 6:32, 7:40, 8:30}
+    nsd_general = nib.load("masks/subject" + str(subject) + "/brainmask_nsdgeneral_1.0.nii").get_fdata()
     layer_size = np.sum(nsd_general == True)
     print(nsd_general.shape)
-    
+    os.makedirs(prep_path + "subject" + str(subject) + "/x/", exist_ok=True)
     
     if(whole):
-        data = 41
-        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized_all.pt"
-        whole_region = torch.zeros((30000, layer_size))
+        data = numScans[subject]
+        file = "subject" + str(subject) + "/nsd_general_unnormalized_all.pt"
+        whole_region = torch.zeros((750*data, layer_size))
     else:
-        data = 38
-        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized.pt"
-        whole_region = torch.zeros((27750, layer_size))
+        data = numScans[subject]-3
+        file = "subject" + str(subject) + "/nsd_general_unnormalized.pt"
+        whole_region = torch.zeros((750*data, layer_size))
 
     nsd_general_mask = np.nan_to_num(nsd_general)
     nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
     print(nsd_mask.shape)
-        
     # Loads the full collection of beta sessions for subject 1
     for i in tqdm(range(1,data), desc="Loading Voxels"):
-        beta = nsda.read_betas(subject='subj02', 
-                            session_index=i, 
-                            trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
-                            data_type='betas_fithrf_GLMdenoise_RR',
-                            data_format='func1pt8mm')
-
+        beta = nsda.read_betas(subject="subj0" + str(subject), 
+                                session_index=i, 
+                                trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
+                                data_type='betas_fithrf_GLMdenoise_RR',
+                                data_format='func1pt8mm')
+            
         # Reshape the beta trails to be flattened. 
-        beta = beta.reshape((nsd_mask.shape[0], 750))
+        beta = beta.reshape((nsd_mask.shape[0], beta.shape[3]))
 
-        for j in range(750):
+        for j in range(beta.shape[1]):
 
             # Grab the current beta trail. 
             curScan = beta[:, j]
@@ -293,91 +245,75 @@ def create_whole_region_unnormalized(whole=False, subject = "subj1"):
             single_scan = torch.from_numpy(curScan)
 
             # Discard the unmasked values and keeps the masked values. 
-            whole_region[j + (i-1)*750] = single_scan[nsd_mask]
+            whole_region[j + (i-1)*beta.shape[1]] = single_scan[nsd_mask]
             
     # Save the tensor
-    print(whole_region.shape)
+    print("SUBJECT " + str(subject) + "WHOLE REGION SHAPE: ", whole_region.shape)
     torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized(whole = False, subject = "subj1"):
-    
-    subjects = {"subj1": 11838,
-                "subj2": 10325}
+def create_whole_region_normalized(subject = 1, whole = False):
     
     if(whole):
 
-        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized_all.pt")
-        
-        #whole_region_norm = torch.zeros((30000, subjects[subject]))
-        whole_region_norm_z = torch.zeros((30000, subjects[subject]))
-                
-        # Normalize the data using Z scoring method for each voxel
-        for i in range(whole_region.shape[1]):
-            voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
-            normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-            whole_region_norm_z[:, i] = normalized_voxel
-            
-
-        # Normalize the data by dividing all elements by the max of each voxel
-        # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
-
-        # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_all.pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
-    
+        whole_region = torch.load(prep_path + "subject" + str(subject) + "/nsd_general_unnormalized_all.pt")
     else:
-
-        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized.pt")
-        
-        #whole_region_norm = torch.zeros((27750, subjects[subject]))
-        whole_region_norm_z = torch.zeros((27750, subjects[subject]))
-                
-        # Normalize the data using Z scoring method for each voxel
-        for i in range(whole_region.shape[1]):
-            voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
-            normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-            whole_region_norm_z[:, i] = normalized_voxel
+        whole_region = torch.load(prep_path + "subject" + str(subject) + "/nsd_general_unnormalized.pt")
+        #whole_region_norm = torch.zeros((30000, subjects[subject]))
+    whole_region_norm_z = torch.zeros_like(whole_region)
             
-
-        # Normalize the data by dividing all elements by the max of each voxel
-        # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
+    # Normalize the data using Z scoring method for each voxel
+    for i in range(whole_region.shape[1]):
+        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+        normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
+        whole_region_norm_z[:, i] = normalized_voxel
+    # Normalize the data by dividing all elements by the max of each voxel
+    # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + ".pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
+    if(whole):
+        torch.save(whole_region_norm_z, prep_path + "subject" + str(subject) + "/nsd_general_all.pt")
+    else:
+        torch.save(whole_region_norm_z, prep_path + "subject" + str(subject) + "/nsd_general.pt")
     
+def process_masks(subject=1):
+    nsd_general = nib.load(mask_path + "subject" + str(subject) + "/brainmask_nsdgeneral_1.0.nii").get_fdata()
+    nsd_general = np.nan_to_num(nsd_general).astype(bool)
     
-def process_data(vector="c_combined", image=False, subject = "subj1"):
+    visual_rois = nib.load(mask_path + "subject" + str(subject) + "/prf-visualrois.nii.gz").get_fdata()
+    empty_brain = np.full(visual_rois.shape, False)
+    V1L = np.where(visual_rois==1.0, True, False)
+    V1R = np.where(visual_rois==2.0, True, False)
+    V1 = torch.from_numpy(V1L[nsd_general] + V1R[nsd_general])
+    V2L = np.where(visual_rois==3.0, True, False)
+    V2R = np.where(visual_rois==4.0, True, False)
+    V2 = torch.from_numpy(V2L[nsd_general] + V2R[nsd_general])
+    V3L = np.where(visual_rois==5.0, True, False)
+    V3R = np.where(visual_rois==6.0, True, False)
+    V3 = torch.from_numpy(V3L[nsd_general] + V3R[nsd_general])
+    V4 = np.where(visual_rois==7.0, True, False)
+    V4 = torch.from_numpy(V4[nsd_general])
+    early_vis = V1 + V2 + V3 + V4
+    higher_vis = ~early_vis
     
-    subjects = {"subj1": "subject1",
-                "subj2": "subject2",
-                "subj3": "subject3",
-                "subj4": "subject4",
-                "subj5": "subject5",
-                "subj6": "subject6",
-                "subj7": "subject7",
-                "subj8": "subject8"}
+
+    torch.save(V1, mask_path + "subject" + str(subject) + "/V1.pt")
+    torch.save(V2, mask_path + "subject" + str(subject) + "/V2.pt")
+    torch.save(V3, mask_path + "subject" + str(subject) + "/V3.pt")
+    torch.save(V4, mask_path + "subject" + str(subject) + "/V4.pt")
+    torch.save(early_vis, mask_path + "subject" + str(subject) + "/early_vis.pt")
+    torch.save(higher_vis, mask_path + "subject" + str(subject) + "/higher_vis.pt")
+    print("V1: ", np.unique(V1, return_counts=True))
+    print("V2: ", np.unique(V2, return_counts=True))
+    print("V3: ", np.unique(V3, return_counts=True))
+    print("V4: ", np.unique(V4, return_counts=True))
+    print("Early Vis: ", np.unique(early_vis, return_counts=True))
+    print("Higher Vis: ", np.unique(higher_vis, return_counts=True))
+
     
-    if(vector == "z" or vector == "z_img_mixer"):
-        vec_target = torch.zeros((27750, 16384))
-        datashape = (1, 16384)
-    elif(vector == "c"):
-        vec_target = torch.zeros((27750, 1536))
-        datashape = (1, 1536)
-    elif(vector == "c_prompt"):
-        vec_target = torch.zeros((27750, 78848))
-        datashape = (1, 78848)
-    elif(vector == "c_combined" or vector == "c_img_mixer"):
-        vec_target = torch.zeros((27750, 3840))
-        datashape = (1, 3840)
-    elif(vector == "c_img_vd"):
-        vec_target = torch.zeros((27750, 197376))
-        datashape = (1, 197376)
-    elif(vector == "c_text_vd"):
-        vec_target = torch.zeros((27750, 59136))
-        datashape = (1, 59136)
-    elif(vector == "images"):
+def process_data(vector="c_img_uc", subject = 1):
+    
+    if(vector == "images"):
         vec_target = torch.zeros((27750, 541875))
         datashape = (1, 541875)
     elif(vector == "c_img_uc"):
@@ -388,82 +324,57 @@ def process_data(vector="c_combined", image=False, subject = "subj1"):
         datashape = (1,78848)
 
     # Loading the description object for subejct1
+    subj = "subject" + str(subject)
+    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
+    vecLength = torch.load(prep_path + "subject" + str(subject) + "/nsd_general.pt").shape[1]
+    full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/" + vector + "/vector_73k.pt")
+    for i in tqdm(range(0,vecLength), desc="vector loader"):
+        index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
+        vec_target[i] = full_vec[index].reshape(datashape)
     
-    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subjects[subject]] != 0]
+    torch.save(vec_target, prep_path + "subject" + str(subject) + "/" + vector + ".pt")
+    
+def get_images(subject=1):
     images = []
-    if vector == "images":
-        images_full = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/images/vector_73k.pt")
-    for i in tqdm(range(0,27750), desc="vector loader"):
-        
-        # Flexible to both Z and C tensors depending on class configuration
-        
-        # TODO: index the column of this table that is apart of the 1000 test set. 
-        # Do a check here. Do this in get_data
-        # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
-        index = int(subjx.loc[(subjx[subjects[subject] + "_rep0"] == i+1) | (subjx[subjects[subject] + "_rep1"] == i+1) | (subjx[subjects[subject] + "_rep2"] == i+1)].nsdId)
-        if(image):
-            ground_truth_image_np_array = nsda.read_images([index], show=False)
-            ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
-            images.append(ground_truth_PIL)
-        elif vector == "images":
-            vec_target[i] = images_full[index].flatten()
-        else:
-            vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
-    if(image):
-        return images
-    else:
-        # os.makedirs(prep_path + subject + "/" + vector + "/", exist_ok=True)
-        # torch.save(vec_target, prep_path + subject + "/" + vector + "/vector.pt")
-        os.makedirs(prep_path + "/" + vector + "/", exist_ok=True)
-        torch.save(vec_target, prep_path + "/" + vector + "/vector.pt")
+    subj = "subject" + str(subject)
+    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
+    vecLength = torch.load(prep_path + "subject" + str(subject) + "/nsd_general.pt").shape[1]
+    for i in tqdm(range(0,vecLength), desc="image loader"):
+        index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
+        ground_truth_image_np_array = nsda.read_images([index], show=False)
+        ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
+        images.append(ground_truth_PIL)
+    return images
     
-def process_data_full(vector):
-    
-    # if(vector == "z" or vector == "z_img_mixer"):
-    #     # vec_target = torch.zeros((2819140, 16384))
-    #     # vec_target2 = None
-    #     datashape = (1,16384)
-    # elif(vector == "c_img_0" or vector == "c_text_0"):
-    #     # vec_target = torch.zeros((2819140, 768))
-    #     # vec_target2 = None
-    #     datashape = (1,768)
-    # elif(vector == "c_combined"):
-    #     vec_target = torch.zeros((73000, 768))
-    #     vec_target2 = torch.zeros((73000, 768))
-    #     datashape = (1,768)
-    if(vector == "c_img_vd"):
-        vec_target = torch.zeros((73000, 197376))
-        datashape = (1,197376)
-    elif(vector == "c_text_vd"):
-        vec_target = torch.zeros((73000, 59136))
-        datashape = (1,59136)
-    elif(vector == "c_img_uc"):
+def process_raw_tensors(vector):
+    if(vector == "c_img_uc"):
         vec_target = torch.zeros((73000, 1024))
         datashape = (1,1024)
     elif(vector == "c_text_uc"):
         vec_target = torch.zeros((73000, 78848))
         datashape = (1,78848)
 
-    # Flexible to both Z and C tensors depending on class configuration
-    # if vec_target2 is not None:
-    #     for i in tqdm(range(73000), desc="vector loader"):
-    #         full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,0]
-    #         full_vec2 = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt")[:,1]
-    #         vec_target[i] = full_vec.reshape(datashape)
-    #         vec_target2[i] = full_vec2.reshape(datashape)
-    #     torch.save(vec_target, prep_path + "c_img_0/vector_73k.pt")
-    #     torch.save(vec_target2, prep_path + "c_text_0/vector_73k.pt")
-    # else:
-    # for i in tqdm(range(124), desc="batched vector loader"):
-    #     vec_target = torch.zeros((22735, datashape[1]))
-    #     for j in range(22735):
-    #         full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
-    #         vec_target[j] = full_vec.reshape(datashape)
-    #     torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
     for i in tqdm(range(73000), desc="vector loader"):
         full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt").reshape(datashape)
         vec_target[i] = full_vec
     torch.save(vec_target, prep_path + vector + "/vector_73k.pt")
+    
+def process_x_encoded(Encoder, modelId, subject=1):
+    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId, exist_ok=True)
+    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/" + Encoder.vector + "_73k.pt")
+    vecLength = torch.load(prep_path + "subject" + str(subject) + "/nsd_general.pt").shape[1]
+    coco_preds_full = torch.zeros((73000, vecLength))
+    for i in range(4):
+        coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
+    pruned_encodings = prune_vector(coco_preds_full)
+    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/" + modelId + "/coco_brain_preds.pt")
+    
+    
+    os.makedirs(prep_path + "subject" + str(subject) + "/x_encoded/", exist_ok=True)
+    _, y = load_nsd(vector = Encoder.vector, loader = False, split = False)
+    outputs = Encoder.predict(y)
+    torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/" + modelId + ".pt")
+    
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title
@@ -590,28 +501,15 @@ def pixel_correlation(imageA, imageB):
     b = np.array(imageB).flatten()
     return (np.corrcoef(a,b))[0][1]
 
-def get_coco_no_subject(subjectId):
-    ground_truth_np_array = nsda.read_images([i for i in range(73000)], show=False)
-    subj = nsda.stim_descriptions[nsda.stim_descriptions['subject' + str(subjectId)] != 0]
-    nsdIds = set(subj['nsdId'].tolist())
-    imgs = []
-    count = 0
-    for pred in tqdm(range(73000), desc="filtering images"):
-            if pred not in nsdIds:
-                imgs.append(ground_truth_np_array[pred])
-                count += 1
-    pruned_images = np.array(imgs)
-    np.save("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_63k_subj" + str(subjectId) + ".npy", pruned_images)
-
 #converts a torch tensor of an 425z425vimage into a PIL image and resizes it
 def process_image(imageArray):
     imageArray = imageArray.reshape((425, 425, 3)).cpu().numpy().astype(np.uint8)
     image = Image.fromarray(imageArray)
-    image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
+    image = image.resize((768, 768), resample=Image.Resampling.LANCZOS)
     return image
 
-def prune_vector(x, subject="subject1"):
-    subj = nsda.stim_descriptions[nsda.stim_descriptions[subject] != 0]
+def prune_vector(x, subject=1):
+    subj = nsda.stim_descriptions[nsda.stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
     pruned_x = torch.zeros((73000-len(nsdIds), x.shape[1]))

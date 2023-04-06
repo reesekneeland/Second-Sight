@@ -664,3 +664,35 @@ def predictVector_cc3m(encModel, vector, x, mask=[], device="cuda:0"):
         torch.save(out, latent_path + encModel + "/" + vector + "_cc3m_library_preds.pt")
         print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
         return out
+    
+    
+def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
+    x_path = latent_path + modelId + "/cc3m_batches/"
+    y_path = prep_path + vector + "/cc3m_batches/"
+    size = 2819140
+    x = torch.zeros((size, 11838)).requires_grad_(False)
+    if(vector == "z" or vector == "z_img_mixer"):
+        y = torch.zeros((size, 16384)).requires_grad_(False)
+    elif(vector == "c_img_0" or vector == "c_text_0"):
+        y = torch.zeros((size, 768)).requires_grad_(False)
+    
+    for i in tqdm(range(124), desc="loading cc3m"):
+        y[i*22735:i*22735+22735] = torch.load(y_path + str(i) + ".pt").requires_grad_(False)
+        x[i*22735:i*22735+22735] = torch.load(x_path + str(i) + ".pt").requires_grad_(False)
+    val_split = int(size*0.7)
+    test_split = int(size*0.9)
+    x_train = x[:val_split]
+    y_train = y[:val_split]
+    x_val = x[val_split:test_split]
+    y_val = y[val_split:test_split]
+    x_test = x[test_split:]
+    y_test = y[test_split:]
+
+    trainset = torch.utils.data.TensorDataset(x_train, y_train)
+    valset = torch.utils.data.TensorDataset(x_val, y_val)
+    testset = torch.utils.data.TensorDataset(x_test, y_test)
+    # Loads the Dataset into a DataLoader
+    trainLoader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    valLoader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+    testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+    return trainLoader, valLoader, testLoader

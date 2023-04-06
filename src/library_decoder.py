@@ -76,7 +76,7 @@ class LibraryDecoder():
             x_preds.append(modelPreds[:, self.mask])
        
         y_full = torch.load(prep_path + self.vector + "/vector_73k.pt").reshape(73000, self.datasize)
-        y = prune_vector(y_full)
+        y = prune_vector(y_full)[0:63000]
         # print(x_preds.shape)
         if(average):
             x = x[:, :, self.mask]
@@ -90,7 +90,7 @@ class LibraryDecoder():
         average_pearson = 0
         
         for sample in tqdm(range(x.shape[0]), desc="scanning library for " + self.vector):
-            scores = torch.zeros((63000,))
+            scores = torch.zeros((y.shape[0],))
             div = 0
             for mId, model in enumerate(self.EncModels):
                 # print("Model: ", model)

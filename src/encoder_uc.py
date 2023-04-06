@@ -102,8 +102,7 @@ class Encoder_UC():
         self.trainLoader, self.valLoader, _, _ = load_nsd(vector=self.vector, 
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
-                                                        loader=True,
-                                                        pca=False)
+                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
