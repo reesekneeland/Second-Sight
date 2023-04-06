@@ -18,51 +18,40 @@ from pearson import PearsonCorrCoef
 
 class MLP(torch.nn.Module):
     def __init__(self, vector):
-        super(MLP, self).__init__()
-        self.vector=vector
-        if(vector == "c_img_vd"):
-            # self.linear = nn.Linear(10000, 15000)
-            # self.linear2 = nn.Linear(15000, 15000)
-            # self.outlayer = nn.Linear(15000, 11838)
-            # self.double()
-            self.linear = nn.Linear(768, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
-        elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(10000, 15000)
+        super(MLP, self,).__init__()
+        self.vector = vector
+        if(self.vector == "c_img_uc"):
+            self.linear = nn.Linear(1024, 15000)
             self.linear2 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 11838)
-        
-            # self.linear = nn.Linear(768, 15000)
-            # self.outlayer = nn.Linear(15000, 11838)
-        elif(vector == "c_img_0"):
-            self.linear = nn.Linear(768, 10000)
-            self.linear2 = nn.Linear(10000, 12000)
-            self.outlayer = nn.Linear(12000, 11838)   
-        # self.double()
+            
+        if(self.vector == "c_text_uc"):
+            self.linear = nn.Linear(78848, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.outlayer = nn.Linear(15000, 11838)
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        if(self.vector == "c_img_vd"):
-            y_pred = self.relu(self.linear(x))
-            # y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)
-        if (elf.vector=="c_text_vd"):
+        if(self.vector == "c_img_uc"):
+             # y_pred = self.linear(x)
             y_pred = self.relu(self.linear(x))
             y_pred = self.relu(self.linear2(y_pred))
             y_pred = self.outlayer(y_pred)
-        if(self.vector == "c_img_0"):
+        if(self.vector=="c_text_uc"):
+            # y_pred = self.linear(x)
             y_pred = self.relu(self.linear(x))
-            # y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)  
+            y_pred = self.relu(self.linear2(y_pred))
+            y_pred = self.outlayer(y_pred)
         return y_pred
+
 
     
 # Main Class    
-class Encoder():
+class Encoder_UC():
     def __init__(self, 
                  hashNum,
                  vector, 
-                 log, 
+                 log=False, 
                  lr=0.00001,
                  batch_size=750,
                  device="cuda",
@@ -93,7 +82,7 @@ class Encoder():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="encoder",
+                project="encoder_uc",
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
@@ -210,11 +199,13 @@ class Encoder():
         # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
 
-    def predict(self, x):
+    def predict(self, x, mask=None):
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device))
+        out = self.model(x.to(self.device, torch.float32))
+        if mask:
+            out = out[mask]
         return out
         
         
@@ -222,12 +213,11 @@ class Encoder():
             
         # y_test = Brain data
         # x_test = clip data
-        _, _, _, y_test, _, _, _, x_test_pca, _, _ = load_nsd(vector=self.vector, 
+        _, _, _, y_test, _, _, _, x_test, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=False,
-                                                average=average,
-                                                pca=True)
+                                                average=average)
         
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
@@ -235,10 +225,10 @@ class Encoder():
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test_pca = x_test_pca.to(self.device)
+        x_test = x_test.to(self.device)
         y_test = y_test.to(self.device)
         
-        pred_y = self.model(x_test_pca.to(torch.float32))
+        pred_y = self.model(x_test)
         
         loss = criterion(pred_y, y_test)
               

@@ -8,12 +8,13 @@ from scipy import ndimage as nd
 from scipy.special import erf
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import nibabel as nib
 from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from pearson import PearsonCorrCoef
+import pickle as pk
 from skimage.metrics import structural_similarity as ssim
 
 
@@ -43,85 +44,35 @@ def update_hash():
     file.close()
     return str(new_h)
 
-def get_last_token(s, tokens={'@': list, '.': dict}):
-    l,name,entry,t = 2**31,'','',None
-    for tok,toktype in tokens.items():
-        ss = s.split(tok)
-        if len(ss)>1 and len(ss[-1])<l:
-            l = len(ss[-1])
-            entry = ss[-1]
-            name = tok.join(ss[:-1])
-            t = toktype
-    return name, entry, t
-
-
-def has_token(s, tokens=['@', '.']):
-    isin = False
-    for tok in tokens:
-        if tok in s:
-            isin = True
-    return isin
-    
-def extend_list(l, i, v):
-    if len(l)<i+1:
-        l += [None,]*(i+1-len(l))
-    l[i] = v
-    return l
-
-def flatten_dict(base, append=''):
-    '''flatten nested dictionary and lists'''
-    flat = {}
-    for k,v in base.items():
-        if type(v)==dict:
-            flat.update(flatten_dict(v, '%s%s.'%(append,k)))
-        elif type(v)==list:
-            flat.update(flatten_dict({'%s%s@%d'%(append,k,i): vv for i,vv in enumerate(v)}))
-        else:
-            flat['%s%s'%(append,k)] = v
-    return flat
-
-def embed_dict(fd):
-    d = {}
-    for k,v in fd.items():
-        name, entry, ty = get_last_token(k, {'@': list, '.': dict})
-        if ty==list:
-            if name in d.keys():
-                d[name] = extend_list(d[name], int(entry), v)
-            else:
-                d[name] = extend_list([], int(entry), v)
-        elif ty==dict:
-            if name in d.keys():
-                d[name].update({entry: v})
-            else:
-                d[name] = {entry: v}
-        else:
-            if k in d.keys():
-                d[k].update(v)
-            else:
-                d[k] = v   
-    return embed_dict(d) if has_token(''.join(d.keys()), tokens=['@', '.']) else d
-
-
 # Main data loader, 
 # Loader = True
 #    - Returns the train and test data loader
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False):
+def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae=False, encoderModel=None, average=False, return_trial=False, old_norm=False, nest=False, pca=False):
     if(old_norm):
         region_name = "whole_region_11838_old_norm.pt"
     else:
         region_name = "whole_region_11838.pt"
+        
     if(ae):
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False).to("cpu")
         y = torch.load(prep_path + "x_encoded/" + encoderModel + "/" + "vector.pt").requires_grad_(False).to("cpu")
     else:
         x = torch.load(prep_path + "x/" + region_name).requires_grad_(False)
         y = torch.load(prep_path + vector + "/vector.pt").requires_grad_(False)
+        if(pca):
+            pca = pk.load(open("masks/pca_" + vector + "_10k.pkl",'rb'))
+            y = torch.from_numpy(pca.transform(y.numpy())).to(torch.float32)
     
     if(not split): 
-        return x, y
+        if(loader):
+            dataset = torch.utils.data.TensorDataset(x, y)
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+            return dataloader
+        else:
+            return x, y
     
     else: 
         x_train, x_val, x_param, x_test = [], [], [], []
@@ -230,7 +181,6 @@ def load_nsd(vector, batch_size=375, num_workers=16, loader=True, split=True, ae
                     x_test.append(x_row)
                 y_test.append(avy[0])
                 test_trials.append(nsdId)
-        
         x_train = torch.stack(x_train).to("cpu")
         x_val = torch.stack(x_val).to("cpu")
         x_param = torch.stack(x_param).to("cpu")
@@ -293,33 +243,47 @@ def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     
 
 
-def create_whole_region_unnormalized(whole=False):
+def create_whole_region_unnormalized(whole=False, subject = "subj1"):
+    
+    #  Subject #1
+    #   - NSD General = 11838
+    #   - Brain shape = (81, 104, 83)
+    #   - Flatten Brain Shape = 699192
+    # 
+    #  Subject #2
+    #   - NSD General = 10325
+    #   - Brain Shape = (82, 106, 84)
+    #   - Flatten Brain Shape = 730128
+    #
+
+    nsd_general = nib.load("masks/" + subject + "/brainmask_nsdgeneral_1.0.nii").get_fdata()
+    layer_size = np.sum(nsd_general == True)
+    print(nsd_general.shape)
+    
     
     if(whole):
         data = 41
-        file = "x/whole_region_11838_unnormalized_all.pt"
-        whole_region = torch.zeros((30000, 11838))
+        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized_all.pt"
+        whole_region = torch.zeros((30000, layer_size))
     else:
         data = 38
-        file = "x/whole_region_11838_unnormalized.pt"
-        whole_region = torch.zeros((27750, 11838))
-
-    nsd_general = nib.load("masks/brainmask_nsdgeneral_1.0.nii").get_fdata()
-    print(nsd_general.shape)
+        file = subject + "/x/whole_region_" + str(layer_size) + "_unnormalized.pt"
+        whole_region = torch.zeros((27750, layer_size))
 
     nsd_general_mask = np.nan_to_num(nsd_general)
-    nsd_mask = np.array(nsd_general_mask.reshape((699192,)), dtype=bool)
+    nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
+    print(nsd_mask.shape)
         
     # Loads the full collection of beta sessions for subject 1
     for i in tqdm(range(1,data), desc="Loading Voxels"):
-        beta = nsda.read_betas(subject='subj01', 
+        beta = nsda.read_betas(subject='subj02', 
                             session_index=i, 
                             trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
                             data_type='betas_fithrf_GLMdenoise_RR',
                             data_format='func1pt8mm')
 
         # Reshape the beta trails to be flattened. 
-        beta = beta.reshape((699192, 750))
+        beta = beta.reshape((nsd_mask.shape[0], 750))
 
         for j in range(750):
 
@@ -332,15 +296,21 @@ def create_whole_region_unnormalized(whole=False):
             whole_region[j + (i-1)*750] = single_scan[nsd_mask]
             
     # Save the tensor
+    print(whole_region.shape)
     torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized(whole=False):
+def create_whole_region_normalized(whole = False, subject = "subj1"):
+    
+    subjects = {"subj1": 11838,
+                "subj2": 10325}
     
     if(whole):
-        #whole_region_norm = torch.zeros((27750, 11838))
-        whole_region_norm_z = torch.zeros((30000, 11838))
-        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized_all.pt")
+
+        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized_all.pt")
+        
+        #whole_region_norm = torch.zeros((30000, subjects[subject]))
+        whole_region_norm_z = torch.zeros((30000, subjects[subject]))
                 
         # Normalize the data using Z scoring method for each voxel
         for i in range(whole_region.shape[1]):
@@ -353,13 +323,15 @@ def create_whole_region_normalized(whole=False):
         # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838_all.pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_all.pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
     
     else:
-        #whole_region_norm = torch.zeros((27750, 11838))
-        whole_region_norm_z = torch.zeros((27750, 11838))
-        whole_region = torch.load(prep_path + "x/whole_region_11838_unnormalized.pt")
+
+        whole_region = torch.load(prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + "_unnormalized.pt")
+        
+        #whole_region_norm = torch.zeros((27750, subjects[subject]))
+        whole_region_norm_z = torch.zeros((27750, subjects[subject]))
                 
         # Normalize the data using Z scoring method for each voxel
         for i in range(whole_region.shape[1]):
@@ -372,11 +344,20 @@ def create_whole_region_normalized(whole=False):
         # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
-        torch.save(whole_region_norm_z, prep_path + "x/whole_region_11838.pt")
-        #torch.save(whole_region_norm, prep_path + "x/whole_region_11838_old_norm.pt")
+        torch.save(whole_region_norm_z, prep_path + subject + "/x/whole_region_" + str(subjects[subject]) + ".pt")
+        #torch.save(whole_region_norm, prep_path + "x/whole_region_" + str(subjects[subject]) + "_old_norm.pt")
     
     
-def process_data(vector="c_combined", image=False):
+def process_data(vector="c_combined", image=False, subject = "subj1"):
+    
+    subjects = {"subj1": "subject1",
+                "subj2": "subject2",
+                "subj3": "subject3",
+                "subj4": "subject4",
+                "subj5": "subject5",
+                "subj6": "subject6",
+                "subj7": "subject7",
+                "subj8": "subject8"}
     
     if(vector == "z" or vector == "z_img_mixer"):
         vec_target = torch.zeros((27750, 16384))
@@ -390,11 +371,28 @@ def process_data(vector="c_combined", image=False):
     elif(vector == "c_combined" or vector == "c_img_mixer"):
         vec_target = torch.zeros((27750, 3840))
         datashape = (1, 3840)
+    elif(vector == "c_img_vd"):
+        vec_target = torch.zeros((27750, 197376))
+        datashape = (1, 197376)
+    elif(vector == "c_text_vd"):
+        vec_target = torch.zeros((27750, 59136))
+        datashape = (1, 59136)
+    elif(vector == "images"):
+        vec_target = torch.zeros((27750, 541875))
+        datashape = (1, 541875)
+    elif(vector == "c_img_uc"):
+        vec_target = torch.zeros((73000, 1024))
+        datashape = (1,1024)
+    elif(vector == "c_text_uc"):
+        vec_target = torch.zeros((73000, 78848))
+        datashape = (1,78848)
 
     # Loading the description object for subejct1
     
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
+    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subjects[subject]] != 0]
     images = []
+    if vector == "images":
+        images_full = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/images/vector_73k.pt")
     for i in tqdm(range(0,27750), desc="vector loader"):
         
         # Flexible to both Z and C tensors depending on class configuration
@@ -402,32 +400,49 @@ def process_data(vector="c_combined", image=False):
         # TODO: index the column of this table that is apart of the 1000 test set. 
         # Do a check here. Do this in get_data
         # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
-        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
+        index = int(subjx.loc[(subjx[subjects[subject] + "_rep0"] == i+1) | (subjx[subjects[subject] + "_rep1"] == i+1) | (subjx[subjects[subject] + "_rep2"] == i+1)].nsdId)
         if(image):
             ground_truth_image_np_array = nsda.read_images([index], show=False)
             ground_truth_PIL = Image.fromarray(ground_truth_image_np_array[0])
             images.append(ground_truth_PIL)
+        elif vector == "images":
+            vec_target[i] = images_full[index].flatten()
         else:
             vec_target[i] = torch.reshape(torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt"), datashape)
     if(image):
         return images
     else:
-        torch.save(vec_target, prep_path + vector + "/vector.pt")
+        # os.makedirs(prep_path + subject + "/" + vector + "/", exist_ok=True)
+        # torch.save(vec_target, prep_path + subject + "/" + vector + "/vector.pt")
+        os.makedirs(prep_path + "/" + vector + "/", exist_ok=True)
+        torch.save(vec_target, prep_path + "/" + vector + "/vector.pt")
     
 def process_data_full(vector):
     
-    if(vector == "z" or vector == "z_img_mixer"):
-        # vec_target = torch.zeros((2819140, 16384))
-        # vec_target2 = None
-        datashape = (1,16384)
-    elif(vector == "c_img_0" or vector == "c_text_0"):
-        # vec_target = torch.zeros((2819140, 768))
-        # vec_target2 = None
-        datashape = (1,768)
-    elif(vector == "c_combined"):
-        vec_target = torch.zeros((73000, 768))
-        vec_target2 = torch.zeros((73000, 768))
-        datashape = (1,768)
+    # if(vector == "z" or vector == "z_img_mixer"):
+    #     # vec_target = torch.zeros((2819140, 16384))
+    #     # vec_target2 = None
+    #     datashape = (1,16384)
+    # elif(vector == "c_img_0" or vector == "c_text_0"):
+    #     # vec_target = torch.zeros((2819140, 768))
+    #     # vec_target2 = None
+    #     datashape = (1,768)
+    # elif(vector == "c_combined"):
+    #     vec_target = torch.zeros((73000, 768))
+    #     vec_target2 = torch.zeros((73000, 768))
+    #     datashape = (1,768)
+    if(vector == "c_img_vd"):
+        vec_target = torch.zeros((73000, 197376))
+        datashape = (1,197376)
+    elif(vector == "c_text_vd"):
+        vec_target = torch.zeros((73000, 59136))
+        datashape = (1,59136)
+    elif(vector == "c_img_uc"):
+        vec_target = torch.zeros((73000, 1024))
+        datashape = (1,1024)
+    elif(vector == "c_text_uc"):
+        vec_target = torch.zeros((73000, 78848))
+        datashape = (1,78848)
 
     # Flexible to both Z and C tensors depending on class configuration
     # if vec_target2 is not None:
@@ -439,104 +454,57 @@ def process_data_full(vector):
     #     torch.save(vec_target, prep_path + "c_img_0/vector_73k.pt")
     #     torch.save(vec_target2, prep_path + "c_text_0/vector_73k.pt")
     # else:
-    for i in tqdm(range(124), desc="batched vector loader"):
-        vec_target = torch.zeros((22735, datashape[1]))
-        for j in range(22735):
-            full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
-            vec_target[j] = full_vec.reshape(datashape)
-        torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
-    
-    
-def extract_dim(vector, dim):
-    
-    if(vector == "z"):
-        vec_target = torch.zeros((27750, 16384))
-        datashape = (1, 16384)
-    elif(vector == "c"):
-        vec_target = torch.zeros((27750, 1536))
-        datashape = (1, 1536)
-    elif(vector == "c_prompt"):
-        vec_target = torch.zeros((27750, 78848))
-        datashape = (1, 78848)
-    elif(vector == "c_combined" or vector == "c_img_mixer"):
-        vec_target = torch.zeros((27750, 768))
-        datashape = (1, 768)
+    # for i in tqdm(range(124), desc="batched vector loader"):
+    #     vec_target = torch.zeros((22735, datashape[1]))
+    #     for j in range(22735):
+    #         full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/cc3m/tensors/" + vector + "/" + str(i*22735 + j) + ".pt")
+    #         vec_target[j] = full_vec.reshape(datashape)
+    #     torch.save(vec_target, prep_path + vector + "/cc3m_batches/" + str(i) + ".pt")
+    for i in tqdm(range(73000), desc="vector loader"):
+        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(i) + ".pt").reshape(datashape)
+        vec_target[i] = full_vec
+    torch.save(vec_target, prep_path + vector + "/vector_73k.pt")
+#useTitle = 0 means no title at all
+#useTitle = 1 means normal centered title at the top
+#useTitle = 2 means title uses the captions list for a column wise title
+def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True):
+    imW, imH = images[0].size
+    bigW = imW * w
+    if(rowCaptions):
+        bigH = (imH + 64) * h 
+        rStep = imH + 64
+    else:
+        bigH = imH * h
+        rStep = imH
+    if useTitle:
+        hStart = 128
+        height = bigH + 128
+    else:
+        hStart = 0
+        height = bigH
 
-    # Loading the description object for subejct1
-    
-    subj1x = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
-
-    for i in tqdm(range(0,27750), desc="vector loader"):
-        
-        # Flexible to both Z and C tensors depending on class configuration
-        
-        # TODO: index the column of this table that is apart of the 1000 test set. 
-        # Do a check here. Do this in get_data
-        # If the sample is part of the held out 1000 put it in the test set otherwise put it in the training set. 
-        index = int(subj1x.loc[(subj1x['subject1_rep0'] == i+1) | (subj1x['subject1_rep1'] == i+1) | (subj1x['subject1_rep2'] == i+1)].nsdId)
-        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/" + vector + "/" + str(index) + ".pt")
-        reduced_dim = full_vec[:,dim]
-        vec_target[i] = torch.reshape(reduced_dim, datashape)
-
-    torch.save(vec_target, prep_path + vector + "_" + str(dim) + "/vector.pt")
-    
-    
-    
-def grab_samples(vector, threshold, hashNum):
-    
-    whole_region = torch.load(prep_path + "x/whole_region_11838_old_norm.pt") 
-    mask = np.load("masks/" + hashNum + "_" + vector + "2voxels_pearson_thresh" + threshold + ".npy")
-    new_len = np.count_nonzero(mask)
-    target = torch.zeros((27750, new_len))
-    for i in tqdm(range(27750), desc=(vector + " masking")): 
-       
-        # Indexing into the sample and then using y_mask to grab the correct samples. 
-        target[i] = whole_region[i][torch.from_numpy(mask)]
-    torch.save(target, prep_path + "x/" + vector + "_2voxels_pearson_thresh" + threshold + ".pt")
-
-def compound_loss(pred, target):
-        alpha = 0.9
-        mse = nn.MSELoss()
-        cs = nn.CosineSimilarity()
-        loss = alpha * mse(pred, target) + (1 - alpha) * (1- torch.mean(cs(pred, target)))
-        return loss
-    
-def format_clip(c):
-    if(len(c.shape)<2):
-        c = c.reshape((1,768))
-    c_combined = []
-    for i in range(c.shape[0]):
-        c_combined.append(c[i].reshape((1,768)).to("cuda"))
-    
-    for j in range(5-c.shape[0]):
-        c_combined.append(torch.zeros((1, 768), device="cuda"))
-    
-    c_combined = torch.cat(c_combined, dim=0).unsqueeze(0)
-    c_combined = c_combined.tile(1, 1, 1)
-    return c_combined
-
-def tileImages(title, images, captions, h, w):
-    bigH = 576 * h
-    bigW = 512 * w 
-    canvas = Image.new('RGB', (bigW, bigH+128), color='white')
-    line = Image.new('RGB', (bigW, 8), color='black')
-    canvas.paste(line, (0,120))
+    canvas = Image.new('RGB', (bigW, height), color='white')
     font = ImageFont.truetype("arial.ttf", 36)
-    titleFont = ImageFont.truetype("arial.ttf", 48)
+    titleFont = ImageFont.truetype("arial.ttf", 40)
     textLabeler = ImageDraw.Draw(canvas)
-    _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
-    textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
-    label = Image.new(mode="RGBA", size=(512,64), color="white")
+    if useTitle == 1:
+        _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
+        textLabeler.text(((bigW-w)/2, 32), title, font=titleFont, fill='black')
+    elif useTitle == 2:
+        for i in range(w):
+            _, _, w, h = textLabeler.textbbox((0, 0), captions[i], font=titleFont)
+            textLabeler.text((i*imH + (imW-w)/2, 32), captions[i], font=titleFont, fill='black')
+    label = Image.new(mode="RGBA", size=(imW,64), color="white")
     count = 0
-    for j in range(128, bigH, 576):
-        for i in range(0, bigW, 512):
+    for j in range(hStart, bigH, rStep):
+        for i in range(0, bigW, imW):
             if(count < len(images)):
-                canvas.paste(images[count], (i,j))
-                canvas.paste(label, (i, j+512))
-                textLabeler.text((i+32, j+520), captions[count], font=font, fill='black')
+                canvas.paste(images[count].resize((imH, imW), resample=Image.Resampling.LANCZOS), (i,j))
+                if(rowCaptions):
+                    canvas.paste(label, (i, j+imH))
+                    textLabeler.text((i+32, j+imH+8), captions[count], font=font, fill='black')
                 count+=1
     return canvas
-
 
 #  Numpy Utility 
 def iterate_range(start, length, batchsize):
@@ -594,9 +562,13 @@ def get_value(_x):
 def set_value(_x, x):
     if list(x.shape)!=list(_x.size()):
         _x.resize_(x.shape)
-    _x.data.copy_(torch.from_numpy(x))\
-        
-        
+    _x.data.copy_(torch.from_numpy(x))
+    
+def equalize_color(image):
+    filt = ImageEnhance.Color(image)
+    return filt.enhance(0.8)
+
+
 # SCS Performance Metrics
 
 def mse_scs(imageA, imageB):
@@ -612,8 +584,86 @@ def mse_scs(imageA, imageB):
 
 def ssim_scs(imageA, imageB):
     return ssim(imageA, imageB)
-    
 
-    
-    
+def pixel_correlation(imageA, imageB):
+    a = np.array(imageA).flatten()
+    b = np.array(imageB).flatten()
+    return (np.corrcoef(a,b))[0][1]
 
+def get_coco_no_subject(subjectId):
+    ground_truth_np_array = nsda.read_images([i for i in range(73000)], show=False)
+    subj = nsda.stim_descriptions[nsda.stim_descriptions['subject' + str(subjectId)] != 0]
+    nsdIds = set(subj['nsdId'].tolist())
+    imgs = []
+    count = 0
+    for pred in tqdm(range(73000), desc="filtering images"):
+            if pred not in nsdIds:
+                imgs.append(ground_truth_np_array[pred])
+                count += 1
+    pruned_images = np.array(imgs)
+    np.save("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_63k_subj" + str(subjectId) + ".npy", pruned_images)
+
+#converts a torch tensor of an 425z425vimage into a PIL image and resizes it
+def process_image(imageArray):
+    imageArray = imageArray.reshape((425, 425, 3)).cpu().numpy().astype(np.uint8)
+    image = Image.fromarray(imageArray)
+    image = image.resize((512, 512), resample=Image.Resampling.LANCZOS)
+    return image
+
+def prune_vector(x, subject="subject1"):
+    subj = nsda.stim_descriptions[nsda.stim_descriptions[subject] != 0]
+    nsdIds = set(subj['nsdId'].tolist())
+    
+    pruned_x = torch.zeros((73000-len(nsdIds), x.shape[1]))
+    count = 0
+    for pred in range(73000):
+        if pred not in nsdIds:
+            pruned_x[count] = x[pred]
+            count+=1
+    return pruned_x
+    
+def slerp(v0, v1, t, DOT_THRESHOLD=0.9995):
+    '''
+    Spherical linear interpolation
+    Args:
+        t (float/np.ndarray): Float value between 0.0 and 1.0
+        v0 (np.ndarray): Starting vector
+        v1 (np.ndarray): Final vector
+        DOT_THRESHOLD (float): Threshold for considering the two vectors as
+                               colineal. Not recommended to alter this.
+    Returns:
+        v2 (np.ndarray): Interpolation vector between v0 and v1
+    '''
+    c = False
+    if not isinstance(v0,np.ndarray):
+        c = True
+        v0 = v0.detach().cpu().numpy()
+    if not isinstance(v1,np.ndarray):
+        c = True
+        v1 = v1.detach().cpu().numpy()
+    # Copy the vectors to reuse them later
+    v0_copy = np.copy(v0)
+    v1_copy = np.copy(v1)
+    # Normalize the vectors to get the directions and angles
+    v0 = v0 / np.linalg.norm(v0)
+    v1 = v1 / np.linalg.norm(v1)
+    # Dot product with the normalized vectors (can't use np.dot in W)
+    dot = np.sum(v0 * v1)
+    # If absolute value of dot product is almost 1, vectors are ~colineal, so use lerp
+    if np.abs(dot) > DOT_THRESHOLD:
+        return lerp(t, v0_copy, v1_copy)
+    # Calculate initial angle between v0 and v1
+    theta_0 = np.arccos(dot)
+    sin_theta_0 = np.sin(theta_0)
+    # Angle at timestep t
+    theta_t = theta_0 * t
+    sin_theta_t = np.sin(theta_t)
+    # Finish the slerp algorithm
+    s0 = np.sin(theta_0 - theta_t) / sin_theta_0
+    s1 = sin_theta_t / sin_theta_0
+    v2 = s0 * v0_copy + s1 * v1_copy
+    if c:
+        res = torch.from_numpy(v2).to("cuda")
+    else:
+        res = v2
+    return res

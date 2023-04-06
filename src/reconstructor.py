@@ -1,145 +1,349 @@
-import os, sys
+import os,sys
 import PIL
-import torch
-import numpy as np
 from PIL import Image
-from einops import rearrange
-from torch import autocast
-sys.path.append(os.getcwd() + '/stable-diffusion/')
-from ldm.extras import load_model_from_config
-from ldm.models.diffusion.ddim import DDIMSampler
-from huggingface_hub import hf_hub_download
-from transformers import CLIPProcessor, CLIPModel
-import clip
-from nsd_access import NSDAccess
-from tqdm import tqdm
+import numpy as np
 
-def load_img(im_array):
-    
-    image = Image.fromarray(im_array)
-    w, h = 512, 512  # resize to integer multiple of 64
-    imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)
-    image = np.array(imagePil).astype(np.float32) / 255.0
-    image = image[None].transpose(0, 3, 1, 2)
-    image = torch.from_numpy(image).to(torch.float16)
-    return 2. * image - 1., imagePil
+import torch
+import torchvision.transforms as tvtrans
+sys.path.append(os.getcwd() + '/Versatile-Diffusion/')
+from lib.cfg_helper import model_cfg_bank
+from lib.model_zoo import get_model
+n_sample_image = 1
+n_sample_text = 1
+cache_examples = True
+from random import randint
+from lib.model_zoo.ddim import DDIMSampler
+      
 
+def highlight_print(info):
+    print('')
+    print(''.join(['#']*(len(info)+4)))
+    print('# '+info+' #')
+    print(''.join(['#']*(len(info)+4)))
+    print('')
 
-class Reconstructor():
-    def __init__(self, device="cuda:0"):
-        torch.cuda.empty_cache()
-        self.ckpt = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-full.ckpt")
-        self.config = hf_hub_download(repo_id="lambdalabs/image-mixer", filename="image-mixer-config.yaml")
+def decompose(x, q=20, niter=100):
+    x_mean = x.mean(-1, keepdim=True)
+    x_input = x - x_mean
+    u, s, v = torch.pca_lowrank(x_input, q=q, center=False, niter=niter)
+    ss = torch.stack([torch.diag(si) for si in s])
+    x_lowrank = torch.bmm(torch.bmm(u, ss), torch.permute(v, [0, 2, 1]))
+    x_remain = x_input - x_lowrank
+    return u, s, v, x_mean, x_remain
 
-        self.device = device
-        self.model = load_model_from_config(self.config, self.ckpt, device=self.device, verbose=False)
-        self.model = self.model.to(self.device).half()
+class adjust_rank(object):
+    def __init__(self, max_drop_rank=[1, 5], q=20):
+        self.max_semantic_drop_rank = max_drop_rank[0]
+        self.max_style_drop_rank = max_drop_rank[1]
+        self.q = q
 
-        self.clip_model, self.preprocess = clip.load("ViT-L/14", device=self.device)
-        self.sampler = DDIMSampler(self.model)
-        self.scale = 5
-        print(os.getcwd())
-        os.makedirs("reconstructions/samples", exist_ok=True)
-        self.outpath = "reconstructions/samples"
-        self.base_count = len(os.listdir(self.outpath))+3
+        def t2y0_semf_wrapper(t0, y00, t1, y01):
+            return lambda t: (np.exp((t-0.5)*2)-t0)/(t1-t0)*(y01-y00)+y00
+        t0, y00 = np.exp((0  -0.5)*2), -self.max_semantic_drop_rank
+        t1, y01 = np.exp((0.5-0.5)*2), 1
+        self.t2y0_semf = t2y0_semf_wrapper(t0, y00, t1, y01)
 
-        self.init_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-        self.init_preprocess = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-
-        self.batch_size = 1
-    
-    def im2tensor(self, image):
-        w, h = 512, 512  # resize to integer multiple of 64
-        imagePil = image.resize((w, h), resample=Image.Resampling.LANCZOS)
-        image = np.array(imagePil).astype(np.float32) / 255.0
-        # print(image.shape)
-        image = image[None].transpose(0, 3, 1, 2)
-        image = torch.from_numpy(image).to(device=self.device, dtype=torch.float16)
-        return 2. * image - 1.
+        def x2y_semf_wrapper(x0, x1, y1):
+            return lambda x, y0: (x-x0)/(x1-x0)*(y1-y0)+y0
+        x0 = 0
+        x1, y1 = self.max_semantic_drop_rank+1, 1
+        self.x2y_semf = x2y_semf_wrapper(x0, x1, y1)
         
-    @torch.no_grad()
-    def get_im_c(self, im_path):
-        # im = Image.open(im_path).convert("RGB")
-        prompts = self.preprocess(im_path).to(self.device).unsqueeze(0)
-        return self.clip_model.encode_image(prompts).float()
+        def t2y0_styf_wrapper(t0, y00, t1, y01):
+            return lambda t: (np.exp((t-0.5)*2)-t0)/(t1-t0)*(y01-y00)+y00
+        t0, y00 = np.exp((1  -0.5)*2), -(q-self.max_style_drop_rank)
+        t1, y01 = np.exp((0.5-0.5)*2), 1
+        self.t2y0_styf = t2y0_styf_wrapper(t0, y00, t1, y01)
 
-    @torch.no_grad()
-    def get_txt_c(self, txt):
-        text = clip.tokenize([txt,]).to(self.device)
-        return self.clip_model.encode_text(text)
+        def x2y_styf_wrapper(x0, x1, y1):
+            return lambda x, y0: (x-x0)/(x1-x0)*(y1-y0)+y0
+        x0 = q-1
+        x1, y1 = self.max_style_drop_rank-1, 1
+        self.x2y_styf = x2y_styf_wrapper(x0, x1, y1)
 
-    def encode_image(self, image):
-        # conds_img = []
-        c_img = self.get_im_c(image)
-        # conds_img.append(c_img)
-        # for j in range(0,4):
-        #     conds_img.append((torch.zeros((1, 768), device=self.device)))
-        # conds_img = torch.cat(conds_img, dim=0).unsqueeze(0)
-        # conds_img = conds_img.tile(1, 1, 1)
-        return c_img
-        
-    def encode_combined(self, image, prompts):
-        conds_combined = []
-        c_img = self.get_im_c(image)
-        conds_combined.append(c_img)
-        inputs = self.init_preprocess(text=prompts, images=image, return_tensors="pt", padding=True)
-        outputs = self.init_clip_model(**inputs)
-        logits_per_image = outputs.logits_per_image # this is the image-text similarity score
-        probs = logits_per_image.softmax(dim=1).tolist()[0] # we can take the softmax to get the label probabilities
-        sorted_prompts = [x for _, x in sorted(zip(probs, prompts), reverse=True)]
-        sorted_probs = sorted(probs, reverse=True)
-        
-        for j in range(0,4):
-            high_prob = sorted_probs[0]
-            if(sorted_probs[j] >= high_prob/2):
-                c_text = 2*sorted_probs[j]*self.get_txt_c(sorted_prompts[j])
-                conds_combined.append(c_text)
-            else:
-                conds_combined.append((torch.zeros((1, 768), device=self.device)))
-        conds_combined = torch.cat(conds_combined, dim=0).unsqueeze(0)
-        conds_combined = conds_combined.tile(1, 1, 1)
-        return conds_combined
-    
-    #must take an image tensor converted using im2tensor()
-    def encode_latents(self, init_image):
-        return self.model.get_first_stage_encoding(self.model.encode_first_stage(init_image.to(self.device)))
-    
-    def reconstruct(self, strength, z=None, c=None):
-        assert 0. <= strength <= 1., 'can only work with strength in [0.0, 1.0]'
-        if(strength==0.0):
-            c = torch.empty((1, 5, 768)).to(self.device)
-            init_latent = z.reshape((1,4,64,64)).to(self.device)
-            t_enc = 0
-        
-        elif(strength==1.0):
-            init_latent = torch.randn((1,4,64,64)).to(self.device)
-            c = c.reshape((1,5,768)).to(self.device)
-            t_enc = 49
+    def __call__(self, x, lvl):
+        if lvl == 0.5:
+            return x
+
+        if x.dtype == torch.float16:
+            fp16 = True
+            x = x.float()
         else:
-            t_enc = int(strength * 50)
-            init_latent = z.reshape((1,4,64,64)).to(self.device)
-            c = c.reshape((1,5,768)).to(self.device)
-        self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
+            fp16 = False
+        std_save = x.std(axis=[-2, -1])
 
-        precision_scope = autocast 
-        with torch.no_grad():
-            with precision_scope("cuda"):
-                with self.model.ema_scope():
-                    uc = None
-                    if self.scale != 1.0:
-                        uc = self.model.get_learned_conditioning(1 * [""])
-                    # encode (scaled latent)
-                    z_enc = self.sampler.stochastic_encode(init_latent, torch.tensor([t_enc]*1).to(self.device))
-                    # decode it
-                    # print(z_enc.shape, c.shape, t_enc, strength, uc.shape if uc is not None else None)
-                    samples = self.sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=self.scale,
-                                            unconditional_conditioning=uc,)
+        u, s, v, x_mean, x_remain = decompose(x, q=self.q)
 
-                    x_samples = self.model.decode_first_stage(samples)
-                    x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
-                    x_sample = 255. * rearrange(x_samples[0].cpu().numpy(), 'c h w -> h w c')
-                    img = Image.fromarray(x_sample.astype(np.uint8))
-                    img.save(os.path.join(self.outpath, f"{self.base_count:05}.png"))
-                    self.base_count += 1
-        return img
+        if lvl < 0.5:
+            assert lvl>=0
+            for xi in range(0, self.max_semantic_drop_rank+1):
+                y0 = self.t2y0_semf(lvl)
+                yi = self.x2y_semf(xi, y0)
+                yi = 0 if yi<0 else yi
+                s[:, xi] *= yi
+
+        elif lvl > 0.5:
+            assert lvl <= 1
+            for xi in range(self.max_style_drop_rank, self.q):
+                y0 = self.t2y0_styf(lvl)
+                yi = self.x2y_styf(xi, y0)
+                yi = 0 if yi<0 else yi
+                s[:, xi] *= yi
+            x_remain = 0
+
+        ss = torch.stack([torch.diag(si) for si in s])
+        x_lowrank = torch.bmm(torch.bmm(u, ss), torch.permute(v, [0, 2, 1]))
+        x_new = x_lowrank + x_mean + x_remain
+
+        std_new = x_new.std(axis=[-2, -1])
+        x_new = x_new / std_new * std_save
+
+        if fp16:
+            x_new = x_new.half()
+
+        return x_new
+
+class Reconstructor(object):
+    def __init__(self, fp16=True, which='v1.0', device="cuda:0"):
+        self.which = which
+        os.chdir("Versatile-Diffusion/")
+        if self.which == 'v1.0':
+            cfgm = model_cfg_bank()('vd_four_flow_v1-0')
+        else:
+            assert False, 'Model type not supported'
+        net = get_model()(cfgm)
+
+        if fp16:
+            if self.which == 'v1.0':
+                net.ctx['text'].fp16 = True
+                net.ctx['image'].fp16 = True
+            net = net.half()
+            self.dtype = torch.float16
+        else:
+            self.dtype = torch.float32
+
+        if self.which == 'v1.0':
+            if fp16:
+                sd = torch.load('pretrained/vd-four-flow-v1-0-fp16.pth', map_location='cpu')
+            else:
+                sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
+            # from huggingface_hub import hf_hub_download
+            # if fp16:
+            #     temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0-fp16.pth')
+            # else:
+            #     temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0.pth')
+            # sd = torch.load(temppath, map_location='cpu')
+
+        net.load_state_dict(sd, strict=False)
+
+        self.device=device
+        net.to(self.device)
+        self.net = net
+        self.sampler = DDIMSampler(net)
+
+        self.output_dim = [512, 512]
+        self.n_sample_image = n_sample_image
+        self.n_sample_text = n_sample_text
+        self.ddim_steps = 50
+        self.ddim_eta = 0.0
+        self.scale_textto = 7.5
+        self.image_latent_dim = 4
+        self.text_latent_dim = 768
+        self.text_temperature = 1
+
+        if which == 'v1.0':
+            self.adjust_rank_f = adjust_rank(max_drop_rank=[1, 5], q=20)
+            self.scale_imgto = 7.5
+            self.disentanglement_noglobal = True
+        os.chdir("../")
+    def encode_text(self, prompt):
+        text_encoding = self.net.ctx_encode([prompt], which='text')
+        return text_encoding
+    
+    def encode_image(self, image):
+        BICUBIC = PIL.Image.Resampling.BICUBIC
+        cx = image.resize([512, 512], resample=BICUBIC)
+        cx = tvtrans.ToTensor()(cx)[None].to(self.device).to(self.dtype)
+        image_encoding = self.net.ctx_encode(cx, which='image')
+        return image_encoding
+    
+    def project_clip(self, expanded_clip):
+        reduced_clip = expanded_clip[:, 0, :]
+        reduced_clip = reduced_clip * torch.norm(reduced_clip, dim=-1, keepdim=True)
+        print("RECONSTRUCTOR REDUCED CLIP SHAPE: ", reduced_clip.shape)
+        projected_clip = self.net.ctx["image"].model.visual_projection(reduced_clip)
+        return projected_clip
+    
+    def reconstruct(self, 
+                    image=None, 
+                    c_i=None, 
+                    c_t=None, 
+                    n_samples=1, 
+                    textstrength=0.5, 
+                    strength=1.0, 
+                    color_adjust=False,
+                    fcs_lvl=0.5, 
+                    seed=None
+                    ):
         
+        numClips =0
+        h, w = 512, 512
+        BICUBIC = PIL.Image.Resampling.BICUBIC
+        
+        if strength == 0:
+            return [image]*n_samples
+        else:
+            assert (c_t is not None) or (c_i is not None)
+            c_info_list = []
+            scale = self.scale_imgto*(1-textstrength) + self.scale_textto*textstrength
+            if c_t is not None and textstrength != 0:
+                c_t = c_t.reshape((77,768)).to(dtype=torch.float16, device=self.device)
+                ut = self.net.ctx_encode([""], which='text').repeat(n_samples, 1, 1)
+                ct = c_t.repeat(n_samples, 1, 1)
+                c_info_list.append({
+                    'type':'text', 
+                    'conditioning':ct.to(torch.float16), 
+                    'unconditional_conditioning':ut,
+                    'unconditional_guidance_scale':scale,
+                    'ratio': textstrength, })
+                numClips +=1
+            else:
+                textstrength=0
+
+            if c_i is not None and textstrength != 1:
+                c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
+                ci = c_i
+
+                if self.disentanglement_noglobal:
+                    ci_glb = ci[:, 0:1]
+                    ci_loc = ci[:, 1: ]
+                    ci_loc = self.adjust_rank_f(ci_loc, fcs_lvl)
+                    ci = torch.cat([ci_glb, ci_loc], dim=1).repeat(n_samples, 1, 1)
+                else:
+                    ci = self.adjust_rank_f(ci, fcs_lvl).repeat(n_samples, 1, 1)
+
+                c_info_list.append({
+                    'type':'image', 
+                    'conditioning':ci.to(torch.float16), 
+                    'unconditional_conditioning':torch.zeros_like(ci),
+                    'unconditional_guidance_scale':scale,
+                    'ratio': (1-textstrength), })
+                numClips +=1
+            else:
+                textstrength=1
+        if(image):
+            image = image.resize([w, h], resample=BICUBIC)
+            image_tensor = tvtrans.ToTensor()(image)[None].to(self.device).to(self.dtype)
+
+        shape = [n_samples, self.image_latent_dim, h//8, w//8]
+        if(seed):
+            np.random.seed(seed)
+            torch.manual_seed(seed + 100)
+        else:
+            seed = randint(0,1000)
+            np.random.seed(seed)
+            torch.manual_seed(seed + 100)
+        if strength!=1 and image:
+            x0 = self.net.vae_encode(image_tensor, which='image').repeat(n_samples, 1, 1, 1)
+            step = int(self.ddim_steps * (strength))
+            if numClips==2:
+                x, _ = self.sampler.sample_multicontext(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image', 'x0':x0, 'x0_forward_timesteps':step},
+                    c_info_list=c_info_list,
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+            else:
+                x, _ = self.sampler.sample(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image', 'x0':x0, 'x0_forward_timesteps':step},
+                    c_info=c_info_list[0],
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+        else:
+            if numClips ==2:
+                x, _ = self.sampler.sample_multicontext(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image',},
+                    c_info_list=c_info_list,
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+            else:
+                x, _ = self.sampler.sample(
+                    steps=self.ddim_steps,
+                    x_info={'type':'image',},
+                    c_info=c_info_list[0],
+                    shape=shape,
+                    verbose=False,
+                    eta=self.ddim_eta)
+        imout = self.net.vae_decode(x, which='image')
+        if color_adjust:
+            cx_mean = image_tensor.view(3, -1).mean(-1)[:, None, None]
+            cx_std  = image_tensor.view(3, -1).std(-1)[:, None, None]
+            imout_mean = [imouti.view(3, -1).mean(-1)[:, None, None] for imouti in imout]
+            imout_std  = [imouti.view(3, -1).std(-1)[:, None, None] for imouti in imout]
+            imout = [(ii-mi)/si*cx_std+cx_mean for ii, mi, si in zip(imout, imout_mean, imout_std)]
+            imout = [torch.clamp(ii, 0, 1) for ii in imout]
+        imout = [tvtrans.ToPILImage()(i) for i in imout]
+        if len(imout)==1:
+            return imout[0]
+        else:
+            return imout
+
+def main():
+    R = Reconstructor(which='v1.0', fp16=True, device="cuda:2")
+    im1 = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog.png")
+    # text1 = "A dog running along a path with a yellow frisbee in its mouth"
+    c_i = R.encode_image(im1)
+    print(c_i.dtype)
+    # dim_max = torch.max(c_i, dim=0)
+    # print(len(dim_max.values), dim_max.values)
+    # c_t = R.encode_text(text1)
+    # output = R.reconstruct(image=im1, 
+    #                         c_i=c_i, 
+    #                         c_t=c_t, 
+    #                         n_samples=1, 
+    #                         strength=0.8)
+    # output2 = R.reconstruct(image=im1, 
+    #                         c_i=c_i, 
+    #                         c_t=c_t, 
+    #                         n_samples=1, 
+    #                         textstrength=0.45, 
+    #                         strength=1, 
+    #                         color_adjust=True,
+    #                         fcs_lvl=0.1)
+    # output3 = R.reconstruct(image=im1, 
+    #                         c_i=c_i, 
+    #                         c_t=c_t, 
+    #                         n_samples=1, 
+    #                         textstrength=0.45, 
+    #                         strength=1, 
+    #                         color_adjust=True,
+    #                         fcs_lvl=0.2)
+    # output4 = R.reconstruct(image=im1, 
+    #                         c_i=c_i, 
+    #                         c_t=c_t, 
+    #                         n_samples=1, 
+    #                         textstrength=0.45, 
+    #                         strength=1, 
+    #                         color_adjust=True,
+    #                         fcs_lvl=0.3)
+    # output5 = R.reconstruct(image=im1, 
+    #                         c_i=c_i, 
+    #                         c_t=c_t, 
+    #                         n_samples=1, 
+    #                         textstrength=0.45, 
+    #                         strength=1, 
+    #                         color_adjust=True,
+    #                         fcs_lvl=0.4)
+    # output.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd.png")
+    # output2.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd2.png")
+    # output3.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd3.png")
+    # output4.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd4.png")
+    # output5.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/dog_vd5.png")
+    
+if __name__ == "__main__":
+    main()
