@@ -1,9 +1,11 @@
 import os, sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
+from autoencoder import AutoEncoder
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -222,77 +224,10 @@ class Torch_fwRF_voxel_block(nn.Module):
         _mst = torch.transpose(torch.transpose(_mst, 0, 2), 1, 2) # [#voxels, #samples, features]
         _r = torch.squeeze(torch.bmm(_mst, torch.unsqueeze(self.weights, 2))).t() # [#samples, #voxels]
         if self.bias is not None:
+            # print(self.bias)
+            # print(self.bias.shape)
             _r += torch.unsqueeze(self.bias, 0)
         return _r
-    
-# def get_predictions(_fmaps_fn, _fwrf_fn, data, params, sample_batch_size=100):
-#     """
-#     The predictive fwRF model for arbitrary input image.
-
-#     Parameters
-#     ----------
-#         Input image block.
-#     _fmaps_fn: Torch module
-#         Torch module that returns a list of torch tensors.
-#     _fwrf_fn: Torch module
-#     data : ndarray, shape (#samples, #channels, x, y)    
-#     Torch module that compute the fwrf model for one batch of voxels
-#     params: list including all of the following:
-#     [
-#         models : ndarray, shape (#voxels, 3)
-#             The RF model (x, y, sigma) associated with each voxel.
-#         weights : ndarray, shape (#voxels, #features)
-#             Tuning weights
-#         bias: Can contain a bias parameter of shape (#voxels) if add_bias is True.
-#            Tuning biases: None if there are no bias
-#         mst_mean (optional): ndarray, shape (#voxels, #feature)
-#             None if zscore is False. Otherwise returns zscoring average per feature.
-#         mst_std (optional): ndarray, shape (#voxels, #feature)
-#             None if zscore is False. Otherwise returns zscoring std.dev. per feature.
-#     ]
-#     sample_batch_size (default: 100)
-#         The sample batch size (used where appropriate)
-
-#     Returns
-#     -------
-#     pred : ndarray, shape (#samples, #voxels)
-#         The prediction of voxel activities for each voxels associated with the input data.
-#     """
-#     dtype = data.dtype.type
-#     device = next(_fmaps_fn.parameters()).device
-#     _params = [_p for _p in _fwrf_fn.parameters()]
-#     voxel_batch_size = _params[0].size()[0]    
-#     nt, nv = len(data), len(params[0])
-#     #print ('val_size = %d' % nt)
-#     pred = np.full(fill_value=0, shape=(nt, nv), dtype=dtype)
-#     start_time = time.time()
-#     with torch.no_grad():
-#         #extract all feature maps, shared across voxels
-#         print ('feature maps prediction...')
-#         _fmaps = _fmaps_fn(torch.tensor(data[:sample_batch_size]).to(device))
-#         all_fmaps = {k: [get_value(_fm),] for k,_fm in enumerate(_fmaps)}
-#         for rt,rl in tqdm(iterate_range(sample_batch_size, len(data)-sample_batch_size, sample_batch_size)):
-#             _fmaps = _fmaps_fn(torch.tensor(data[rt]).to(device))
-#             for k,_fm in enumerate(_fmaps):
-#                 all_fmaps[k] += [get_value(_fm),]
-#         for k in all_fmaps.keys():
-#             all_fmaps[k] = np.concatenate(all_fmaps[k], axis=0)    
-       
-#         print ('voxel prediction...')
-#         for rv, lv in iterate_range(0, nv, voxel_batch_size):
-#             _fwrf_fn.load_voxel_block(*[p[rv] if p is not None else None for p in params])
-#             pred_block = np.full(fill_value=0, shape=(nt, voxel_batch_size), dtype=dtype)
-#             for rt, lt in iterate_range(0, nt, sample_batch_size):
-#                 sys.stdout.write('\rsamples [%5d:%-5d] of %d, voxels [%6d:%-6d] of %d' % (rt[0], rt[-1], nt, rv[0], rv[-1], nv))
-#                 pred_block[rt] = get_value(_fwrf_fn([_to_torch(fm[rt], device) for k,fm in all_fmaps.items()])) 
-#             pred[:,rv] = pred_block[:,:lv]
-#     total_time = time.time() - start_time
-#     print ('\n---------------------------------------')
-#     print ('total time = %fs' % total_time)
-#     print ('sample throughput = %fs/sample' % (total_time / nt))
-#     print ('voxel throughput = %fs/voxel' % (total_time / nv))
-#     sys.stdout.flush()
-#     return pred
 
     
 def get_predictions(data, _fmaps_fn, _fwrf_fn, params, sample_batch_size=100):
@@ -359,12 +294,12 @@ def get_predictions(data, _fmaps_fn, _fwrf_fn, params, sample_batch_size=100):
 class AlexNetEncoder():
     
     def __init__(self,
-                predict_normal=False,
+                predict_normal_flag=False,
                 predict_73k=False,
                 device = "cuda"):
         
         # Input Variables
-        self.normal_predict = predict_normal
+        self.normal_predict = predict_normal_flag
         self.predict_73K = predict_73k
         
         # Setting up Cuda
@@ -411,7 +346,7 @@ class AlexNetEncoder():
         
     def load_data(self):
         
-        if(self.predict_normal):
+        if(self.normal_predict):
             
             # ONE SUBJECTS 
             # ----------- Load data ------------
@@ -452,20 +387,20 @@ class AlexNetEncoder():
                     np.min(self.image_data[1]), np.max(self.image_data[1]))
                 
         elif(self.predict_73K):
-            
             # ----------- Load Stimuli Whole COCO ------------
             self.image_data = {}
             data = []
-            w, h = 227, 227  # resize to integer multiple of 64
-            for i in tqdm(range(73000), desc="loading in images"):
-                
+            w, h = 227, 227  
+            
+            for i in tqdm(range(73000), desc="loading in images and saving"):
                 ground_truth_np_array = nsda.read_images([i], show=False)
                 ground_truth = Image.fromarray(ground_truth_np_array[0])
-                
+                ground_truth.save("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/stimuli/nsd/coco_73k/" + str(i) + ".png")
                 imagePil = ground_truth.resize((w, h), resample=Image.Resampling.LANCZOS)
                 image = np.array(imagePil).astype(np.float32) / 255.0
             
                 data.append(image)
+                
                 
                 
             imgs = []
@@ -533,6 +468,7 @@ class AlexNetEncoder():
         plt.savefig("/export/raid1/home/kneel027/Second-Sight/charts/alexnet_hist.png")
         
     def predict_73k_coco(self):
+        self.load_data()
         
         voxel_batch_size = 500 # 200
         _log_act_func = lambda _x: torch.log(1 + torch.abs(_x))
@@ -552,8 +488,6 @@ class AlexNetEncoder():
         print(subject_image_pred[1].shape)
         
         torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_73k.pt")
-        
-    #def calulate_predict(self):
         
         
     def predict_cc3m(self):
@@ -612,7 +546,7 @@ class AlexNetEncoder():
                         
                         
                         
-    def predict(self, images, mask = []):
+    def predict(self, images, mask, unmasked=True):
         
         self.image_data = {}
         data = []
@@ -626,10 +560,6 @@ class AlexNetEncoder():
             
         self.image_data[1] = np.moveaxis(np.array(data), 3, 1)
         
-        beta_mask = self.masks[0]
-        for i in mask:
-            beta_mask = torch.logical_or(beta_mask, self.masks[i])        
-        
         voxel_batch_size = 200 # 200
         _log_act_func = lambda _x: torch.log(1 + torch.abs(_x)) 
 
@@ -637,38 +567,80 @@ class AlexNetEncoder():
         _fmaps_fn = Torch_filter_fmaps(_fmaps_fn, self.checkpoint['lmask'], self.checkpoint['fmask'])
         _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
                                         _nonlinearity=_log_act_func, input_shape=self.image_data[self.subjects[0]].shape, aperture=1.0)
-        
         sample_batch_size = 1000
+
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            if(len(mask) == 0):
+            if(unmasked):
                 subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
                 break
             
             else:
                 masked_params = []
-                # beta_mask = ~beta_mask
                 for params in bp:
-                    masked_params.append(params[beta_mask])
-                    
-                # Old predict
-                subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
+                    masked_params.append(params[mask])
                 
-                # New predict
-                #subject_image_pred[1] = get_predictions(_fmaps_fn, _fwrf_fn,self.image_data[1], masked_params, sample_batch_size=sample_batch_size)
+                subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
                 break
         
         print(subject_image_pred[1].shape)
         return torch.from_numpy(subject_image_pred[1])
       
+    def benchmark(self, average=True, ae=False):
+        if(ae):
+            AE = AutoEncoder(hashNum = "582",
+                    lr=0.0000001,
+                    vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
+                    encoderHash="579",
+                    log=False, 
+                    batch_size=750,
+                    device="cuda:0"
+                    )
+            
+            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
+                                                    loader=False,
+                                                    average=False)
+            x_test = AE.predict(x_test)
+            # x_test = []
+            # for i, beta_trials in enumerate(tqdm(x_test_nest, desc="Averaging and autoencoding samples")):
+            #     if(average):
+            #         x_test.append(torch.mean(AE.predict(beta_trials),dim=0))
+            #     else:
+            #         for i in range(len(beta_trials)):
+            #             x_test.append(beta_trials[i]) 
+            # x_test = torch.stack(x_test)
+        else:
+            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
+                                                    loader=False,
+                                                    average=average)
+        # Load our best model into the class to be used for predictions
+        images = []
+        for im in test_images:
+            images.append(process_image(im))
+        
+        
+        
+        
+        criterion = nn.MSELoss()
+        PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+        
+        x_test = x_test.to(self.device)
+        
+        pred_x = self.predict(images).to(self.device)
+        
+        pearson = torch.mean(PeC(pred_x.moveaxis(0,1), x_test.moveaxis(0,1)))
+        loss = criterion(pred_x, x_test)
+        
+        print("Vector Correlation: ", float(pearson))
+        print("Loss: ", float(loss))
 
 def main():
     
-    AN = AlexNetEncoder(predict_normal = False, predict_73k = False)
+    AN = AlexNetEncoder(predict_normal_flag = False, predict_73k = False)
     
     subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     data = []
-    for i in tqdm(range(100), desc="loading in images"):
+    for i in tqdm(range(1), desc="loading in images"):
         
         nsdId = subj1_train.iloc[i]['nsdId']
         ground_truth_np_array = nsda.read_images([nsdId], show=False)
@@ -676,11 +648,29 @@ def main():
         data.append(ground_truth)
     
     #AN.predict_cc3m()
+    # AN.predict_73k_coco()
+    # AN.benchmark(average=False)
+    AN.benchmark(average=True, ae=True)
     
     #AN.load_data()
     #AN.predict_normal()
     
-    AN.predict(data, [1,2,3,4,5,6,7])
+    mask_path = "masks/"
+    masks = {0:torch.full((11838,), False),
+                1:torch.load(mask_path + "V1.pt"),
+                2:torch.load(mask_path + "V2.pt"),
+                3:torch.load(mask_path + "V3.pt"),
+                4:torch.load(mask_path + "V4.pt"),
+                5:torch.load(mask_path + "V5.pt"),
+                6:torch.load(mask_path + "V6.pt"),
+                7:torch.load(mask_path + "V7.pt")}
+    
+    beta_mask = masks[0]
+    for i in [1,2]:
+        beta_mask = torch.logical_or(beta_mask, masks[i])        
+        
+    
+    AN.predict(data, beta_mask, True)
            
         
 if __name__ == "__main__":

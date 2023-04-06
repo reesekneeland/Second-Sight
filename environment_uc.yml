@@ -1,0 +1,38 @@
+name: SS_UC
+channels:
+  - conda-forge
+  - nvidia
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch::pytorch==2.0.0
+  - pytorch::torchvision
+  - pytorch-cuda=11.7
+  - pip:
+      - huggingface-hub
+      - pyyaml
+      - accelerate
+      - xformers
+      - h5py
+      - easydict
+      - scikit-image
+      - einops
+      - omegaconf
+      - ipython
+      - ipykernel
+      - matplotlib
+      - nibabel>=5.0.0
+      - numpy>=1.23.5
+      - opencv-python
+      - pandas>=1.5.3
+      - pillow>=9.4.0
+      - pycocotools>=2.0.6
+      - torchmetrics
+      - tqdm>=4.64.1
+      - transformers
+      - wandb>=0.12.21
+      - seaborn
+      - webdataset>=0.2.5
+      - "--editable=git+https://github.com/reesekneeland/diffusers.git@main#egg=diffusers"

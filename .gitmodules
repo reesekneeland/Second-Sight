@@ -1,3 +1,6 @@
 [submodule "stable-diffusion"]
 	path = stable-diffusion
 	url = https://github.com/justinpinkney/stable-diffusion
+[submodule "Versatile-Diffusion"]
+	path = Versatile-Diffusion
+	url = https://github.com/SHI-Labs/Versatile-Diffusion

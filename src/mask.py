@@ -25,10 +25,9 @@ class Masker():
         self.sorted_indices = None
         self.pearson_scores = None
         # Initialize the data
-        _, _, self.x_vox, self.x_thresh, self.x_test, _, _, self.y_vox, self.y_thresh, self.y_test, _ = load_nsd(vector="c_img_0", loader=False, average=True)
-
+        _, _, self.x_param, self.x_test, _, _, self.y_param, self.y_test, _, _ = load_nsd(vector="c_img_vd", loader=False, average=True, pca=True)
         # Initializes Weights and Biases to keep track of experiments and training runs
-
+        # self.x_param = self.x_param.to(self.device)
 
         self.E = Encoder(hashNum = encoderHash,
                         vector=self.vector,
@@ -39,12 +38,11 @@ class Masker():
         self.latent_path = "latent_vectors/" + self.encoderModel + "/"
         self.mask_path = "masks/" + self.encoderModel + "/avg/"
         if(not os.path.isfile(self.latent_path + "avg_encoded_voxel_selection.pt")):
-            torch.save(self.E.predict(x=self.y_vox), self.latent_path + "avg_encoded_voxel_selection.pt")
-        if(not os.path.isfile(self.latent_path + "avg_encoded_threshold_selection.pt")):
-            torch.save(self.E.predict(x=self.y_thresh), self.latent_path + "avg_encoded_threshold_selection.pt")
+            torch.save(self.E.predict(x=self.y_param), self.latent_path + "avg_encoded_voxel_selection.pt")
+        
             
-        self.x_vox_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt", map_location=self.device)
-        self.x_thresh_encoded = torch.load(self.latent_path + "avg_encoded_threshold_selection.pt", map_location=self.device)
+        self.x_param_encoded = torch.load(self.latent_path + "avg_encoded_voxel_selection.pt", map_location=self.device)
+        
         
         subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
         nsdIds = set(subj1['nsdId'].tolist())
@@ -62,8 +60,9 @@ class Masker():
     
     def orderVoxels(self):
         PeC = PearsonCorrCoef(num_outputs=11838).to(self.device)
-        out = self.x_vox_encoded.to(self.device)
-        target = self.x_vox.to(self.device)
+        out = self.x_param_encoded.to(self.device)
+        target = self.x_param.to(self.device)
+        print(out.shape, target.shape)
         r = PeC(out, target)
         # r = np.array(r)
         self.sorted_indices = torch.stack([x for _, x in sorted(zip(r, torch.arange(11838)), reverse=True)])
@@ -111,15 +110,15 @@ class Masker():
         threshold = float(threshold)
         if(not os.path.isfile(self.mask_path + str(threshold) + ".pt")):
             self.create_mask(threshold)
-        mask = torch.load(self.mask_path + str(threshold) + ".pt", map_location=self.device)
-        masked_threshold_x = self.x_thresh[:, mask].to(self.device)
-        masked_threshold_encoded_x = self.x_thresh_encoded[:, mask].to(self.device)
+        mask = torch.load(self.mask_path + str(threshold) + ".pt").to("cpu")
+        masked_x_param = self.x_param[:, mask].to(self.device)
+        masked_x_param_encoded = self.x_param_encoded[:, mask].to(self.device)
         
         x_preds_m = self.x_preds[:, mask]
         x_preds_t = x_preds_m.moveaxis(0, 1).to(self.device)
         average_percentile = 0
-        for i in tqdm(range(masked_threshold_x.shape[0]), desc="scanning library for threshold " + str(threshold)):
-            xDup = masked_threshold_x[i].repeat(10500, 1).moveaxis(0, 1).to(self.device)
+        for i in tqdm(range(masked_x_param.shape[0]), desc="scanning library for threshold " + str(threshold)):
+            xDup = masked_x_param[i].repeat(10500, 1).moveaxis(0, 1).to(self.device)
             scores = torch.zeros((10501,))
             # for batch in range(3):
             # for j in tqdm(range(73000), desc="batching sample"):
@@ -128,7 +127,7 @@ class Masker():
                 # x_preds_t_b = x_preds_t[:,21000*batch:21000*batch+21000]
                 # scores[21000*batch:21000*batch+21000] = self.PeC(xDup, x_preds_t_b).detach()
             scores = self.PeC(xDup, x_preds_t)
-            scores[-1] = self.PeC2(masked_threshold_x[i], masked_threshold_encoded_x[i])
+            scores[-1] = self.PeC2(masked_x_param[i], masked_x_param_encoded[i])
             scores.detach()
             sorted_scores, sorted_indices = torch.sort(scores, descending=True)
             rank = ((sorted_indices==10499).nonzero(as_tuple=True)[0])
@@ -137,14 +136,14 @@ class Masker():
             percentile = 1-float(rank/10501)
             average_percentile += percentile
             # tqdm.write(str(percentile))
-        final_percentile = average_percentile/masked_threshold_x.shape[0]
-        file = open(self.mask_path + "results_coco_inc.txt", 'a+')
+        final_percentile = average_percentile/masked_x_param.shape[0]
+        file = open(self.mask_path + "results_coco.txt", 'a+')
         file.write(str(threshold) + ": " + str(final_percentile) + "\n")
         file.close()
         
     def make_histogram(self):
         x, y = [], []
-        file = open(self.mask_path + "results_coco_inc.txt", 'r')
+        file = open(self.mask_path + "results_coco.txt", 'r')
         for i, line in enumerate(file.readlines()):
             vals = line.split(": ")
             x.append(float(vals[0]))
