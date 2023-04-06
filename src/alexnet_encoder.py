@@ -228,6 +228,75 @@ class Torch_fwRF_voxel_block(nn.Module):
             # print(self.bias.shape)
             _r += torch.unsqueeze(self.bias, 0)
         return _r
+    
+# def get_predictions(_fmaps_fn, _fwrf_fn, data, params, sample_batch_size=100):
+#     """
+#     The predictive fwRF model for arbitrary input image.
+
+#     Parameters
+#     ----------
+#         Input image block.
+#     _fmaps_fn: Torch module
+#         Torch module that returns a list of torch tensors.
+#     _fwrf_fn: Torch module
+#     data : ndarray, shape (#samples, #channels, x, y)    
+#     Torch module that compute the fwrf model for one batch of voxels
+#     params: list including all of the following:
+#     [
+#         models : ndarray, shape (#voxels, 3)
+#             The RF model (x, y, sigma) associated with each voxel.
+#         weights : ndarray, shape (#voxels, #features)
+#             Tuning weights
+#         bias: Can contain a bias parameter of shape (#voxels) if add_bias is True.
+#            Tuning biases: None if there are no bias
+#         mst_mean (optional): ndarray, shape (#voxels, #feature)
+#             None if zscore is False. Otherwise returns zscoring average per feature.
+#         mst_std (optional): ndarray, shape (#voxels, #feature)
+#             None if zscore is False. Otherwise returns zscoring std.dev. per feature.
+#     ]
+#     sample_batch_size (default: 100)
+#         The sample batch size (used where appropriate)
+
+#     Returns
+#     -------
+#     pred : ndarray, shape (#samples, #voxels)
+#         The prediction of voxel activities for each voxels associated with the input data.
+#     """
+#     dtype = data.dtype.type
+#     device = next(_fmaps_fn.parameters()).device
+#     _params = [_p for _p in _fwrf_fn.parameters()]
+#     voxel_batch_size = _params[0].size()[0]    
+#     nt, nv = len(data), len(params[0])
+#     #print ('val_size = %d' % nt)
+#     pred = np.full(fill_value=0, shape=(nt, nv), dtype=dtype)
+#     start_time = time.time()
+#     with torch.no_grad():
+#         #extract all feature maps, shared across voxels
+#         print ('feature maps prediction...')
+#         _fmaps = _fmaps_fn(torch.tensor(data[:sample_batch_size]).to(device))
+#         all_fmaps = {k: [get_value(_fm),] for k,_fm in enumerate(_fmaps)}
+#         for rt,rl in tqdm(iterate_range(sample_batch_size, len(data)-sample_batch_size, sample_batch_size)):
+#             _fmaps = _fmaps_fn(torch.tensor(data[rt]).to(device))
+#             for k,_fm in enumerate(_fmaps):
+#                 all_fmaps[k] += [get_value(_fm),]
+#         for k in all_fmaps.keys():
+#             all_fmaps[k] = np.concatenate(all_fmaps[k], axis=0)    
+       
+#         print ('voxel prediction...')
+#         for rv, lv in iterate_range(0, nv, voxel_batch_size):
+#             _fwrf_fn.load_voxel_block(*[p[rv] if p is not None else None for p in params])
+#             pred_block = np.full(fill_value=0, shape=(nt, voxel_batch_size), dtype=dtype)
+#             for rt, lt in iterate_range(0, nt, sample_batch_size):
+#                 sys.stdout.write('\rsamples [%5d:%-5d] of %d, voxels [%6d:%-6d] of %d' % (rt[0], rt[-1], nt, rv[0], rv[-1], nv))
+#                 pred_block[rt] = get_value(_fwrf_fn([_to_torch(fm[rt], device) for k,fm in all_fmaps.items()])) 
+#             pred[:,rv] = pred_block[:,:lv]
+#     total_time = time.time() - start_time
+#     print ('\n---------------------------------------')
+#     print ('total time = %fs' % total_time)
+#     print ('sample throughput = %fs/sample' % (total_time / nt))
+#     print ('voxel throughput = %fs/voxel' % (total_time / nv))
+#     sys.stdout.flush()
+#     return pred
 
     
 def get_predictions(data, _fmaps_fn, _fwrf_fn, params, sample_batch_size=100):
@@ -568,7 +637,6 @@ class AlexNetEncoder():
         _fwrf_fn  = Torch_fwRF_voxel_block(_fmaps_fn, [p[:voxel_batch_size] if p is not None else None for p in self.model_params[self.subjects[0]]], \
                                         _nonlinearity=_log_act_func, input_shape=self.image_data[self.subjects[0]].shape, aperture=1.0)
         sample_batch_size = 1000
-
         subject_image_pred = {}
         for s,bp in self.model_params.items():
             if(unmasked):
@@ -577,10 +645,14 @@ class AlexNetEncoder():
             
             else:
                 masked_params = []
+                # beta_mask = ~beta_mask
                 for params in bp:
                     masked_params.append(params[mask])
                 
                 subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
+                
+                # New predict
+                #subject_image_pred[1] = get_predictions(_fmaps_fn, _fwrf_fn,self.image_data[1], masked_params, sample_batch_size=sample_batch_size)
                 break
         
         print(subject_image_pred[1].shape)
