@@ -1,20 +1,15 @@
-# Only GPU's in use
-import os
-from torch.autograd import Variable
 from torch.optim import Adam
 import numpy as np
 import glob
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import torch.nn as nn
 from pycocotools.coco import COCO
-import h5py
 from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 
 class MLP(torch.nn.Module):
     def __init__(self, vector):
@@ -99,7 +94,7 @@ class Encoder_UC():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _ = load_nsd(vector=self.vector, 
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
                                                         loader=True)
@@ -130,7 +125,6 @@ class Encoder_UC():
                 
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
                 y_data = y_data.to(self.device)
                 
                 # Forward pass: Compute predicted y by passing x to the model
@@ -165,7 +159,6 @@ class Encoder_UC():
                 # y_data = Brain Data
                 y_data, x_data = data
                 x_data = x_data.to(self.device)
-                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
                 y_data = y_data.to(self.device, torch.float64)
                 
                 # Generating predictions based on the current model
@@ -187,19 +180,19 @@ class Encoder_UC():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector))
                 loss_counter = 0
             else:
                 loss_counter += 1
-                tqdm.write("loss counter: " + str(loss_counter))
+                tqdm.write("loss counter: {}".format(loss_counter))
                 if(loss_counter >= 5):
                     break
                 
         # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
 
     def predict(self, x, mask=None):
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device, torch.float32))
@@ -212,13 +205,11 @@ class Encoder_UC():
             
         # y_test = Brain data
         # x_test = clip data
-        _, _, _, y_test, _, _, _, x_test, _, _ = load_nsd(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
+        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average)
         
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)))
         self.model.eval()
 
         criterion = nn.MSELoss()
@@ -233,8 +224,21 @@ class Encoder_UC():
               
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         
+        pred_y = pred_y.detach()
+        y_test = y_test.detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = np.array(r)
+        
         print("Vector Correlation: ", float(pearson))
+        print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
+        plt.hist(r, bins=50, log=True)
+        plt.savefig("charts/{}_{}_encoder_voxel_PeC.png".format(self.hashNum, self.vector))
     
     
     

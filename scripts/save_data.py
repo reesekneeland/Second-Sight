@@ -18,7 +18,6 @@ from utils import *
 import copy
 from tqdm import tqdm
 import nibabel as nib
-# load_nsd("c_img_uc", loader=False)
 
 for subject in range(1, 9):
     create_whole_region_unnormalized(subject=subject)

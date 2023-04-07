@@ -9,7 +9,7 @@ from utils import *
 import wandb
 from tqdm import tqdm
 from encoder import Encoder
-from pearson import PearsonCorrCoef, pearson_corrcoef
+from torchmetrics import PearsonCorrCoef
 
 class Masker():
     def __init__(self, 

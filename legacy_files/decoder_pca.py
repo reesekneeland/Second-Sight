@@ -1,64 +1,75 @@
-# Only GPU's in use
-import os
-from torch.autograd import Variable
+import torch
 from torch.optim import Adam
 import numpy as np
-import glob
-import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import torch.nn as nn
-from pycocotools.coco import COCO
-import h5py
+from torchmetrics import PearsonCorrCoef
 from utils import *
 import wandb
-import copy
 from tqdm import tqdm
-from pearson import PearsonCorrCoef
+import pickle as pk
+import seaborn as sns
+import matplotlib.pylab as plt
+# import bitsandbytes as bnb
 
+# Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
     def __init__(self, vector):
-        super(MLP, self).__init__()
-        self.vector=vector
-        if(vector == "c_img_vd"):
-            # self.linear = nn.Linear(10000, 15000)
-            # self.linear2 = nn.Linear(15000, 15000)
-            # self.outlayer = nn.Linear(15000, 11838)
-            # self.double()
-            self.linear = nn.Linear(768, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
-        elif(vector == "c_text_vd"):
-            self.linear = nn.Linear(10000, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
+        super(MLP, self,).__init__()
+        # assert(vector == "c_img_vd" or vector=="c_text_vd")
+        self.vector = vector
+        if(self.vector == "c_img_vd"):
+            self.linear = nn.Linear(11838, 10000)
+            # self.linear2 = nn.Linear(25000, 25000)
+            # self.linear3 = nn.Linear(25000, 25000)
+            # self.linear4 = nn.Linear(20000, 20000)
+            # self.linear5 = nn.Linear(20000, 20000)
+            # self.outlayer = nn.Linear(100000, 10000)
+        if(self.vector == "c_text_vd"):
+            self.linear = nn.Linear(11838, 10000)
+            # self.linear2 = nn.Linear(20000, 20000)
+            # self.linear3 = nn.Linear(20000, 20000)
+            # self.linear4 = nn.Linear(20000, 20000)
+            # self.linear5 = nn.Linear(20000, 20000)
+            # self.outlayer = nn.Linear(20000, 10000)
+        # layers = [nn.Linear(11838, 15000),
+        #           nn.ReLU()]
+        # for i in range(numLayers-1):
+        #     layers.append(nn.Linear(15000, 15000))
+        #     layers.append(nn.ReLU())
+        # layers.append(nn.Linear(15000, 10000))
         
-            # self.linear = nn.Linear(768, 15000)
-            # self.outlayer = nn.Linear(15000, 11838)
-        elif(vector == "c_img_0"):
-            self.linear = nn.Linear(768, 10000)
-            self.linear2 = nn.Linear(10000, 12000)
-            self.outlayer = nn.Linear(12000, 11838)   
+        # self.layers = nn.Sequential(*layers)
         # self.double()
         self.relu = nn.ReLU()
         
     def forward(self, x):
+        # y_pred = self.layers(x)
         if(self.vector == "c_img_vd"):
-            y_pred = self.relu(self.linear(x))
+            y_pred = self.linear(x)
+            # y_pred = self.linear2(y_pred)
+            # y_pred = self.linear3(y_pred)
+            # y_pred = self.linear4(y_pred)
+            # y_pred = self.linear5(y_pred)
+            # y_pred = self.relu(self.linear(x))
             # y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)
-        if (elf.vector=="c_text_vd"):
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)
-        if(self.vector == "c_img_0"):
-            y_pred = self.relu(self.linear(x))
+            # y_pred = self.relu(self.linear3(y_pred))
+            # y_pred = self.relu(self.linear4(y_pred))
+            # y_pred = self.relu(self.linear5(y_pred))
+            # y_pred = self.outlayer(y_pred)
+        if(self.vector=="c_text_vd"):
+            y_pred = self.linear(x)
+            # y_pred = self.relu(self.linear(x))
             # y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)  
+            # y_pred = self.relu(self.linear3(y_pred))
+            # y_pred = self.relu(self.linear4(y_pred))
+            # y_pred = self.relu(self.linear5(y_pred))
+            # y_pred = self.outlayer(y_pred)
         return y_pred
 
     
 # Main Class    
-class Encoder():
+class Decoder_PCA():
     def __init__(self, 
                  hashNum,
                  vector, 
@@ -79,7 +90,10 @@ class Encoder():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
-    
+        self.pca_c = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_" + self.vector + "_10k_components.pt", map_location=self.device)
+        self.pca_m = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/masks/pca_" + self.vector + "_10k_mean.pt", map_location=self.device)
+        # pk.load(open("masks/pca_" + self.vector + "_10k.pkl",'rb'))
+
         # Initialize the Pytorch model class
         self.model = MLP(self.vector)
 
@@ -93,12 +107,11 @@ class Encoder():
         if(self.log):
             wandb.init(
                 # set the wandb project where this run will be logged
-                project="encoder",
+                project="decoder_pca",
                 # track hyperparameters and run metadata
                 config={
                 "hash": self.hashNum,
-                "architecture": "MLP",
-                # "architecture": "2 Convolutional Layers",
+                "architecture": "PCA MLP Cross Entropy",
                 "vector": self.vector,
                 "dataset": "Z scored",
                 "epochs": self.num_epochs,
@@ -114,52 +127,44 @@ class Encoder():
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
                                                         loader=True,
-                                                        pca=False)
+                                                        pca=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
-        criterion = nn.MSELoss(reduction='sum')
-        
+        # criterion = nn.MSELoss(reduction='sum')
+        criterion = nn.CrossEntropyLoss()
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
-        
+        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs"):
-            
             # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
-            
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            for i, data in enumerate(self.trainLoader): 
-                
-                # x_data = Clip vector Data
-                # y_data = Brain Data
-                y_data, x_data = data
-                
+            for i, data in enumerate(self.trainLoader):
+                # x_data = Brain Data
+                # y_data = Clip/Z vector Data
+                x_data, y_data = data
                 # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
-                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
-                y_data = y_data.to(self.device)
-                
+                y_data = y_data.to(self.device, torch.float32)
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
+                # scaled_pred_y /= torch.norm(y_data)
                 
                 # Compute the loss between the predicted y and the y data. 
                 loss = criterion(pred_y, y_data)
                 loss.backward()
                 optimizer.step()
-                
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
-                
                 # Add up the loss for this training round
                 running_loss += loss.item()
-                
             tqdm.write('[%d] train loss: %.8f' %
                 (epoch + 1, running_loss /len(self.trainLoader)))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
@@ -172,20 +177,16 @@ class Encoder():
             for i, data in enumerate(self.valLoader):
                 
                 # Loading in the test data
-                
-                # x_data = Clip vector Data
-                # y_data = Brain Data
-                y_data, x_data = data
+                x_data, y_data = data
                 x_data = x_data.to(self.device)
-                # x_data = x_data.reshape((x_data.shape[0], 77, 768))[:,0,:].to(self.device)
-                y_data = y_data.to(self.device, torch.float64)
-                
-                # Generating predictions based on the current model
+                y_data = y_data.to(self.device, torch.float32)
+                # Forward pass: Compute predicted y by passing x to the model
+                # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
-        
-                # Compute the test loss 
+                # scaled_pred_y /= torch.norm(y_data)
+                
+                # Compute the loss between the predicted y and the y data. 
                 loss = criterion(pred_y, y_data)
-
                 running_test_loss += loss.item()
             test_loss = running_test_loss / len(self.valLoader)
                 
@@ -207,46 +208,63 @@ class Encoder():
                 if(loss_counter >= 5):
                     break
                 
-        # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        
 
     def predict(self, x):
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        
+        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device))
+        out = self.model(x.to(self.device))#.cpu().detach().numpy() #.to(torch.float16)
+        out = ((out.to(torch.float64) @ self.pca_c) + self.pca_m).to("cpu", torch.float32)
         return out
-        
-        
+    
     def benchmark(self, average=True):
-            
-        # y_test = Brain data
-        # x_test = clip data
-        _, _, _, y_test, _, _, _, x_test_pca, _, _ = load_nsd(vector=self.vector, 
+        _, _, _, _, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
+                                                batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, 
+                                                loader=False,
+                                                average=average,
+                                                pca=False)
+        _, _, _, x_test, _, _, _, y_test_pca, _, _ = load_nsd(vector=self.vector, 
                                                 batch_size=self.batch_size, 
                                                 num_workers=self.num_workers, 
                                                 loader=False,
                                                 average=average,
                                                 pca=True)
-        
+        # Load our best model into the class to be used for predictions
         self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
         self.model.eval()
 
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test_pca = x_test_pca.to(self.device)
+        x_test = x_test.to(self.device)
+        y_test_pca = y_test_pca.to(self.device)
         y_test = y_test.to(self.device)
         
-        pred_y = self.model(x_test_pca.to(torch.float32))
+        pred_y_pca = self.model(x_test)
         
-        loss = criterion(pred_y, y_test)
+        loss_pca = criterion(pred_y_pca, y_test_pca.to(self.device))
               
-        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        pearson_pca =torch.mean(PeC(pred_y_pca.moveaxis(0,1), y_test_pca.moveaxis(0,1)))
+
+        pred_y = ((pred_y_pca.to(torch.float64) @ self.pca_c) + self.pca_m).to(torch.float32)
         
+        # pred_y = torch.from_numpy(self.pca.inverse_transform(pred_y_pca.to(torch.float64).detach().cpu().numpy())).to(self.device, torch.float32)
+        
+        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        loss = criterion(pred_y, y_test)
+
+        global_y_pred = pred_y.reshape((y_test.shape[0], 1,257,768))[:,:,0,:]
+        global_y_test = y_test.reshape((y_test.shape[0], 1,257,768))[:,:,0,:]
+
+        global_pearson = torch.mean(PeC(global_y_pred.reshape((768, y_test.shape[0])), global_y_test.reshape((768, y_test.shape[0]))))
+        global_loss = criterion(global_y_pred, global_y_test)
+        
+        print("Vector Correlation_PCA: ", float(pearson_pca))
         print("Vector Correlation: ", float(pearson))
+        print("Vector Correlation Global: ", float(global_pearson))
+        print("Loss_PCA: ", float(loss_pca))
         print("Loss: ", float(loss))
-    
-    
-    
-    
+        print("Loss Global: ", float(global_loss))

@@ -1,32 +1,18 @@
 import os
 import sys
 import torch
-from torchmetrics.functional import pearson_corrcoef
-from torch.autograd import Variable
-import numpy as np
-from nsd_access import NSDAccess
-import glob
 import pandas as pd
 from PIL import Image
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from nsd_access import NSDAccess
-import torch.nn as nn
 from pycocotools.coco import COCO
 sys.path.append('src')
 from utils import *
-import wandb
-import copy
 from tqdm import tqdm
-import nibabel as nib
 from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
-from reconstructor import Reconstructor
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 import cv2
 import random
-import transformers
-from transformers import CLIPTokenizerFast, AutoProcessor, CLIPModel, CLIPVisionModelWithProjection
+from transformers import AutoProcessor, CLIPVisionModelWithProjection
 import math
 
 class Stochastic_Search_Statistics():
@@ -65,7 +51,7 @@ class Stochastic_Search_Statistics():
                         )
         
         # Load the test samples
-        _, _, x_param, x_test, _, _, _, y_test, param_trials, test_trials = load_nsd(vector="images", loader=False, average=False, nest=True)
+        _, _, x_test, _, _, y_test, test_trials = load_nsd(vector="images", subject=1, loader=False, average=False, nest=True)
         #print(y_test[0].reshape((425,425,3)).numpy().shape)
         # test = Image.fromarray(y_test[0].reshape((425,425,3)).numpy().astype(np.uint8))
         # test.save("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/logs/test.png")
@@ -239,11 +225,11 @@ class Stochastic_Search_Statistics():
     def calculate_clip_similarity(self, experiment_name, sample, sampleType=1):
         with torch.no_grad():
             exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
-            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir()])
+            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != "results"])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
             sampleTypes = ["Ground Truth.png", "Search Reconstruction.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
-            random_image = Image.open(exp_path + str(folders[rand_index]) + sampleTypes[sampleType])
+            random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
             image = Image.open(exp_path + str(sample) + "/Search Reconstruction.png")
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
             
@@ -437,15 +423,15 @@ def main():
     #SCS.calculate_pixel_correlation()
     
     #SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
-    SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
+    # SCS.create_dataframe("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
     # reconstruct = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Search Reconstruction.png")
     # surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
-    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
-    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
-    # print(SCS.calculate_clip_similarity("SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
+    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
+    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
+    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
         
 if __name__ == "__main__":
     main()

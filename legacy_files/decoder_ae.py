@@ -3,7 +3,7 @@ from torch.optim import Adam
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 from utils import *
 import wandb
 from tqdm import tqdm

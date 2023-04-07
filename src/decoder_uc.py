@@ -3,7 +3,7 @@ from torch.optim import Adam
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 from utils import *
 import wandb
 from tqdm import tqdm
@@ -98,11 +98,10 @@ class Decoder_UC():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _ = load_nsd(vector=self.vector, 
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
                                                         batch_size=self.batch_size, 
                                                         num_workers=self.num_workers, 
-                                                        loader=True,
-                                                        pca=False)
+                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -175,7 +174,7 @@ class Decoder_UC():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector))
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -185,22 +184,19 @@ class Decoder_UC():
                 
         
 
-    def predict(self, x, batch=False, batch_size=750):
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+    def predict(self, x):
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(torch.float16)
         return out
     
     def benchmark(self, average=True):
-        _, _, _, x_test, _, _, _, y_test, _, _ = load_nsd(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
+        _, _, x_test, _, _, y_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
-                                                average=average,
-                                                pca=False)
+                                                average=average)
         # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt"))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)))
         self.model.eval()
 
         criterion = nn.MSELoss()

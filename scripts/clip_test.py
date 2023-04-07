@@ -12,7 +12,7 @@ sys.path.append('src')
 from utils import *
 from tqdm import tqdm
 from reconstructor import Reconstructor
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 import cv2
 import seaborn as sns
 import matplotlib.pylab as plt

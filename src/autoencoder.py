@@ -15,7 +15,7 @@ from utils import *
 import wandb
 import copy
 from tqdm import tqdm
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 
     
 class MLP(torch.nn.Module):
@@ -99,13 +99,12 @@ class AutoEncoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, _, = load_nsd(vector=self.vector, 
-                                                                batch_size=self.batch_size, 
-                                                                num_workers=self.num_workers, 
-                                                                ae=True,
-                                                                encoderModel=self.encoderModel,
-                                                                average=False,
-                                                                old_norm=False)
+        self.trainLoader, self.valLoader, _, = load_nsd(vector=self.vector, 
+                                                        batch_size=self.batch_size, 
+                                                        num_workers=self.num_workers, 
+                                                        ae=True,
+                                                        encoderModel=self.encoderModel,
+                                                        average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -206,11 +205,11 @@ class AutoEncoder():
                     break
                 
         # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
             
     def predict(self, x, batch=False, batch_size=750):
         
-        self.model.load_state_dict(torch.load("models/" + self.hashNum + "_model_" + self.vector + ".pt", map_location=self.device))
+        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(self.device)
@@ -219,19 +218,18 @@ class AutoEncoder():
                 
     
     def benchmark(self, encodedPass=False, average=True):
-        _, _, _, self.testLoader = load_nsd(vector=self.vector, 
-                                                batch_size=self.batch_size, 
-                                                num_workers=self.num_workers, 
-                                                ae=True,
-                                                encoderModel=self.encoderModel,
-                                                average=average,
-                                                old_norm=False)
+        _, _, self.testLoader = load_nsd(vector=self.vector, 
+                                        batch_size=self.batch_size, 
+                                        num_workers=self.num_workers, 
+                                        ae=True,
+                                        encoderModel=self.encoderModel,
+                                        average=average)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,11838))
         target = torch.zeros((datasize, 11838))
-        modelId = self.hashNum + "_model_" + self.vector + ".pt"
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
         print(modelId)
-        self.model.load_state_dict(torch.load("models/" + modelId, map_location=self.device))
+        self.model.load_state_dict(torch.load("models/{}".format(modelId), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
 
@@ -280,7 +278,7 @@ class AutoEncoder():
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("charts/" + self.hashNum + "_" + self.vector + "_pearson_histogram_autoencoder.png")
+        plt.savefig("charts/{hash}_{vec}_pearson_histogram_autoencoder.png".format(hash=self.hashNum, vec=self.vector))
         
 
     
