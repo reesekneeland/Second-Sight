@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -14,7 +14,7 @@ from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
 from library_decoder import LibraryDecoder
-from torchmetrics import PearsonCorrCoef
+from pearson import PearsonCorrCoef
 
 
 def main():
@@ -33,33 +33,33 @@ def main():
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4)
-    # S1 = StochasticSearch(config=["AlexNet"],
-    #                       device="cuda:0",
-    #                       log=False,
-    #                       n_iter=10,
-    #                       n_samples=250,
-    #                       n_branches=5)
+    S1 = StochasticSearch(config=["AlexNet"],
+                          device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=250,
+                          n_branches=5)
     # S2 = StochasticSearch(config=["AlexNet"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=2,
     #                       n_samples=10,
     #                       n_branches=2)
-    S4 = StochasticSearch(config=["c_img_uc"],
-                          device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
+    # S4 = StochasticSearch(config=["c_img_uc"],
+    #                       device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=100,
+    #                       n_branches=4)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(0, 25)], mask=[], ae=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(50, 75)], mask=[], ae=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(201, 219)], mask=[], ae=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(244, 269)], mask=[], ae=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(25, 50)], mask=[], ae=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(75, 100)], mask=[], ae=True, average=True)
-    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 4", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
-    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 5", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 8", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 9", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
 
 class StochasticSearch():
     def __init__(self, 
@@ -185,20 +185,22 @@ class StochasticSearch():
             beta = beta[:, mask]
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # momentum = 0.1+0.4*(math.pow(cur_iter/max_iter, 2))
-            momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
-            # momentum = 0.5
+            # momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
+            momentum = 0.2
             # noise = int(500-500*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            noise = int(200-200*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            # noise = 100
+            # noise = int(200-200*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
+            noise = 100
             n_i = max(10, int(n/n_branches))
             tqdm.write("Noise: {}, Momentum: {}, N: {}".format(noise, momentum, n_i))
             samples = []
             sample_clips = []
             for i in range(n_branches):
                 if cur_iter > 0:
-                    c_i = slerp(c_i, iter_clips[i], momentum)
+                    cur_c_i = slerp(c_i, iter_clips[i], momentum)
+                else:
+                    cur_c_i = c_i
                 samples += self.generateNSamples(image=None, 
-                                                c_i=c_i,  
+                                                c_i=cur_c_i,  
                                                 n=n_i,  
                                                 strength=1,
                                                 noise_level=noise)
@@ -206,9 +208,9 @@ class StochasticSearch():
             if cur_iter > 0:
                 if not any([torch.equal(best_clip,clip) for clip in iter_clips]):
                     tqdm.write("Adding best image to branches!")
-                    c_i = slerp(c_i, best_clip, momentum)
+                    cur_c_i = slerp(c_i, best_clip, momentum)
                     samples += self.generateNSamples(image=None, 
-                                                    c_i=c_i, 
+                                                    c_i=cur_c_i, 
                                                     n=n_i,  
                                                     strength=1,
                                                     noise_level=noise)

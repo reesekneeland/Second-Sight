@@ -1,11 +1,13 @@
 import os, sys
 # os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
+from torch import nn
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
 from autoencoder import AutoEncoder
+import time
 
 try:
     from torch.hub import load_state_dict_from_url

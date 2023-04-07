@@ -48,8 +48,10 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
         x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
         y = torch.load(prep_path + "subject{}/x_encoded/{}.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
-        x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
-        y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+        # x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
+        # y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        y = torch.load(prep_path + "{}/vector.pt".format(vector)).requires_grad_(False)
     
     if(not split): 
         if(loader):
@@ -68,24 +70,24 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     for i in tqdm(range(split_point), desc="loading training samples"):
         for j in range(3):
             scanId = subj_train.iloc[i]['subject1_rep{}'.format(j)]
-            if(scanId < 27750):
+            if(scanId < x.shape[0]):
                 x_train.append(x[scanId-1])
                 y_train.append(y[scanId-1])
                         
     for i in tqdm(range(split_point, subj_train.shape[0]), desc="loading validation samples"):
         for j in range(3):
             scanId = subj_train.iloc[i]['subject1_rep{}'.format(j)]
-            if(scanId < 27750):
+            if(scanId < x.shape[0]):
                 x_val.append(x[scanId-1])
                 y_val.append(y[scanId-1])
     for i in range(subj_test.shape[0]):
         nsdId = subj_test.iloc[i]['nsdId']
         avx = []
         avy = []
-        x_row = torch.zeros((3, 11838))
+        x_row = torch.zeros((3, x.shape[1]))
         for j in range(3):
             scanId = subj_test.iloc[i]['subject1_rep{}'.format(j)]
-            if(scanId < 27750):
+            if(scanId < x.shape[0]):
                 if average or nest:
                     avx.append(x[scanId-1])
                     avy.append(y[scanId-1])

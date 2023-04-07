@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -25,9 +25,9 @@ def main():
 
     # train_encoder_uc()
 
-    reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
+    # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    # reconstructNImages(experiment_title="UC 747 prompt \"photorealistic\" neg \"cartoon, art, saturated, text, caption\" gc10", idx=[i for i in range(21)])
+    reconstructNImages(experiment_title="UC Test Bug", idx=[i for i in range(194, 214)])
 
     # train_autoencoder()
 
@@ -121,9 +121,9 @@ def reconstructNImages(experiment_title, idx):
     
     R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
     R = R.to("cuda")
-    R.enable_xformers_memory_efficient_attention()
+    # R.enable_xformers_memory_efficient_attention()
     
-    for i in tqdm(idx, desc="Generating reconstructions"):
+    for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):
         
         # Make the c_img reconstrution images
         reconstructed_output_c_i = R.reconstruct(image_embeds=outputs_c_i[i], strength=1)
@@ -133,7 +133,7 @@ def reconstructNImages(experiment_title, idx):
         reconstructed_output_c = R.reconstruct(image_embeds=outputs_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1, guidance_scale=10)
         reconstructed_target_c = R.reconstruct(image_embeds=targets_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1, guidance_scale=10)
         
-        nsdId = trials[i]
+        nsdId = trials[val]
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
@@ -142,9 +142,9 @@ def reconstructNImages(experiment_title, idx):
         columns = 2
         images = [ground_truth, empty, reconstructed_target_c, reconstructed_output_c, reconstructed_target_c_i, reconstructed_output_c_i]
         captions = ["Ground Truth", "", "Target C_2", "Output C_2", "Target C_i", "Output C_i"]
-        figure = tileImages(experiment_title + ": " + str(i), images, captions, rows, columns)
+        figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
         
-        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, i))
+        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
 
 def reconstructNImagesST(experiment_title, idx):
     
