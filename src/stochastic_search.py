@@ -14,7 +14,7 @@ from alexnet_encoder import AlexNetEncoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
 from library_decoder import LibraryDecoder
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 
 
 def main():
