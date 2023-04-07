@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 import numpy as np
 from PIL import Image
@@ -60,8 +60,8 @@ def main():
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(50, 75)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(75, 100)], mask=[], ae=True, test=True, average=True)
-    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 4", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 5", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 6", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 7", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
 
 class StochasticSearch():
     def __init__(self, 
@@ -203,11 +203,11 @@ class StochasticSearch():
             beta = beta[:, mask]
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             # momentum = 0.1+0.4*(math.pow(cur_iter/max_iter, 2))
-            momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
-            # momentum = 0.5
+            # momentum = 0.1+0.8*(math.pow(cur_iter/max_iter, 2))
+            momentum = 0.2
             # noise = int(500-500*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            noise = int(200-200*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
-            # noise = 100
+            # noise = int(200-200*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
+            noise = 100
             n_i = max(10, int(n/n_branches))
             tqdm.write("Noise: " + str(noise) + ", Momentum: " + str(momentum) +", N: " + str(n_i))
             samples = []
