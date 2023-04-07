@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -35,33 +35,33 @@ def main():
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4)
-    # S1 = StochasticSearch(config=["AlexNet"],
-    #                       device="cuda:0",
-    #                       log=False,
-    #                       n_iter=10,
-    #                       n_samples=250,
-    #                       n_branches=5)
+    S1 = StochasticSearch(config=["AlexNet"],
+                          device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=250,
+                          n_branches=5)
     # S2 = StochasticSearch(config=["AlexNet"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=2,
     #                       n_samples=10,
     #                       n_branches=2)
-    S4 = StochasticSearch(config=["c_img_uc"],
-                          device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4)
+    # S4 = StochasticSearch(config=["c_img_uc"],
+    #                       device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=100,
+    #                       n_branches=4)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(0, 25)], mask=[], ae=True, test=True, average=True)
-    # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(50, 75)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(7, 25)], mask=[], ae=True, test=True, average=True)
+    S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(50, 75)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(25, 50)], mask=[], ae=True, test=True, average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(75, 100)], mask=[], ae=True, test=True, average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 6", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
-    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 7", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 7", idx=[i for i in range(0, 20)], mask=[], ae=True, test=False, average=True)
 
 class StochasticSearch():
     def __init__(self, 
