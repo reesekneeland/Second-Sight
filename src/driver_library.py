@@ -30,9 +30,9 @@ def main():
     #                    test=False,
     #                    average=True,
     #                    config=["c_img_uc"])
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], test=False, average=True)
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], test=False, average=True)
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], test=False, average=True)
+    # reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], test=False, average=True)
+    # reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], test=False, average=True)
+    reconstruct_test_samples("SCS UC 10:250:5 0.6 Exp3 AE Fixed", idx=[], test=True, average=True)
 
 
             
