@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 import numpy as np
 from PIL import Image
@@ -21,46 +21,53 @@ from alexnet_encoder import AlexNetEncoder
 
 
 def main():
-    # train_decoder_uc() 
+    # train_decoder_uc(subject=2) 
+    # encHash = train_encoder_uc(subject=2)
 
-    # train_encoder_uc()
-
+    # train_decoder_uc(subject=5) 
+    # encHash = train_encoder_uc(subject=5)
+    # train_autoencoder(subject=5, encHash=encHash)
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    reconstructNImages(experiment_title="UC Test Bug", idx=[i for i in range(194, 214)])
+    reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1, decHash="750")
+    reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2, decHash="753")
+    reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5, decHash="758")
+    reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7, decHash="761")
 
-    # train_autoencoder()
+    
 
 
-def train_autoencoder():
+def train_autoencoder(subject, encHash):
     
     # hashNum = update_hash()
-    hashNum = "742"
+    hashNum = "760"
      
     AE = AutoEncoder(hashNum = hashNum,
                         lr=0.00001,
-                        vector="c_text_uc", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        encoderHash="739",
+                        vector="c_img_uc", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
+                        subject=subject,
+                        encoderHash=encHash,
                         log=True, 
                         device="cuda:0",
                         num_workers=16,
                         epochs=300
                         )
     
-    AE.train()
+    # AE.train()
     AE.benchmark(encodedPass=False, average=False)
     AE.benchmark(encodedPass=False, average=True)
     AE.benchmark(encodedPass=True, average=False)
     AE.benchmark(encodedPass=True, average=True)
     
-def train_encoder_uc():
+def train_encoder_uc(subject=1):
     
     # hashNum = update_hash()
-    hashNum = "738"
+    hashNum = "759"
     E = Encoder_UC(hashNum = hashNum,
                  lr=0.00001,
                  vector="c_img_uc", #c_img_vd, c_text_vd
-                 log=False, 
+                 subject=subject,
+                 log=True, 
                  batch_size=750,
                  device="cuda:0",
                  num_workers=16,
@@ -69,21 +76,21 @@ def train_encoder_uc():
     # E.train()
     
     
-    # E.benchmark(average=False)
-    # E.benchmark(average=True)
-    
-    # modelId = E.hashNum + "_model_" + E.vector + ".pt"
-    # process_x_encoded(Encoder=E, modelId=modelId, subject=1)
+    E.benchmark(average=False)
+    E.benchmark(average=True)
+
+    # process_x_encoded(Encoder=E)
     
     return hashNum
 
 
-def train_decoder_uc():
-    hashNum = update_hash()
-    # hashNum = "746"
+def train_decoder_uc(subject=1):
+    # hashNum = update_hash()
+    hashNum = "758"
     D = Decoder_UC(hashNum = hashNum,
                  lr=0.000001,
                  vector="c_img_uc", #c_img_0 , c_text_0, z_img_mixer
+                 subject=subject,
                  log=True, 
                  batch_size=64,
                  device="cuda:0",
@@ -91,7 +98,7 @@ def train_decoder_uc():
                  epochs=500
                 )
     
-    D.train()
+    # D.train()
     
     D.benchmark(average=False)
     D.benchmark(average=True)
@@ -99,11 +106,12 @@ def train_decoder_uc():
     return hashNum
 
 
-def reconstructNImages(experiment_title, idx):
+def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
     
-    _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", loader=False, average=True)
-    Dc_i = Decoder_UC(hashNum = "747",
-                 vector="c_img_uc", 
+    _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=True)
+    Dc_i = Decoder_UC(hashNum = decHash,
+                 vector="c_img_uc",
+                 subject=subject, 
                  log=False, 
                  device="cuda",
                  )

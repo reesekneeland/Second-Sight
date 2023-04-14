@@ -14,36 +14,27 @@ import matplotlib.pylab as plt
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
-    def __init__(self, vector):
+    def __init__(self, vector, x_size):
         super(MLP, self,).__init__()
         self.vector = vector
+        self.linear = nn.Linear(x_size, 15000)
+        self.linear2 = nn.Linear(15000, 15000)
+        self.linear3 = nn.Linear(15000, 15000)
+        self.linear4 = nn.Linear(15000, 15000)
+        # self.linear5 = nn.Linear(15000, 15000)
         if(self.vector == "c_img_uc"):
-            # self.linear = nn.Linear(11838, 1024)
-            self.linear = nn.Linear(11838, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.linear3 = nn.Linear(15000, 15000)
-            self.linear4 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 1024)
         if(self.vector == "c_text_uc"):
-            self.linear = nn.Linear(11838, 78848)
-            # self.linear = nn.Linear(11838, 15000)
-            # self.linear2 = nn.Linear(15000, 15000)
-            # self.outlayer = nn.Linear(15000, 78848)
+            self.outlayer = nn.Linear(15000, 78848)
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        if(self.vector == "c_img_uc"):
-            # y_pred = self.linear(x)
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.relu(self.linear3(y_pred))
-            y_pred = self.relu(self.linear4(y_pred))
-            y_pred = self.outlayer(y_pred)
-        if(self.vector=="c_text_uc"):
-            y_pred = self.linear(x)
-            # y_pred = self.relu(self.linear(x))
-            # y_pred = self.relu(self.linear2(y_pred))
-            # y_pred = self.outlayer(y_pred)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.relu(self.linear3(y_pred))
+        y_pred = self.relu(self.linear4(y_pred))
+        # y_pred = self.relu(self.linear5(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
 
     
@@ -52,7 +43,8 @@ class Decoder_UC():
     def __init__(self, 
                  hashNum,
                  vector, 
-                 log, 
+                 log=False, 
+                 subject=1,
                  lr=0.00001,
                  batch_size=750,
                  device="cuda",
@@ -69,14 +61,22 @@ class Decoder_UC():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
+        self.subject = subject
+        
+        
+        # Initialize the data loaders
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+                                                                    batch_size=self.batch_size, 
+                                                                    num_workers=self.num_workers, 
+                                                                    loader=True,
+                                                                    average=False,
+                                                                    subject=self.subject)
+        x_size = self.trainLoader.dataset[0][0].shape[0]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector)
+        self.model = MLP(self.vector, x_size)
 
         # Send model to Pytorch Device 
         self.model.to(self.device)
-        
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = None, None, None
         
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
@@ -87,6 +87,7 @@ class Decoder_UC():
                 config={
                 "hash": self.hashNum,
                 "architecture": "MLP unCLIP",
+                "subject": self.subject,
                 "vector": self.vector,
                 "dataset": "Z scored",
                 "epochs": self.num_epochs,
@@ -98,22 +99,16 @@ class Decoder_UC():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
-                                                        batch_size=self.batch_size, 
-                                                        num_workers=self.num_workers, 
-                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
         
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
-        # criterion = nn.CrossEntropyLoss()
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
-        # optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr = self.lr)
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
-        for epoch in tqdm(range(self.num_epochs), desc="epochs"):
+        for epoch in tqdm(range(self.num_epochs), desc="epochs for subject{}".format(self.subject)):
             # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
@@ -124,6 +119,7 @@ class Decoder_UC():
                 # y_data = Clip/Z vector Data
                 x_data, y_data = data
                 # Moving the tensors to the GPU
+                
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
                 # Forward pass: Compute predicted y by passing x to the model
@@ -174,29 +170,34 @@ class Decoder_UC():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector))
+                torch.save(self.model.state_dict(), "models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector))
                 loss_counter = 0
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
                 if(loss_counter >= 5):
                     break
+        if(self.log):
+                wandb.finish()
                 
         
 
     def predict(self, x):
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
+        self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(torch.float16)
         return out
     
+    
     def benchmark(self, average=True):
         _, _, x_test, _, _, y_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
-                                                average=average)
+                                                average=average,
+                                                subject=self.subject)
         # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)))
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()
 
         criterion = nn.MSELoss()
@@ -211,6 +212,6 @@ class Decoder_UC():
         loss = criterion(pred_y, y_test)
 
         
-        
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
         print("Vector Correlation: ", float(pearson))
         print("Loss: ", float(loss))

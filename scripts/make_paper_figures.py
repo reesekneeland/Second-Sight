@@ -18,7 +18,7 @@ def make_iteration_figure(experiment_title, i = []):
     captions = []
     rows = len(i)
     columns = 13
-    captions = ["Ground Truth", "Stochastic Search (Ours)", "Decoded CLIP Only", "Iteration 1", "Iteration 2", "Iteration 3", 
+    captions = ["Ground Truth", "Stochastic Search (Ours)", "Decoded CLIP", "Iteration 1", "Iteration 2", "Iteration 3", 
                 "Iteration 4", "Iteration 5", "Iteration 6", "Iteration 7", "Iteration 8", "Iteration 9", "Iteration 10"]
     for index in i:
         sample_path = exp_path + str(index) + "/"
@@ -29,7 +29,8 @@ def make_iteration_figure(experiment_title, i = []):
             images.append(Image.open(sample_path + "/iter_" + str(j) + ".png"))
         
     output = tileImages("", images, captions, rows, columns, useTitle=2, rowCaptions=False)
-    output.save(exp_path + "Search Iterations.png")
+    os.makedirs(exp_path + "results", exist_ok=True)
+    output.save(exp_path + "results/Search Iterations.png")
         
 
 def make_results_figure(experiment_title, idx = []):
@@ -38,7 +39,7 @@ def make_results_figure(experiment_title, idx = []):
     captions = []
     rows = len(idx)
     columns = 4
-    captions = ["Ground Truth", "Stochastic Search (Ours)", "Decoded CLIP Only", "Best Library Selection"]
+    captions = ["Ground Truth", "Stochastic Search (Ours)", "Decoded CLIP", "Best COCO Image"]
     for index in idx:
         sample_path = exp_path + str(index) + "/"
         images.append(Image.open(sample_path + "/Ground Truth.png"))
@@ -47,7 +48,9 @@ def make_results_figure(experiment_title, idx = []):
         images.append(Image.open(sample_path + "/Library Reconstruction.png"))
         
     output = tileImages("", images, captions, rows, columns, useTitle=2, rowCaptions=False)
-    output.save(exp_path + "Results.png")
+    os.makedirs(exp_path + "results", exist_ok=True)
+    output.save(exp_path + "results/Results.png")
         
-make_iteration_figure("SCS VD PCA LR 10:250:5 0.4 Exp AE", i=[75,49, 22, 9])
-# make_results_figure("SCS VD PCA LR 10:250:5 0.4 Exp AE", idx=[46, 18, 23, 34])
+# make_results_figure("SCS UC 10:250:5 0.6 Exp3 AE Fixed copy", idx=[46, 0, 15, 52])
+make_results_figure("SCS UC 10:250:5 0.6 Exp3 AE Fixed copy", idx=[11, 8, 25, 41])
+# make_iteration_figure("SCS UC 10:250:5 0.6 Exp3 AE Fixed copy", i=[13, 28, 55, 21])
