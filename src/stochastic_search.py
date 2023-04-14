@@ -51,6 +51,7 @@ def main():
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4)
+
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
@@ -60,6 +61,7 @@ def main():
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE", idx=[i for i in range(75, 100)], mask=[], ae=True, average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 8", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 9", idx=[i for i in range(0, 20)], mask=[], ae=True, average=True)
+
 
 class StochasticSearch():
     def __init__(self, 

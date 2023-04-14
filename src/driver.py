@@ -27,7 +27,9 @@ def main():
 
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
+
     reconstructNImages(experiment_title="UC Test Bug", idx=[i for i in range(194, 214)])
+
 
     # train_autoencoder()
 
@@ -101,7 +103,9 @@ def train_decoder_uc():
 
 def reconstructNImages(experiment_title, idx):
     
+
     _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", loader=False, average=True)
+
     Dc_i = Decoder_UC(hashNum = "747",
                  vector="c_img_uc", 
                  log=False, 
@@ -134,6 +138,7 @@ def reconstructNImages(experiment_title, idx):
         reconstructed_target_c = R.reconstruct(image_embeds=targets_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1, guidance_scale=10)
         
         nsdId = trials[val]
+
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
@@ -145,6 +150,7 @@ def reconstructNImages(experiment_title, idx):
         figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
         
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
+
 
 def reconstructNImagesST(experiment_title, idx):
     
