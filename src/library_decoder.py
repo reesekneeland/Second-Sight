@@ -1,14 +1,10 @@
-import os
 import torch
 import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
 import torch.nn as nn
 from utils import *
 from tqdm import tqdm
-# from reconstructor import Reconstructor
 from autoencoder  import AutoEncoder
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 
 
 # Config options:
@@ -53,7 +49,7 @@ class LibraryDecoder():
                 self.EncModels.append("alexnet_encoder")
             elif param == "c_img_uc":
                 self.AEModels.append(AutoEncoder(hashNum = "743",
-                                        vector="c_img_uc", #c_img_0, c_text_0, z_img_mixer
+                                        vector="c_img_uc",
                                         encoderHash="738",
                                         log=False, 
                                         batch_size=750,
@@ -61,7 +57,7 @@ class LibraryDecoder():
                 self.EncModels.append("738_model_c_img_uc.pt")
             elif param == "c_text_uc":
                 self.AEModels.append(AutoEncoder(hashNum = "742",
-                                                vector="c_text_uc", #c_img_0, c_text_0, z_img_mixer
+                                                vector="c_text_uc",
                                                 encoderHash="739",
                                                 log=False, 
                                                 device=self.device))
@@ -76,7 +72,7 @@ class LibraryDecoder():
             x_preds.append(modelPreds[:, self.mask])
        
         y_full = torch.load(prep_path + self.vector + "/vector_73k.pt").reshape(73000, self.datasize)
-        y = prune_vector(y_full)
+        y = prune_vector(y_full)[0:63000]
         # print(x_preds.shape)
         if(average):
             x = x[:, :, self.mask]
@@ -89,8 +85,8 @@ class LibraryDecoder():
         PeC = PearsonCorrCoef(num_outputs=21000).to(self.device)
         average_pearson = 0
         
-        for sample in tqdm(range(x.shape[0]), desc="scanning library for " + self.vector):
-            scores = torch.zeros((63000,))
+        for sample in tqdm(range(x.shape[0]), desc="scanning library for {}".format(self.vector)):
+            scores = torch.zeros((y.shape[0],))
             div = 0
             for mId, model in enumerate(self.EncModels):
                 # print("Model: ", model)
@@ -127,7 +123,7 @@ class LibraryDecoder():
                             device=self.device)
 
         # Load data and targets
-        _, _, _, x_test, _, _, _, target, _, _ = load_nsd(vector=self.vector, loader=False, average=False, nest=True)
+        _, _, x_test, _, _, target, _ = load_nsd(vector=self.vector, loader=False, average=False, nest=True)
 
         
         out, _ = LD.predictVector_coco(x_test, average=average)
@@ -152,5 +148,5 @@ class LibraryDecoder():
             l2.append(float(loss))
             print("Vector Correlation Top " + str(i) + ": ", float(pearson_loss))
             print("Loss Top " + str(i) + ":", float(loss))
-        np.save("logs/library_decoder_scores/" + self.vector + "_" + "_".join(self.config) + "_PeC.npy", np.array(vc))
-        np.save("logs/library_decoder_scores/" + self.vector + "_" + "_".join(self.config) + "_L2.npy", np.array(l2))
+        np.save("logs/library_decoder_scores/{vec}_{config}_PeC.npy".format(vec=self.vector, config="_".join(self.config)), np.array(vc))
+        np.save("logs/library_decoder_scores/{vec}_{config}_L2.npy".format(vec=self.vector, config="_".join(self.config)), np.array(l2))

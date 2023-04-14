@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 import h5py
 from utils import *
 # import wandb

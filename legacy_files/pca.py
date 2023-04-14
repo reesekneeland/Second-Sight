@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 sys.path.append('src')
 from utils import *
-from pearson import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 from PIL import Image
 import random
 from nsd_access import NSDAccess

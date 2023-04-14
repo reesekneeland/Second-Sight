@@ -12,7 +12,6 @@ import seaborn as sns
 from matplotlib.lines import Line2D
 import cv2
 
-# _, _, x_param, x_test, _, _, _, targets_c_i, param_trials, test_trials = load_nsd(vector="c_img_0", loader=False, average=True)
 
 # folder_list = []
 # for it in os.scandir("/logs"):

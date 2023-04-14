@@ -1,11 +1,13 @@
 import os, sys
 # os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
+from torch import nn
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
 from autoencoder import AutoEncoder
+import time
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -350,8 +352,8 @@ class AlexNetEncoder():
             
             # ONE SUBJECTS 
             # ----------- Load data ------------
-            # x_train, x_val, _, _, _, _, _, _, _, _, val_trails, _ = load_nsd(vector = "c_img_0", loader = False, average = True, return_trial = True)
-            _, _, _, x_test, _, _, _, _, alexnet_stimuli_order, _, _ = load_nsd(vector = "c_img_0", loader = False, return_trial = True)
+            _, _, x_test, _, _, _, _ = load_nsd(vector = "c_img_uc", loader = False)
+            alexnet_stimuli_order = ghislain_stimuli_ordering()
     
             print(alexnet_stimuli_order)
 
@@ -487,7 +489,7 @@ class AlexNetEncoder():
         
         print(subject_image_pred[1].shape)
         
-        torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/alexnet_pred_73k.pt")
+        torch.save(torch.from_numpy(subject_image_pred[1]), "/export/raid1/home/kneel027/Second-Sight/latent_vectors/alexnet_encoder/coco_brain_preds.pt")
         
         
     def predict_cc3m(self):
@@ -587,6 +589,9 @@ class AlexNetEncoder():
         return torch.from_numpy(subject_image_pred[1])
       
     def benchmark(self, average=True, ae=False):
+        _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",  
+                                                    loader=False,
+                                                    average=average)
         if(ae):
             AE = AutoEncoder(hashNum = "582",
                     lr=0.0000001,
@@ -596,43 +601,38 @@ class AlexNetEncoder():
                     batch_size=750,
                     device="cuda:0"
                     )
+            y_test = AE.predict(y_test)
             
-            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
-                                                    loader=False,
-                                                    average=False)
-            x_test = AE.predict(x_test)
-            # x_test = []
-            # for i, beta_trials in enumerate(tqdm(x_test_nest, desc="Averaging and autoencoding samples")):
-            #     if(average):
-            #         x_test.append(torch.mean(AE.predict(beta_trials),dim=0))
-            #     else:
-            #         for i in range(len(beta_trials)):
-            #             x_test.append(beta_trials[i]) 
-            # x_test = torch.stack(x_test)
-        else:
-            _, _, _, x_test, _, _, _, test_images, _, _ = load_nsd(vector="images",  
-                                                    loader=False,
-                                                    average=average)
         # Load our best model into the class to be used for predictions
         images = []
         for im in test_images:
             images.append(process_image(im))
         
-        
-        
-        
         criterion = nn.MSELoss()
-        PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
-        x_test = x_test.to(self.device)
+        y_test = y_test.to(self.device)
         
-        pred_x = self.predict(images).to(self.device)
+        pred_y = self.predict(images).to(self.device)
         
-        pearson = torch.mean(PeC(pred_x.moveaxis(0,1), x_test.moveaxis(0,1)))
-        loss = criterion(pred_x, x_test)
+        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        loss = criterion(pred_y, y_test)
+        
+        pred_y = pred_y.detach()
+        y_test = y_test.detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = np.array(r)
         
         print("Vector Correlation: ", float(pearson))
+        print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
+        plt.hist(r, bins=50, log=True)
+        plt.savefig("charts/alexnet_encoder_voxel_PeC.png")
 
 def main():
     
