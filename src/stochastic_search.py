@@ -76,13 +76,15 @@ def main():
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 22", idx=[i for i in range(0, 20)], mask=[],  average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 23", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 24", idx=[i for i in range(0, 20)], mask=[], average=True)
-    S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 26", idx=[i for i in range(0, 20)], mask=[], average=True)
+    S4.generateTestSamples(experiment_title="UC Refactor Test5", idx=[i for i in range(0, 20)], mask=[], average=True)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 26", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided Z only", idx=[i for i in range(0, 20)], mask=[], average=True, refine_clip=False)
 class StochasticSearch():
     def __init__(self, 
                 config=["AlexNet"],
                 device="cuda:0",
+                subject=1,
                 log=True,
                 n_iter=10,
                 n_samples=10,
@@ -91,6 +93,7 @@ class StochasticSearch():
         self.config = config
         self.log = log
         self.device = device
+        self.subject = subject
         self.n_iter = n_iter
         self.n_samples = n_samples
         self.n_branches = n_branches
@@ -107,7 +110,8 @@ class StochasticSearch():
         for param in config:
             if param == "AlexNet":
                 self.AEModels.append(AutoEncoder(hashNum = "582",
-                                                vector="alexnet_encoder_sub1", 
+                                                vector="alexnet_encoder_sub1",
+                                                subject=self.subject,
                                                 encoderHash="579",
                                                 log=False, 
                                                 device=self.device))
@@ -116,11 +120,13 @@ class StochasticSearch():
             elif param == "c_img_uc":
                 self.AEModels.append(AutoEncoder(hashNum = "743",
                                         vector="c_img_uc",
+                                        subject=self.subject,
                                         encoderHash="738",
                                         log=False, 
                                         batch_size=750,
                                         device=self.device))
                 self.EncModels.append(Encoder_UC(hashNum="738",
+                                                 subject=self.subject,
                                                  vector="c_img_uc",
                                                  device=self.device))
                 self.EncType.append("c_img_uc")
@@ -137,7 +143,7 @@ class StochasticSearch():
         return images
 
     #clip is a 1024 clip vector
-    #beta is a 3x11838 tensor of brain data to reconstruct
+    #beta is a 3xdim tensor of brain data to reconstruct
     #n is the number of samples to generate at each iteration
     #max_iter caps the number of iterations it will perform
     def zSearch(self, beta, c_i, n=10, max_iter=10, n_branches=1, mask=None, average=True):
@@ -273,6 +279,7 @@ class StochasticSearch():
                 best_vector_corrrelation = cur_vector_corrrelation
                 best_image = samples[int(torch.argmax(scores))]
                 best_clip = sample_clips[int(torch.argmax(scores))]
+            best_image.save("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/UC Refactor Test5/best_im.png")
         return best_image, images, iter_scores, var_scores
     
     def zSearch_combined(self, beta, c_i, n=10, max_iter=10, n_branches=1, mask=None, average=True):
@@ -459,8 +466,8 @@ class StochasticSearch():
         os.makedirs("logs/{}/".format(experiment_title), exist_ok=True)
 
          # Load data and targets
-        _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
-        _, _, x_test_averaged, _, _, _, _ = load_nsd(vector="c_img_uc", loader=False, average=True, nest=False)
+        _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", subject=self.subject, loader=False, average=False, nest=True)
+        _, _, x_test_averaged, _, _, _, _ = load_nsd(vector="c_img_uc", subject=self.subject, loader=False, average=True, nest=False)
         
             
         targets_c_i = targets_c_i[idx]
@@ -476,9 +483,10 @@ class StochasticSearch():
             print(outputs_c_i.shape)
         else:
             Dc_i = Decoder_UC(hashNum = "747",
-                            vector="c_img_uc", 
-                            log=False, 
-                            device="cuda")
+                              subject=self.subject,
+                              vector="c_img_uc", 
+                              log=False, 
+                              device="cuda")
             outputs_c_i = Dc_i.predict(x=x_test_averaged[idx])
             # outputs_c_i = Dc_i.predict(x=torch.mean(x_test, dim=1))x_test_averaged
             print(outputs_c_i.shape)

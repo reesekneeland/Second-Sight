@@ -22,17 +22,17 @@ from alexnet_encoder import AlexNetEncoder
 
 def main():
     # train_decoder_uc(subject=2) 
-    # encHash = train_encoder_uc(subject=2)
+    encHash = train_encoder_uc(subject=1)
 
     # train_decoder_uc(subject=5) 
     # encHash = train_encoder_uc(subject=5)
     # train_autoencoder(subject=5, encHash=encHash)
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1, decHash="750")
-    reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2, decHash="753")
-    reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5, decHash="758")
-    reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7, decHash="761")
+    # reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1, decHash="750")
+    # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2, decHash="753")
+    # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5, decHash="758")
+    # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7, decHash="761")
 
     
 
@@ -62,7 +62,7 @@ def train_autoencoder(subject, encHash):
 def train_encoder_uc(subject=1):
     
     # hashNum = update_hash()
-    hashNum = "759"
+    hashNum = "738"
     E = Encoder_UC(hashNum = hashNum,
                  lr=0.00001,
                  vector="c_img_uc", #c_img_vd, c_text_vd
@@ -76,10 +76,10 @@ def train_encoder_uc(subject=1):
     # E.train()
     
     
-    E.benchmark(average=False)
-    E.benchmark(average=True)
+    # E.benchmark(average=False)
+    # E.benchmark(average=True)
 
-    # process_x_encoded(Encoder=E)
+    process_x_encoded(Encoder=E)
     
     return hashNum
 
