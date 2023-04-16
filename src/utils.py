@@ -264,13 +264,16 @@ def process_data(vector="c_img_uc", subject = 1):
     elif(vector == "c_text_uc"):
         vec_target = torch.zeros((73000, 78848))
         datashape = (1,78848)
+    elif(vector == "z_vdvae"):
+        vec_target = torch.zeros((73000, 91168))
+        datashape = (1, 91168)
 
     # Loading the description object for subejct1
     subj = "subject" + str(subject)
     subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
     vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[1]
-    full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/{}/vector_73k.pt".format(vector))
-    for i in tqdm(range(0,vecLength), desc="vector loader"):
+    full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector))
+    for i in tqdm(range(0,vecLength), desc="vector loader subject{}".format(subject)):
         index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
         vec_target[i] = full_vec[index].reshape(datashape)
     
@@ -295,6 +298,12 @@ def process_raw_tensors(vector):
     elif(vector == "c_text_uc"):
         vec_target = torch.zeros((73000, 78848))
         datashape = (1,78848)
+    elif(vector == "images"):
+        vec_target = torch.zeros((73000, 541875))
+        datashape = (1, 541875)
+    elif(vector == "z_vdvae"):
+        vec_target = torch.zeros((73000, 91168))
+        datashape = (1, 91168)
 
     for i in tqdm(range(73000), desc="vector loader"):
         full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/{}/{}.pt".format(vector, i)).reshape(datashape)

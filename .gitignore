@@ -20,3 +20,4 @@ hash
 /charts
 /logs
 src/diffusers
+vdvae/__pycache__
