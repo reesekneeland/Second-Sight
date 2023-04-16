@@ -33,8 +33,9 @@ def main():
     # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2, decHash="753")
     # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5, decHash="758")
     # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7, decHash="761")
-
+    reconstructNImages(experiment_title="UC Test Bug", idx=[i for i in range(194, 214)])
     
+    # train_autoencoder()
 
 
 def train_autoencoder(subject, encHash):
@@ -112,6 +113,7 @@ def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
     Dc_i = Decoder_UC(hashNum = decHash,
                  vector="c_img_uc",
                  subject=subject, 
+
                  log=False, 
                  device="cuda",
                  )
@@ -142,6 +144,7 @@ def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
         reconstructed_target_c = R.reconstruct(image_embeds=targets_c_i[i], prompt="photorealistic", negative_prompt="cartoon, art, saturated, text, caption", strength=1, guidance_scale=10)
         
         nsdId = trials[val]
+
         ground_truth_np_array = nsda.read_images([nsdId], show=True)
         ground_truth = Image.fromarray(ground_truth_np_array[0])
         ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
@@ -153,6 +156,7 @@ def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
         figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
         
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
+
 
 def reconstructNImagesST(experiment_title, idx):
     

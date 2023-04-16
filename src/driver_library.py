@@ -29,9 +29,11 @@ def main():
     #                    mask=[],
     #                    average=True,
     #                    config=["c_img_uc"])
+    
     reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], average=True)
     reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], average=True)
     reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], average=True)
+
 
 
             

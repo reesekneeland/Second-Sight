@@ -19,11 +19,12 @@ import copy
 from tqdm import tqdm
 import nibabel as nib
 
-_, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=1, loader=False, average=False, nest=True)
 
-# for subject in range(1, 9):
-#     create_whole_region_unnormalized(subject=subject)
-#     create_whole_region_normalized(subject=subject)
-#     process_data(subject=subject, vector="c_img_uc")
-#     process_data(subject=subject, vector="images")
-#     # process_masks(subject=subject)
+# process_raw_tensors(vector="z_vdvae")
+for subject in range(1, 9):
+    # create_whole_region_unnormalized(subject=subject)
+    # create_whole_region_normalized(subject=subject)
+    # process_data(subject=subject, vector="c_img_uc")
+    # process_data(subject=subject, vector="images")
+    process_data(subject=subject, vector="z_vdvae")
+    # process_masks(subject=subject)

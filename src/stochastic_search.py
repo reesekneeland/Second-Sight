@@ -33,7 +33,7 @@ def main():
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4,
-                        #   ae=True)
+    #                       ae=True
     # S1 = StochasticSearch(config=["AlexNet"],
     #                       device="cuda:0",
     #                       log=False,
@@ -48,23 +48,24 @@ def main():
     #                       n_samples=10,
     #                       n_branches=2,
                         #   ae=True)
-    S4 = StochasticSearch(config=["c_img_uc"],
-                          device="cuda:0",
-                          log=False,
-                          n_iter=10,
-                          n_samples=100,
-                          n_branches=4,
-                          ae=True)
-    # S5 = StochasticSearch(config=["AlexNet", "c_img_uc"],
+
+    # S4 = StochasticSearch(config=["c_img_uc"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
+    S5 = StochasticSearch(config=["AlexNet", "c_img_uc"],
+                          device="cuda:0",
+                          log=False,
+                          n_iter=10,
+                          n_samples=100,
+                          n_branches=4,
+                          ae=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], average=True)
-    # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[i for i in range(0, 20)], mask=[], average=True)
+    # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE photorealistic, negative prompts for text, caption", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE Fixed", idx=[i for i in range(194, 209)], mask=[], average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE Fixed", idx=[i for i in range(209, 224)], mask=[], average=True)
     # S1.generateTestSamples(experiment_title="SCS UC 10:250:5 0.6 Exp3 AE Fixed", idx=[i for i in range(224, 239)], mask=[], average=True)
@@ -76,10 +77,9 @@ def main():
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 22", idx=[i for i in range(0, 20)], mask=[],  average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 23", idx=[i for i in range(0, 20)], mask=[], average=True)
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 24", idx=[i for i in range(0, 20)], mask=[], average=True)
-    S4.generateTestSamples(experiment_title="UC Refactor Test5", idx=[i for i in range(0, 20)], mask=[], average=True)
-    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 26", idx=[i for i in range(0, 20)], mask=[], average=True)
-    # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided", idx=[i for i in range(0, 20)], mask=[], average=True)
-    # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided Z only", idx=[i for i in range(0, 20)], mask=[], average=True, refine_clip=False)
+    # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 27", idx=[i for i in range(0, 20)], mask=[], average=True)
+    S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided 3", idx=[i for i in range(0, 20)], mask=[], average=True)
+    # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided Z only 3, photorealistic, negative prompts for text,caption", idx=[i for i in range(0, 20)], mask=[], average=True, refine_clip=False)
 class StochasticSearch():
     def __init__(self, 
                 config=["AlexNet"],
@@ -137,9 +137,9 @@ class StochasticSearch():
             images.append(self.R.reconstruct(image=image,
                                              image_embeds=c_i, 
                                              strength=strength,
-                                             noise_level=noise_level,))
-                                            #  prompt="photorealistic", 
-                                            #  negative_prompt="cartoon, art, saturated, text, caption"))
+                                             noise_level=noise_level,
+                                             prompt="photorealistic", 
+                                             negative_prompt="text, caption"))
         return images
 
     #clip is a 1024 clip vector
@@ -221,7 +221,8 @@ class StochasticSearch():
             # momentum = 0.01
             # noise = int(500-500*(1/(1+math.exp(-((cur_iter/max_iter)/0.1 - 5)))))
             # noise = int(250-250*(math.pow(cur_iter/max_iter, 2)))
-            noise = 25
+            noise = 50
+
             n_i = max(10, int(n/n_branches))
             tqdm.write("Noise: {}, Momentum: {}, N: {}".format(noise, momentum, n_i))
             samples = []
@@ -295,7 +296,7 @@ class StochasticSearch():
         for cur_iter in tqdm(range(max_iter), desc="search iterations"):
             strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
             momentum = 0.05*(math.pow(cur_iter/max_iter, 2))
-            noise = 25
+            noise = 50
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: {}, Momentum: {}, Noise: {}, N: {}".format(strength, momentum, noise, n_i))
             
@@ -321,7 +322,7 @@ class StochasticSearch():
                                                 noise_level=noise)
             for image in samples:
                 sample_clips.append(self.R.encode_image_raw(image))
-            combined_scores = []
+            combined_scores_list = []
             for c, mType in enumerate(self.EncType):
                 if mType == "images":
                     beta_primes = self.EncModels[c].predict(samples, mask)
@@ -346,7 +347,7 @@ class StochasticSearch():
                 else:
                     xDup = cur_beta[0].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
                     scores = PeC(xDup, beta_primes)
-                combined_scores.append(scores)
+                combined_scores_list.append(scores)
                 cur_var = float(torch.var(scores))
                 topn_pearson = torch.topk(scores, n_branches)
                 cur_vector_corrrelation = float(torch.max(scores))
@@ -358,7 +359,7 @@ class StochasticSearch():
                         iter_images[i] = samples[int(topn_pearson.indices[i])]
                     iter_image_scores.append(float(torch.max(scores)))
                     
-                    if (float(torch.max(scores)) > best_clip_score or best_clip_score == -1):
+                    if (float(torch.max(scores)) > best_image_score or best_image_score == -1):
                         best_image = samples[int(torch.argmax(scores))]
                         best_image_score = int(torch.argmax(scores))
                 elif mType == "c_img_uc":
@@ -368,10 +369,12 @@ class StochasticSearch():
                     if (float(torch.max(scores)) > best_clip_score or best_clip_score == -1):
                         best_clip = sample_clips[int(torch.argmax(scores))]
                         best_clip_score = int(torch.argmax(scores))
-            combined_scores = torch.mean(torch.stack(combined_scores), dim=0)
+            combined_scores = torch.mean(torch.stack(combined_scores_list), dim=0)
             combined_best_score = float(torch.max(combined_scores))
             print("COMBINED SCORES SHAPE: {}".format(combined_scores.shape))
             images.append(samples[int(torch.argmax(combined_scores))])
+            iter_image_scores.append(float(combined_scores_list[0][int(torch.argmax(combined_scores))]))
+            iter_clip_scores.append(float(combined_scores_list[1][int(torch.argmax(combined_scores))]))
             iter_scores.append(combined_best_score)
             var_scores.append(float(torch.var(combined_scores)))
             
@@ -560,7 +563,7 @@ class StochasticSearch():
             try:
                 count = 0
                 for j in range(len(images)):
-                    if("BC" in captions[j]):
+                    if("BC" in captions[j] or "Comb" in captions[j]):
                         images[j].save("reconstructions/{}/{}/iter_{}.png".format(experiment_title, val, count))
                         count +=1
                     else:

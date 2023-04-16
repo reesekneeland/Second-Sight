@@ -14,6 +14,7 @@ import cv2
 import random
 from transformers import AutoProcessor, CLIPVisionModelWithProjection
 import math
+import re
 
 class Stochastic_Search_Statistics():
     
@@ -23,7 +24,7 @@ class Stochastic_Search_Statistics():
         #subdirs = [os.path.join(d, o) for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
         #length_subdirs = len(subdirs)
         # self.R = Reconstructor(device=self.device)
-        self.device="cuda:3"
+        self.device="cuda:0"
         model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
@@ -58,12 +59,15 @@ class Stochastic_Search_Statistics():
         
         
         #x_test_ae = torch.zeros((x_test.shape[0], 11838))
-        x_test_ae = torch.zeros((50, 11838))
+        x_test_ae = torch.zeros((100, 11838))
         
         # 
         # for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
-        for i in tqdm(range(50), desc = "Autoencoding samples and averaging" ):
-            x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
+        # for i in tqdm(range(100), desc = "Autoencoding samples and averaging" ):
+        #     x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
+        
+        for i in tqdm(range(100), desc = "Autoencoding samples and averaging" ):
+            x_test_ae[i] = torch.mean(AE.predict(x_param[i]),dim=0)
         
         return x_test_ae
     
@@ -179,7 +183,6 @@ class Stochastic_Search_Statistics():
             
         # print(alexnet_predictions[i].shape)
         beta_primes = alexnet_predictions.moveaxis(0, 1).to(self.device)
-        print(beta_primes.shape)
         
         if(not unmasked):
             beta = beta_sample[brain_mask]
@@ -191,7 +194,6 @@ class Stochastic_Search_Statistics():
         print(xDup.shape, beta_primes.shape)
         scores = PeC(xDup, beta_primes)
         scores_np = scores.detach().cpu().numpy()
-        print(scores_np)
         
         return scores_np
         
@@ -218,19 +220,30 @@ class Stochastic_Search_Statistics():
     #two_way_prob is the two way identification experiment between the given image and a random search reconstruction of a different sample with respect to the ground truth
     #clip_pearson is the pearson correlation score between the clips of the two given images
     #Sample type controls which of the types of image to pick a random sample between
-        #0 = Ground Truth
-        #1 = Search Reconstruction
-        #2 = Decoded CLIP Only
-        #3 = Library Reconstruction
+        #   0 --> iter_0
+        #   1 --> iter_1
+        #   2 --> iter_2
+        #   3 --> iter_3
+        #   4 --> iter_4 
+        #   5 --> iter_5
+        #   6 --> iter_6
+        #   7 --> iter_7
+        #   8 --> iter_8
+        #   9 --> iter_9
+        #   10 --> Ground Truth
+        #   11 --> Decoded CLIP Only
+        #   12 --> Library Reconstruction
     def calculate_clip_similarity(self, experiment_name, sample, sampleType=1):
         with torch.no_grad():
             exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
-            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != "results"])
+
+            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
-            sampleTypes = ["Ground Truth.png", "Search Reconstruction.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
+            sampleTypes = ["iter_0.png", "iter_1.png", "iter_2.png", "iter_3.png", "iter_4.png", "iter_5.png", "iter_6.png", "iter_7.png",
+                           "iter_8.png", "iter_9.png","Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
             random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
-            image = Image.open(exp_path + str(sample) + "/Search Reconstruction.png")
+            image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
             
             inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
@@ -247,6 +260,29 @@ class Stochastic_Search_Statistics():
             two_way_prob = loss.softmax(dim=0)[0]
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
         return float(two_way_prob), float(clip_pearson)
+    
+    
+    def image_indices(self, folder):
+        
+        # Directory path
+        dir_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        
+        # Grab the list of files
+        files = []
+        for path in os.listdir(dir_path):
+            
+            # check if current path is a file
+            if os.path.isfile(os.path.join(dir_path, path)):
+                files.append(path)
+        
+        # Get just the image number and then sort the list. 
+        indicies = []
+        for i in range(len(files)):
+            indicies.append(int(re.search(r'\d+', files[i]).group()))
+       
+        indicies.sort()
+        
+        return indicies
         
         
         
@@ -255,6 +291,10 @@ class Stochastic_Search_Statistics():
         # Path to the folder
         log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/" + folder + "/"
         directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        
+        
+        # List of image numbers created. 
+        idx = self.image_indices(folder)
          
         # Instantiate the alexnet class for predicts
         AN =  AlexNetEncoder()
@@ -268,10 +308,11 @@ class Stochastic_Search_Statistics():
         # create an Empty DataFrame
         # object With column names only
         # Sample Indicator: 
-        #   0 --> Ground Truth
-        #   1 --> Ground Truth CLIP
-        #   2 --> Decoded CLIP Only
-        #   3 --> Search Reconstruction
+            #   0 --> Ground Truth
+            #   1 --> Ground Truth CLIP
+            #   2 --> Decoded CLIP Only
+            #   3 --> Library Reconstruction
+            #   4 --> Search Reconstruction
         df = pd.DataFrame(columns = ['ID', 'Iter', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
@@ -286,7 +327,7 @@ class Stochastic_Search_Statistics():
         folder_image_set = []
         
         # Append rows to an empty DataFrame
-        for i in tqdm(range(22), desc="creating dataframe rows"):
+        for i in tqdm(idx, desc="creating dataframe rows"):
             
             # Create the path
             path = directory_path + str(i)
@@ -296,8 +337,6 @@ class Stochastic_Search_Statistics():
                 # Ground Truth Image
                 ground_truth_path = path + '/' + 'Ground Truth.png'
                 ground_truth = Image.open(ground_truth_path)
-                ground_truth.save("/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight/logs/test_" + str(i) + ".png")
-                
                 
                 # Ground Truth CLIP Image
                 ground_truth_CLIP_path = path + '/' + 'Ground Truth CLIP.png'
@@ -307,11 +346,12 @@ class Stochastic_Search_Statistics():
                 decoded_CLIP_only_path = path + '/' + 'Decoded CLIP Only.png'
                 decoded_CLIP_only = Image.open(decoded_CLIP_only_path)
                 
+                # Library Reconstructions
+                library_reconstruction_path = path + '/' + 'Library Reconstruction.png'
+                library_reconstruction = Image.open(library_reconstruction_path)
+                
                 # Search Reconstruction Image
                 search_reconstruction_path = path + '/' + 'Search Reconstruction.png'
-                
-                # CLIP metrics calculation
-                two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i)
                 
                 with open(os.path.join(path, filename), 'r') as f:
                     if('iter' in filename):
@@ -330,19 +370,22 @@ class Stochastic_Search_Statistics():
                         ssim_ground_truth          = self.calculate_ssim(ground_truth_path, reconstruction_path)
                         ssim_search_reconstruction = self.calculate_ssim(search_reconstruction_path, reconstruction_path)
                         
+                        # CLIP metrics calculation
+                        two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i, iter_count)
+                        
                         # Calculate the strength at that reconstruction iter image. 
                         strength = 1.0-0.6*(math.pow(iter_count/10, 3))
                 
                         # Make data frame row
                         if(ssim_search_reconstruction == 1.00):
-                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "3", 'Strength' : str(round(strength, 10)),
+                            row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Sample Indicator' : "4", 'Strength' : str(round(strength, 10)),
                                                 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)),
                                                 'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
                         
                         else:
                             row = pd.DataFrame({'ID' : str(i), 'Iter' : str(iter_count), 'Strength' : str(round(strength, 10)), 
                                                 'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)), 
-                                                'CLIP Pearson' : str(round(clip_pearson, 10))},  index=[df_row_num])
+                                                'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))},  index=[df_row_num])
                         
                         # Add the row to the dataframe
                         df = pd.concat([df, row])
@@ -353,6 +396,7 @@ class Stochastic_Search_Statistics():
                         
 
             # Add the images for alexnet predictions
+            folder_image_set.append(library_reconstruction)
             folder_image_set.append(decoded_CLIP_only)
             folder_image_set.append(ground_truth_CLIP)
             folder_image_set.append(ground_truth)
@@ -375,10 +419,22 @@ class Stochastic_Search_Statistics():
             pearson_correlation_higher_visual   = self.generate_pearson_correlation(alexnet_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
             pearson_correlation_unmasked        = self.generate_pearson_correlation(alexnet_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
                         
+                        
+            # Make data frame row for library resonstruction
+            pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
+            ssim_library = self.calculate_ssim(ground_truth_path, library_reconstruction_path)
+            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, (iter_count + 2))
+            row_library = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "3", 'SSIM' : str(round(ssim_library, 10)), 'Pixel Correlation' : str(round(pix_corr_library, 10)), 
+                                         'CLIP Pearson' : str(round(clip_pearson_library, 10)), 'CLIP Two-way' : str(round(two_way_prob_library, 10))}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_library])
+            
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
             ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10))}, index=[df_row_num])
+            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, (iter_count + 1))
+            row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)),
+                                         'CLIP Pearson' : str(round(clip_pearson_decoded, 10)), 'CLIP Two-way' : str(round(two_way_prob_decoded, 10))}, index=[df_row_num])
             df_row_num += 1
             df = pd.concat([df, row_decoded])
             
@@ -390,12 +446,13 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth_CLIP])
             
             # Make data frame row for ground truth Image
-            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10))}, index=[df_row_num])
+            two_way_prob_ground_truth, clip_pearson_ground_truth = self.calculate_clip_similarity(folder, i, iter_count)
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 
+                                              'CLIP Pearson' : str(round(clip_pearson_ground_truth, 10)), 'CLIP Two-way' : str(round(two_way_prob_ground_truth, 10))}, index=[df_row_num])
             df_row_num += 1
             df = pd.concat([df, row_ground_truth])
             
             for image_index in range(len(folder_image_set)): 
-                print(((df_row_num - len(folder_image_set)) + image_index))
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V1']             =  pearson_correlation_V1[image_index] 
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V2']             =  pearson_correlation_V2[image_index]      
                 df.at[((df_row_num - len(folder_image_set)) + image_index), 'Brain Correlation V3']             =  pearson_correlation_V3[image_index]
@@ -411,7 +468,7 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
-        df.to_csv(log_path + "statistics_df_23.csv")
+        df.to_csv(log_path + "statistics_df_" + str(len(idx)) +  ".csv")
     
     
 def main():
@@ -422,8 +479,11 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    #SCS.create_dataframe("SCS 10:250:5 HS nsd_general AE")
-    # SCS.create_dataframe("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE")
+
+    SCS.create_dataframe("SCS UC 747 10:100:4 0.6 Exp3 AE")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
