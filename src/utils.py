@@ -7,6 +7,7 @@ from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
+import textwrap
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -46,12 +47,12 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     if(ae):
         assert encoderModel is not None
         x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
-        y = torch.load(prep_path + "subject{}/x_encoded/{}.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+        y = torch.load(prep_path + "subject{}/x_encoded/{}".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
-        # x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
-        # y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
-        x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
-        y = torch.load(prep_path + "{}/vector.pt".format(vector)).requires_grad_(False)
+        x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
+        y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+        # x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
+        # y = torch.load(prep_path + "{}/vector.pt".format(vector)).requires_grad_(False)
     
     if(not split): 
         if(loader):
@@ -64,19 +65,18 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     y_train, y_val, y_test = [], [], []
     subj_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject{}'.format(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
     subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject{}'.format(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
-    
     test_trials = []
     split_point = int(subj_train.shape[0]*0.85)
     for i in tqdm(range(split_point), desc="loading training samples"):
         for j in range(3):
-            scanId = subj_train.iloc[i]['subject1_rep{}'.format(j)]
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
             if(scanId < x.shape[0]):
                 x_train.append(x[scanId-1])
                 y_train.append(y[scanId-1])
                         
     for i in tqdm(range(split_point, subj_train.shape[0]), desc="loading validation samples"):
         for j in range(3):
-            scanId = subj_train.iloc[i]['subject1_rep{}'.format(j)]
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
             if(scanId < x.shape[0]):
                 x_val.append(x[scanId-1])
                 y_val.append(y[scanId-1])
@@ -86,7 +86,7 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
         avy = []
         x_row = torch.zeros((3, x.shape[1]))
         for j in range(3):
-            scanId = subj_test.iloc[i]['subject1_rep{}'.format(j)]
+            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)]
             if(scanId < x.shape[0]):
                 if average or nest:
                     avx.append(x[scanId-1])
@@ -96,12 +96,16 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
                     y_test.append(y[scanId-1])
                     test_trials.append(nsdId)
         if(len(avy)>0):
+            # if len(avy) < 3:
+                # print("WARNING: Missing data for trial {}".format(i-194))
             if average:
                 avx = torch.stack(avx)
                 x_test.append(torch.mean(avx, dim=0))
             else:
-                for i in range(len(avx)):
-                    x_row[i] = avx[i]
+                for j in range(len(avx)):
+                    # if len(avy) < 3:
+                        # print("sample: {}, nonzero: {}".format(i-194, torch.sum(torch.count_nonzero(avx[j]))))
+                    x_row[j] = avx[j]
                 x_test.append(x_row)
             y_test.append(avy[0])
             test_trials.append(nsdId)
@@ -112,7 +116,6 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     y_val = torch.stack(y_val)
     y_test = torch.stack(y_test)
     print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
-
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
         valset = torch.utils.data.TensorDataset(x_val, y_val)
@@ -169,7 +172,7 @@ def create_whole_region_unnormalized(subject = 1, whole=False):
     nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
     print(nsd_mask.shape)
     # Loads the full collection of beta sessions for subject 1
-    for i in tqdm(range(1,data), desc="Loading Voxels"):
+    for i in tqdm(range(1,data+1), desc="Loading Voxels"):
         beta = nsda.read_betas(subject="subj0" + str(subject), 
                                 session_index=i, 
                                 trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
@@ -201,29 +204,27 @@ def create_whole_region_normalized(subject = 1, whole = False):
         whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized_all.pt".format(subject))
     else:
         whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized.pt".format(subject))
-        #whole_region_norm = torch.zeros((30000, subjects[subject]))
-    whole_region_norm_z = torch.zeros_like(whole_region)
+    whole_region_norm = torch.zeros_like(whole_region)
             
     # Normalize the data using Z scoring method for each voxel
     for i in range(whole_region.shape[1]):
         voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
         normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
-        whole_region_norm_z[:, i] = normalized_voxel
+        whole_region_norm[:, i] = normalized_voxel
     # Normalize the data by dividing all elements by the max of each voxel
     # whole_region_norm = whole_region / whole_region.max(0, keepdim=True)[0]
 
         # Save the tensor
     if(whole):
-        torch.save(whole_region_norm_z, prep_path + "subject{}/nsd_general_all.pt".format(subject))
+        torch.save(whole_region_norm, prep_path + "subject{}/nsd_general_all.pt".format(subject))
     else:
-        torch.save(whole_region_norm_z, prep_path + "subject{}/nsd_general.pt".format(subject))
+        torch.save(whole_region_norm, prep_path + "subject{}/nsd_general.pt".format(subject))
     
 def process_masks(subject=1):
     nsd_general = nib.load(mask_path + "subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
     nsd_general = np.nan_to_num(nsd_general).astype(bool)
     
     visual_rois = nib.load(mask_path + "subject{}/prf-visualrois.nii.gz".format(subject)).get_fdata()
-    empty_brain = np.full(visual_rois.shape, False)
     V1L = np.where(visual_rois==1.0, True, False)
     V1R = np.where(visual_rois==2.0, True, False)
     V1 = torch.from_numpy(V1L[nsd_general] + V1R[nsd_general])
@@ -254,15 +255,16 @@ def process_masks(subject=1):
 
     
 def process_data(vector="c_img_uc", subject = 1):
+    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[0]
     
     if(vector == "images"):
-        vec_target = torch.zeros((27750, 541875))
+        vec_target = torch.zeros((vecLength, 541875))
         datashape = (1, 541875)
     elif(vector == "c_img_uc"):
-        vec_target = torch.zeros((73000, 1024))
+        vec_target = torch.zeros((vecLength, 1024))
         datashape = (1,1024)
     elif(vector == "c_text_uc"):
-        vec_target = torch.zeros((73000, 78848))
+        vec_target = torch.zeros((vecLength, 78848))
         datashape = (1,78848)
     elif(vector == "z_vdvae"):
         vec_target = torch.zeros((73000, 91168))
@@ -283,7 +285,7 @@ def get_images(subject=1):
     images = []
     subj = "subject" + str(subject)
     subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
-    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[1]
+    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[0]
     for i in tqdm(range(0,vecLength), desc="image loader"):
         index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
         ground_truth_image_np_array = nsda.read_images([index], show=False)
@@ -310,21 +312,21 @@ def process_raw_tensors(vector):
         vec_target[i] = full_vec
     torch.save(vec_target, prep_path + vector + "_73k.pt")
     
-def process_x_encoded(Encoder, modelId, subject=1):
-    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/{}".format(modelId), exist_ok=True)
+def process_x_encoded(Encoder):
+    modelId = Encoder.hashNum + "_model_" + Encoder.vector + ".pt"
+    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/subject{}/{}".format(Encoder.subject, modelId), exist_ok=True)
     coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(Encoder.vector))
-    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[1]
+    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(Encoder.subject)).shape[1]
     coco_preds_full = torch.zeros((73000, vecLength))
     for i in range(4):
         coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
     pruned_encodings = prune_vector(coco_preds_full)
-    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/{}/coco_brain_preds.pt".format(modelId))
+    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/subject{}/{}/coco_brain_preds.pt".format(Encoder.subject, modelId))
     
-    
-    os.makedirs(prep_path + "subject{}/x_encoded/".format(subject), exist_ok=True)
-    _, y = load_nsd(vector = Encoder.vector, loader = False, split = False)
+    os.makedirs(prep_path + "subject{}/x_encoded/".format(Encoder.subject), exist_ok=True)
+    _, y = load_nsd(vector = Encoder.vector, subject=Encoder.subject, loader = False, split = False)
     outputs = Encoder.predict(y)
-    torch.save(outputs, "/export/raid1/home/kneel027/nsd_local/preprocessed_data/x_encoded/{}.pt".format(modelId))
+    torch.save(outputs, prep_path + "subject{}/x_encoded/{}".format(Encoder.subject, modelId))
     
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
@@ -347,7 +349,7 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
 
     canvas = Image.new('RGB', (bigW, height), color='white')
     font = ImageFont.truetype("arial.ttf", 36)
-    titleFont = ImageFont.truetype("arial.ttf", 40)
+    titleFont = ImageFont.truetype("arial.ttf", 75)
     textLabeler = ImageDraw.Draw(canvas)
     if useTitle == 1:
         _, _, w, h = textLabeler.textbbox((0, 0), title, font=titleFont)
@@ -355,7 +357,7 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
     elif useTitle == 2:
         for i in range(w):
             _, _, w, h = textLabeler.textbbox((0, 0), captions[i], font=titleFont)
-            textLabeler.text((i*imH + (imW-w)/2, 32), captions[i], font=titleFont, fill='black')
+            textLabeler.text((i*imH + (imW-w)/2, 16), captions[i], font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(imW,64), color="white")
     count = 0
     for j in range(hStart, bigH, rStep):

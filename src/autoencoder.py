@@ -1,28 +1,20 @@
 # Only GPU's in use
-import os
 import torch
 from torch.optim import Adam
 import numpy as np
-import glob
-import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import torch.nn as nn
-from torchmetrics.functional import pearson_corrcoef
-from pycocotools.coco import COCO
-import h5py
 from utils import *
 import wandb
-import copy
 from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
 
     
 class MLP(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, x_size):
         super().__init__()
         self.encoder = torch.nn.Sequential(
-            torch.nn.Linear(11838, 5000),
+            torch.nn.Linear(x_size, 5000),
             torch.nn.ReLU(),
             torch.nn.Linear(5000, 1000),
             torch.nn.ReLU(),
@@ -34,7 +26,7 @@ class MLP(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(1000, 5000),
             torch.nn.ReLU(),
-            torch.nn.Linear(5000, 11838)
+            torch.nn.Linear(5000, x_size)
         )
  
     def forward(self, x):
@@ -48,6 +40,7 @@ class AutoEncoder():
                  hashNum,
                  vector, 
                  log=False, 
+                 subject=1,
                  encoderHash=None,
                  lr=0.00001,
                  batch_size=750,
@@ -59,6 +52,7 @@ class AutoEncoder():
         # Set the parameters for pytorch model training
         self.hashNum     = hashNum
         self.vector      = vector
+        self.subject     = subject
         if(encoderHash):
             self.encoderModel = encoderHash + "_model_" + self.vector + ".pt"
         
@@ -69,15 +63,22 @@ class AutoEncoder():
         self.num_workers = num_workers
         self.log         = log
     
+        
+        
+        # Initialize the data loaders
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+                                                                batch_size=self.batch_size, 
+                                                                num_workers=self.num_workers, 
+                                                                ae=True,
+                                                                encoderModel=self.encoderModel,
+                                                                average=False,
+                                                                subject=self.subject)
+        self.x_size = self.trainLoader.dataset[0][0].shape[0]
         # Initialize the Pytorch model class
-        self.model = MLP()
+        self.model = MLP(self.x_size)
         
         # Send model to Pytorch Device 
         self.model.to(self.device)
-        
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = None, None, None
-        
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
@@ -88,6 +89,7 @@ class AutoEncoder():
                 "hash": self.hashNum,
                 "architecture": "Autoencoder",
                 "encoder Hash": encoderHash,
+                "subject": self.subject,
                 "vector": self.vector,
                 "dataset": "Whole region visual cortex",
                 "epochs": self.num_epochs,
@@ -99,12 +101,6 @@ class AutoEncoder():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _, = load_nsd(vector=self.vector, 
-                                                        batch_size=self.batch_size, 
-                                                        num_workers=self.num_workers, 
-                                                        ae=True,
-                                                        encoderModel=self.encoderModel,
-                                                        average=False)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -196,24 +192,21 @@ class AutoEncoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/" + self.hashNum + "_model_" + self.vector + ".pt")
+                torch.save(self.model.state_dict(), "models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector))
                 loss_counter = 0
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: " + str(loss_counter))
                 if(loss_counter >= 5):
                     break
-                
-        # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
+        if(self.log):
+                wandb.finish()
             
-    def predict(self, x, batch=False, batch_size=750):
-        
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
+    def predict(self, x):
+        self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(self.device)
-            
         return out
                 
     
@@ -223,13 +216,13 @@ class AutoEncoder():
                                         num_workers=self.num_workers, 
                                         ae=True,
                                         encoderModel=self.encoderModel,
-                                        average=average)
+                                        average=average,
+                                        subject=self.subject)
         datasize = len(self.testLoader.dataset)
-        out = torch.zeros((datasize,11838))
-        target = torch.zeros((datasize, 11838))
+        out = torch.zeros((datasize,self.x_size))
+        target = torch.zeros((datasize, self.x_size))
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
-        print(modelId)
-        self.model.load_state_dict(torch.load("models/{}".format(modelId), map_location=self.device))
+        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()
         self.model.to(self.device)
 
@@ -274,6 +267,7 @@ class AutoEncoder():
             r.append(PeC(out[:,p], target[:,p]))
         r = np.array(r)
         
+        print("Model ID: {}, Subject: {}, Averaged: {}, Encoded Pass: {}".format(modelId, self.subject, average, encodedPass))
         print("Vector Correlation: ", float(pearson_loss))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))

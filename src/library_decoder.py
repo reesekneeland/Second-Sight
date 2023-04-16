@@ -14,6 +14,7 @@ from torchmetrics import PearsonCorrCoef
 class LibraryDecoder():
     def __init__(self, 
                  vector="images",
+                 subject=1,
                  config=["AlexNet"],
                  device="cuda",
                  mask=torch.full((11838,), True)
@@ -25,6 +26,7 @@ class LibraryDecoder():
         self.vector = vector
         self.device = device
         self.mask = mask
+        self.subject=subject
         if(vector == "c_img_0" or vector == "c_text_0"):
             self.datasize = 768
         elif(vector == "z_img_mixer"):
@@ -36,8 +38,8 @@ class LibraryDecoder():
         elif(vector == "images"):
             self.datasize = 541875
             
-        self.prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-        self.latent_path = "latent_vectors/"
+        self.prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/subject{}/".format(self.subject)
+        self.latent_path = "latent_vectors/subject{}/".format(self.subject)
 
         for param in config:
             if param == "AlexNet":

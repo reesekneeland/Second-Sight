@@ -12,31 +12,22 @@ from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
 
 class MLP(torch.nn.Module):
-    def __init__(self, vector):
+    def __init__(self, vector, x_size):
         super(MLP, self,).__init__()
         self.vector = vector
         if(self.vector == "c_img_uc"):
             self.linear = nn.Linear(1024, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
-            
         if(self.vector == "c_text_uc"):
             self.linear = nn.Linear(78848, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 11838)
+            
+        self.linear2 = nn.Linear(15000, 15000)
+        self.outlayer = nn.Linear(15000, x_size)
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        if(self.vector == "c_img_uc"):
-             # y_pred = self.linear(x)
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)
-        if(self.vector=="c_text_uc"):
-            # y_pred = self.linear(x)
-            y_pred = self.relu(self.linear(x))
-            y_pred = self.relu(self.linear2(y_pred))
-            y_pred = self.outlayer(y_pred)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
 
 
@@ -47,6 +38,7 @@ class Encoder_UC():
                  hashNum,
                  vector, 
                  log=False, 
+                 subject=1,
                  lr=0.00001,
                  batch_size=750,
                  device="cuda",
@@ -63,16 +55,22 @@ class Encoder_UC():
         self.num_epochs = epochs
         self.num_workers = num_workers
         self.log = log
+        self.subject = subject
     
+        
+        
+        # Initialize the data loaders
+        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+                                                            batch_size=self.batch_size, 
+                                                            num_workers=self.num_workers, 
+                                                            loader=True,
+                                                            subject=self.subject)
+        x_size = self.trainLoader.dataset[0][0].shape[0]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector)
+        self.model = MLP(self.vector, x_size)
 
         # Send model to Pytorch Device 
         self.model.to(self.device)
-        
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, self.testLoader = None, None, None
-        
         # Initializes Weights and Biases to keep track of experiments and training runs
         if(self.log):
             wandb.init(
@@ -82,6 +80,7 @@ class Encoder_UC():
                 config={
                 "hash": self.hashNum,
                 "architecture": "MLP",
+                "subject": self.subject,
                 # "architecture": "2 Convolutional Layers",
                 "vector": self.vector,
                 "dataset": "Z scored",
@@ -94,10 +93,6 @@ class Encoder_UC():
     
 
     def train(self):
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
-                                                        batch_size=self.batch_size, 
-                                                        num_workers=self.num_workers, 
-                                                        loader=True)
         # Set best loss to negative value so it always gets overwritten
         best_loss = -1.0
         loss_counter = 0
@@ -109,7 +104,7 @@ class Encoder_UC():
         optimizer = Adam(self.model.parameters(), lr = self.lr)
         
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
-        for epoch in tqdm(range(self.num_epochs), desc="epochs"):
+        for epoch in tqdm(range(self.num_epochs), desc="epochs for subject{}".format(self.subject)):
             
             # For each epoch, do a training and a validation stage
             # Entering training stage
@@ -180,25 +175,24 @@ class Encoder_UC():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector))
+                torch.save(self.model.state_dict(), "models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector))
                 loss_counter = 0
             else:
                 loss_counter += 1
                 tqdm.write("loss counter: {}".format(loss_counter))
                 if(loss_counter >= 5):
                     break
+        if(self.log):
+                wandb.finish()
                 
-        # Load our best model into the class to be used for predictions
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
-
     def predict(self, x, mask=None):
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector), map_location=self.device))
+        self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device, torch.float32))
         if mask:
             out = out[mask]
-        return out
+        return out.to(self.device)
         
         
     def benchmark(self, average=True):
@@ -207,9 +201,10 @@ class Encoder_UC():
         # x_test = clip data
         _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
-                                                average=average)
-        
-        self.model.load_state_dict(torch.load("models/{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)))
+                                                average=average,
+                                                subject=self.subject)
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()
 
         criterion = nn.MSELoss()
@@ -224,21 +219,21 @@ class Encoder_UC():
               
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         
-        pred_y = pred_y.detach()
-        y_test = y_test.detach()
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
         PeC = PearsonCorrCoef()
         r = []
         for voxel in range(pred_y.shape[1]):
-            
             # Correlation across voxels for a sample (Taking a column)
             r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
         r = np.array(r)
         
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
         print("Vector Correlation: ", float(pearson))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=50, log=True)
-        plt.savefig("charts/{}_{}_encoder_voxel_PeC.png".format(self.hashNum, self.vector))
+        plt.savefig("charts/subject{}/{}_{}_encoder_voxel_PeC.png".format(self.subject, self.hashNum, self.vector))
     
     
     
