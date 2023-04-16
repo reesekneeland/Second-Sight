@@ -24,8 +24,9 @@ from pearson import PearsonCorrCoef
 
 def main():
     # benchmark_library(encModel="536_model_c_img_0.pt", vector="c_img_0", device="cuda:0", average=True, ae=True, old_norm=True)
-    reconstructNImages(experiment_title="coco top 5 LD Refactor A_I_T", idx=[i for i in range(0, 20)], mask=[], test=False, average=True)
+    #reconstructNImages(experiment_title="coco top 5 LD Refactor A_I_T", idx=[i for i in range(0, 20)], mask=[], test=False, average=True)
     # reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA", idx=[], test=True, average=True, ae=True)
+    reconstruct_test_samples("SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA copy", idx=[], test=True, average=True)
 
 
             
@@ -210,50 +211,29 @@ def benchmark_library(encModel, vector, device="cuda:0", average=True, ae=True, 
 
 
 
-def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True, ae=True):
+def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True):
     if(len(idx) == 0):
         for file in os.listdir("reconstructions/" + experiment_title + "/"):
             if file.endswith(".png") and file not in ["Search Iterations.png", "Results.png"]:
                 idx.append(int(file[:-4]))
         idx = sorted(idx)
 
-    AE = AutoEncoder(hashNum = "582",
-                    lr=0.0000001,
-                    vector="alexnet_encoder_sub1", 
-                    encoderHash="579",
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:0"
-                    )
     if test:
-        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, _, targets_c_t, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, _, x, _, _, _, targets_c_i, _, trials = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
     else:
-        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_vd", loader=False, average=False, nest=True)
-        _, _, _, _, _, _, targets_c_t, _, _, _ = load_nsd(vector="c_text_vd", loader=False, average=False, nest=True)
+        _, _, x, _, _, _, targets_c_i, _, trials, _ = load_nsd(vector="c_img_uc", loader=False, average=False, nest=True)
     
-    x_pruned_ae = torch.zeros((len(idx), 11838))
-    x_pruned = torch.zeros((len(idx), 11838))
-    for i, index in enumerate(tqdm(idx, desc="Pruning and autoencoding samples")):# and averaging"):
-        tqdm.write(str(i) + " " + str(index))
-        if(average):
-            if(ae):
-                x_pruned_ae[i] = torch.mean(AE.predict(x[index]),dim=0)
-            x_pruned[i] = torch.mean(x[index], dim=0)
-        else:
-            x_pruned[i] = x[index, random.randrange(0,3)]
-            if(ae):
-                x_pruned_ae[i] = AE.predict(x_pruned[i])
-    if ae:
-        x = x_pruned_ae
-    else:
-        x = x_pruned
-
-    output_images = predictVector_coco(encModel="alexnet_encoder", vector="images", x=x)
+    x = x[idx]
+    
+    device = "cuda"
+    LD = LibraryDecoder(vector="images",
+                        config=["AlexNet"],
+                        device=device)
+    output_images, _ = LD.predictVector_coco(x, average=average)
     for i, image in enumerate(output_images):
         top_choice = image[0].reshape(425, 425, 3)
         top_choice = top_choice.detach().cpu().numpy().astype(np.uint8)
-        pil_image = Image.fromarray(top_choice).resize((512, 512), resample=Image.Resampling.LANCZOS)
+        pil_image = Image.fromarray(top_choice).resize((768, 768), resample=Image.Resampling.LANCZOS)
         pil_image.save("reconstructions/" + experiment_title + "/" + str(idx[i]) + "/Library Reconstruction.png")
 
 if __name__ == "__main__":

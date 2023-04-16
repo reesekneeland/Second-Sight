@@ -81,7 +81,7 @@ class Stochastic_Search_Statistics():
         #     x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
         
         for i in tqdm(range(100), desc = "Autoencoding samples and averaging" ):
-            x_test_ae[i] = torch.mean(AE.predict(x_param[i]),dim=0)
+            x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
         
         return x_test_ae
     
@@ -254,7 +254,7 @@ class Stochastic_Search_Statistics():
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
             sampleTypes = ["iter_0.png", "iter_1.png", "iter_2.png", "iter_3.png", "iter_4.png", "iter_5.png", "iter_6.png", "iter_7.png",
-                           "iter_8.png", "iter_9.png","Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
+                           "iter_8.png", "iter_9.png","Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png", "Search Reconstruction.png"]
             random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
             image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
@@ -273,6 +273,26 @@ class Stochastic_Search_Statistics():
             two_way_prob = loss.softmax(dim=0)[0]
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
         return float(two_way_prob), float(clip_pearson)
+    
+    def CLIP_statistic_generation(self, folder):
+        
+        clip_two_way_decoded_sum = 0
+        clip_two_way_library_sum = 0
+        clip_two_way_search_sum = 0
+        
+        for i in range(60):
+            clip_two_way_decoded, _ = self.calculate_clip_similarity(folder, i, 11)
+            clip_two_way_library, _ = self.calculate_clip_similarity(folder, i, 12)
+            clip_two_way_search,  _ = self.calculate_clip_similarity(folder, i, 13)
+            
+            clip_two_way_decoded_sum += clip_two_way_decoded
+            clip_two_way_library_sum += clip_two_way_library
+            clip_two_way_search_sum  += clip_two_way_search
+            
+        print("CLIP Two-way Decoded: ", (clip_two_way_decoded_sum / 60))
+        print("CLIP Two-way Library: ", (clip_two_way_library_sum / 60))
+        print("CLIP Two-way Search : ", (clip_two_way_search_sum  / 60))
+        
     
     
     def image_indices(self, folder):
@@ -375,6 +395,8 @@ class Stochastic_Search_Statistics():
                         # Iter reconstruction image
                         reconstruction = Image.open(reconstruction_path)
                         folder_image_set.append(reconstruction)
+                        # reconstruction.save("/export/raid1/home/ojeda040/Second-Sight/logs/" + folder + "/reconstruction.png")
+                        # print(beta_samples[i].shape)
                         
                         # Pix Corr metrics calculation
                         pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
@@ -476,7 +498,10 @@ class Stochastic_Search_Statistics():
                 
             # Reset the iter_count and folder_image for the next folder. 
             iter_count = 0
-            folder_image_set = []    
+            folder_image_set = []  
+            
+            print(df['Brain Correlation V1'])  
+            print(df)
                                            
                         
         print(df.shape)
@@ -492,10 +517,12 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    SCS.create_dataframe("SCS UC 747 10:100:4 0.6 Exp3 AE")
+    # SCS.create_dataframe("SCS UC 10:250:5 0.6 Exp3 AE Fixed copy")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
-    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp3 AE NA copy")
+    #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
+    SCS.CLIP_statistic_generation("SCS UC 10:250:5 0.6 Exp3 AE Fixed copy")
     
     # gt = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Ground Truth.png")
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
