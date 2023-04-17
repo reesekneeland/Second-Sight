@@ -256,7 +256,7 @@ def process_masks(subject=1):
     
 def process_data(vector="c_img_uc", subject = 1):
     vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[0]
-    
+    print("VECTOR LENGTH: ", vecLength)
     if(vector == "images"):
         vec_target = torch.zeros((vecLength, 541875))
         datashape = (1, 541875)
@@ -267,13 +267,12 @@ def process_data(vector="c_img_uc", subject = 1):
         vec_target = torch.zeros((vecLength, 78848))
         datashape = (1,78848)
     elif(vector == "z_vdvae"):
-        vec_target = torch.zeros((73000, 91168))
+        vec_target = torch.zeros((vecLength, 91168))
         datashape = (1, 91168)
-
+    print(vec_target.shape)
     # Loading the description object for subejct1
     subj = "subject" + str(subject)
     subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
-    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[1]
     full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector))
     for i in tqdm(range(0,vecLength), desc="vector loader subject{}".format(subject)):
         index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
@@ -455,10 +454,10 @@ def pixel_correlation(imageA, imageB):
     return (np.corrcoef(a,b))[0][1]
 
 #converts a torch tensor of an 425z425vimage into a PIL image and resizes it
-def process_image(imageArray):
+def process_image(imageArray, x=768, y=768):
     imageArray = imageArray.reshape((425, 425, 3)).cpu().numpy().astype(np.uint8)
     image = Image.fromarray(imageArray)
-    image = image.resize((768, 768), resample=Image.Resampling.LANCZOS)
+    image = image.resize((x, y), resample=Image.Resampling.LANCZOS)
     return image
 
 def prune_vector(x, subject=1):

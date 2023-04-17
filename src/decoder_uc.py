@@ -17,24 +17,32 @@ class MLP(torch.nn.Module):
     def __init__(self, vector, x_size):
         super(MLP, self,).__init__()
         self.vector = vector
-        self.linear = nn.Linear(x_size, 15000)
-        self.linear2 = nn.Linear(15000, 15000)
-        self.linear3 = nn.Linear(15000, 15000)
-        self.linear4 = nn.Linear(15000, 15000)
-        # self.linear5 = nn.Linear(15000, 15000)
         if(self.vector == "c_img_uc"):
+            self.linear = nn.Linear(x_size, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.linear3 = nn.Linear(15000, 15000)
+            self.linear4 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 1024)
-        if(self.vector == "c_text_uc"):
+        elif(self.vector == "c_text_uc"):
+            self.linear = nn.Linear(x_size, 15000)
+            self.linear2 = nn.Linear(15000, 15000)
+            self.linear3 = nn.Linear(15000, 15000)
+            self.linear4 = nn.Linear(15000, 15000)
             self.outlayer = nn.Linear(15000, 78848)
+        elif(self.vector == "z_vdvae"):
+            self.linear = nn.Linear(x_size, 12500)
+            self.outlayer = nn.Linear(12500, 91168)
+            # self.outlayer = nn.Linear(x_size, 91168)
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        y_pred = self.relu(self.linear(x))
-        y_pred = self.relu(self.linear2(y_pred))
-        y_pred = self.relu(self.linear3(y_pred))
-        y_pred = self.relu(self.linear4(y_pred))
-        # y_pred = self.relu(self.linear5(y_pred))
-        y_pred = self.outlayer(y_pred)
+        x = self.relu(self.linear(x))
+        if(self.vector == "c_img_uc" or self.vector == "c_text_uc"):
+            # x = self.relu(self.linear(x))
+            x = self.relu(self.linear2(x))
+            x = self.relu(self.linear3(x))
+            x = self.relu(self.linear4(x))
+        y_pred = self.outlayer(x)
         return y_pred
 
     
@@ -207,7 +215,6 @@ class Decoder_UC():
         y_test = y_test.to(self.device)
         
         pred_y = self.model(x_test)
-        
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
 

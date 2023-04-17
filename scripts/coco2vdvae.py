@@ -1,17 +1,18 @@
 import os, sys
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+sys.path.append('src')
+from vdvae import VDVAE
 sys.path.append('vdvae')
 import torch
 import numpy as np
 from image_utils import *
 from model_utils import *
-from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torchvision.transforms as T
 from nsd_access import NSDAccess
 from tqdm import tqdm
 import time
-
+V = VDVAE()
   
 def sample_from_hier_latents(latents):
   layers_num=len(latents)
@@ -52,7 +53,7 @@ nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/ns
 
 # Iterate through all images and captions in nsd sampled from COCO
 start = time.time()
-for i in tqdm(range(0, 73000)):
+for i in tqdm(range(0, 1)):
     # Array of image data 1 x 425 x 425 x 3 (Stores pixel intensities)
     img_arr = nsda.read_images([i], show=False)
     # img_pil = Image.fromarray(img_arr)
@@ -70,24 +71,19 @@ for i in tqdm(range(0, 73000)):
         batch_latent = []
         latent_shapes = []
         for j in range(31):
-            latent_shapes.append(stats[j]['z'].shape[1:])
+            latent_shapes.append(torch.tensor(stats[j]['z'].shape[1:]))
             batch_latent.append(stats[j]['z'].cpu().numpy().reshape(len(data_input),-1))
         latents.append(np.hstack(batch_latent))
     latents = np.concatenate(latents)
     latents = torch.from_numpy(latents)
     # Save the c and z vectors into there corresponding files. 
-    print(latents.shape)
+    latent_shapes = torch.stack(latent_shapes)
+    # torch.save(latent_shapes, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/vdvae/vdvae_shapes.pt")
     torch.save(latents, "/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/nsddata_stimuli/tensors/z_vdvae/" + str(i) + ".pt")
     # print(latents.shape)
-    # if(i<=10):
-    #     input_latent = latent_transformation(latents, latent_shapes)
-    #     samp = sample_from_hier_latents(input_latent)
-    #     px_z = ema_vae.decoder.forward_manual_latents(len(samp[0]), samp, t=None)
-    #     sample_from_latent = ema_vae.decoder.out_net.sample(px_z)
-    #     im = sample_from_latent
-    #     im = Image.fromarray(im[0])
-    #     im = im.resize((512,512),resample=3)
-    #     im.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs7/" + str(i) + ".png")
+    if(i<=10):
+        im = V.reconstruct(latents)
+        im.save("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/test_imgs7/" + str(i) + ".png")
 
 end = time.time()
 print("elapsed time: ", end - start)
