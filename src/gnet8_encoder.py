@@ -1,5 +1,5 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+#os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import torch as T
 import torch.nn as L
@@ -138,11 +138,16 @@ def subject_pred_pass(_pred_fn, _ext, _con, x, batch_size):
 
 
 
-def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoint, batch_size, device=torch.device("cuda:0")):
+def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoint, mask, batch_size, device=torch.device("cuda:0")):
     
     subjects = list(image_data.keys())
-    subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()}    
-    print(subject_nv)
+
+    if(mask is None):
+        subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()} 
+    else:
+        subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()}    
+        subject_nv[subjects[0]] = int(torch.sum(mask == True)) 
+
     # allocate
     subject_image_pred = {s: np.zeros(shape=(len(image_data[s]), subject_nv[s]), dtype=np.float32) for s in subjects}
     print(subject_image_pred)
@@ -158,7 +163,21 @@ def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoi
     rec, fmaps, h = shared_model(T.from_numpy(image_data[list(image_data.keys())[0]][:20]).to(device))                                     
     for s in subjects:
         sd = Torch_LayerwiseFWRF(fmaps, nv=subject_nv[s], pre_nl=_log_act_fn, post_nl=_log_act_fn, dtype=np.float32).to(device) 
-        sd.load_state_dict(best_params['fwrfs'][s])
+        params = best_params['fwrfs'][s]
+        
+        if(mask is None):
+            sd.load_state_dict(params)
+        
+        else:
+            masked_params = {}
+            for key, value in params.items():
+                masked_params[key] = value[mask]
+                
+            sd.load_state_dict(masked_params)
+            
+        # print(params['w'].shape)
+        # print(params['b'].shape)
+        # sd.load_state_dict(best_params['fwrfs'][s])
         sd.eval() 
         print(sd)
         
@@ -174,7 +193,7 @@ def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoi
 
 class Gnet8_Encoder():
     
-    def __init__(self, subject = 1, hash_num = "", device = "cuda"):
+    def __init__(self, subject = 1, hash_num = "771", device = "cuda"):
         
         # Setting up Cuda
         torch.manual_seed(time.time())
@@ -196,12 +215,7 @@ class Gnet8_Encoder():
         # File locations
         self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
 
-        #input_dir = root_dir + "../nsd/output/multisubject/"
-        #joined_model_dir = input_dir + 'gnet8j_mpf_evc_Jan-18-2022_1148/' # 'gnet8j_mpf_evc_Jan-18-2022_1148/'
-        #roiwise_model_dir = input_dir + 'gnet8r_mpf_evc_Jan-17-2022_1738/'# 'gnet8r_mpf_evc_Jan-17-2022_1738/'
-
         self.input_dir = self.root_dir + "output/multisubject/"
-        #joined_model_dir = input_dir + 'gnet8j_mpf_evc_Feb-04-2022_1818/' 
         self.roiwise_model_dir = self.input_dir + 'gnet8r_mpf_evc_Feb-05-2022_2105/'# 'gnet8r_mpf_evc_Feb-04-2022_1844/'
 
         self.stim_dir = self.root_dir+'../../data/nsd/stims/'
@@ -213,7 +227,6 @@ class Gnet8_Encoder():
         
         # Reload joined GNet model files
         self.joined_checkpoint = torch.load(self.joined_model_dir + 'model_params_final', map_location=self.device)
-        print (self.joined_checkpoint.keys())
         
         # Voxel Masks
         self.roi_group_names = ['V1', 'V2', 'V3', 'hV4']
@@ -273,26 +286,7 @@ class Gnet8_Encoder():
         
         self.stim_data[self.subject] = np.moveaxis(np.array(data), 3, 1)
 
-        # test = self.joined_checkpoint['best_params']
-        gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, batch_size=100, device=self.device)
-        # if(unmasked):
-        #     gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, batch_size=100, device=self.device)
-        # else:
-        #     gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, batch_size=100, device=self.device)
-
-        # subject_image_pred = {}
-        # for s,bp in self.model_params.items():
-        #     if(unmasked):
-        #         subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
-        #         break
-            
-        #     else:
-        #         masked_params = []
-        #         for params in bp:
-        #             masked_params.append(params[mask])
-                
-        #         subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, masked_params, sample_batch_size=sample_batch_size)
-        #         break
+        gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, mask, batch_size=100, device=self.device)
         
         print(gnet8j_image_pred)
         print(gnet8j_image_pred[self.subject].shape)
@@ -303,13 +297,13 @@ class Gnet8_Encoder():
                                                     loader=False,
                                                     average=average)
         if(ae):
-            AE = AutoEncoder(hashNum = "582",
+            AE = AutoEncoder(hashNum = "776",
                     lr=0.0000001,
-                    vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="579",
+                    vector="images", #c_img_0, c_text_0, z_img_mixer
+                    encoderHash=self.hashNum,
                     log=False, 
                     batch_size=750,
-                    device="cuda:0"
+                    device="cuda:3"
                     )
             y_test = AE.predict(y_test)
             
@@ -323,44 +317,47 @@ class Gnet8_Encoder():
         
         y_test = y_test.to(self.device)
         
-        mask_path = "masks/subject1/"
-        masks = {0:torch.full((11838,), False),
-                    1:torch.load(mask_path + "V1.pt"),
-                    2:torch.load(mask_path + "V2.pt"),
-                    3:torch.load(mask_path + "V3.pt"),
-                    4:torch.load(mask_path + "V4.pt"),
-                    5:torch.load(mask_path + "early_vis.pt"),
-                    6:torch.load(mask_path + "higher_vis.pt")}
+        # mask_path = "masks/subject1/"
+        # masks = {0:torch.full((11838,), False),
+        #             1:torch.load(mask_path + "V1.pt"),
+        #             2:torch.load(mask_path + "V2.pt"),
+        #             3:torch.load(mask_path + "V3.pt"),
+        #             4:torch.load(mask_path + "V4.pt"),
+        #             5:torch.load(mask_path + "early_vis.pt"),
+        #             6:torch.load(mask_path + "higher_vis.pt")}
         
-        beta_mask = masks[0]
-        for i in [1,2]:
-            beta_mask = torch.logical_or(beta_mask, masks[i])        
+        # beta_mask = masks[0]
+        # for i in [1,2]:
+        #     beta_mask = torch.logical_or(beta_mask, masks[i])        
         
-        pred_y = self.predict(images, beta_mask)
+        pred_y = self.predict(images).to(self.device)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
         
         pred_y = pred_y.detach()
         y_test = y_test.detach()
-        PeC = PearsonCorrCoef()
+        PeC = PearsonCorrCoef().to(self.device)
         r = []
         for voxel in range(pred_y.shape[1]):
             
             # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]).cpu())
         r = np.array(r)
         
+        print("Model ID: {}, Subject: {}, Averaged: {}, AutoEncoded: {}".format(self.hashNum, self.subject, average, ae))
         print("Vector Correlation: ", float(pearson))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
+        
         plt.hist(r, bins=50, log=True)
         plt.savefig("charts/alexnet_encoder_voxel_PeC.png")
-
+        
+        
 def main():
     
-    GN = Gnet8_Encoder(subject=5, hash_num=update_hash())
-    #GN = Gnet8_Encoder(subject=1)
+    #GN = Gnet8_Encoder(subject=7, hash_num=update_hash())
+    GN = Gnet8_Encoder(subject=1, hash_num = "771", device= "cuda:3")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -372,8 +369,8 @@ def main():
     #     data.append(ground_truth)
     
     
-    # #AN.benchmark(average=False)
-    # #GN.benchmark(average=True, ae=True)
+    #AN.benchmark(average=False)
+    GN.benchmark(average=True, ae=True)
     
     # mask_path = "masks/subject1/"
     # masks = {0:torch.full((11838,), False),
@@ -382,16 +379,13 @@ def main():
     #             3:torch.load(mask_path + "V3.pt"),
     #             4:torch.load(mask_path + "V4.pt"),
     #             5:torch.load(mask_path + "early_vis.pt"),
-    #             6:torch.load(mask_path + "higher_vis.pt")}
+    #             6:torch.load(mask_path + "higher_vis.pt")}  
     
-    # beta_mask = masks[0]
-    # for i in [1,2]:
-    #     beta_mask = torch.logical_or(beta_mask, masks[i])        
-        
+    # print(type(masks[1]))
+    # print(torch.sum(masks[1] == True))
+    # GN.predict(data, masks[1])
     
-    # GN.predict(data, beta_mask, True)
-    
-    process_x_encoded(Encoder=GN)
+    #process_x_encoded(Encoder=GN)
            
         
 if __name__ == "__main__":
