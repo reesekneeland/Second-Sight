@@ -317,7 +317,7 @@ def process_x_encoded(Encoder):
     coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(Encoder.vector))
     vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(Encoder.subject)).shape[1]
     coco_preds_full = torch.zeros((73000, vecLength))
-    for i in range(4):
+    for i in tqdm(range(4), desc="predicting images"):
         coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
     pruned_encodings = prune_vector(coco_preds_full)
     torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/subject{}/{}/coco_brain_preds.pt".format(Encoder.subject, modelId))

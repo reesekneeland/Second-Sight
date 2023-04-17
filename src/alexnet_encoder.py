@@ -1,5 +1,5 @@
 import os, sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
@@ -9,6 +9,7 @@ from utils import *
 from torchmetrics import PearsonCorrCoef
 from autoencoder import AutoEncoder
 import time
+from torchmetrics import PearsonCorrCoef
 
 try:
     from torch.hub import load_state_dict_from_url
