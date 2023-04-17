@@ -1,5 +1,5 @@
 import os, sys
-# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
@@ -8,6 +8,7 @@ from PIL import Image
 from utils import *
 from autoencoder import AutoEncoder
 import time
+from torchmetrics import PearsonCorrCoef
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -640,7 +641,7 @@ def main():
     
     subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     data = []
-    for i in tqdm(range(1), desc="loading in images"):
+    for i in tqdm(range(10), desc="loading in images"):
         
         nsdId = subj1_train.iloc[i]['nsdId']
         ground_truth_np_array = nsda.read_images([nsdId], show=False)
