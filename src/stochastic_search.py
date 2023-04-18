@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 from torchmetrics import PearsonCorrCoef
 import numpy as np
@@ -59,13 +59,13 @@ def main():
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
-    # S5 = StochasticSearch(modelParams=["alexnetEncoder", "clipEncoder"],
-    #                       device="cuda:0",
-    #                       log=False,
-    #                       n_iter=10,
-    #                       n_samples=100,
-    #                       n_branches=4,
-    #                       ae=True)
+    S5 = StochasticSearch(modelParams=["alexnetEncoder", "clipEncoder"],
+                          device="cuda:0",
+                          log=False,
+                          n_iter=6,
+                          n_samples=100,
+                          n_branches=4,
+                          ae=True)
     # S6 = StochasticSearch(modelParams=["alexnetEncoder"],
     #                       device="cuda:0",
     #                       log=False,
@@ -73,13 +73,13 @@ def main():
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
-    S7 = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
-                          device="cuda:0",
-                          log=False,
-                          n_iter=6,
-                          n_samples=100,
-                          n_branches=4,
-                          ae=True)
+    # S7 = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+    #                       device="cuda:0",
+    #                       log=False,
+    #                       n_iter=6,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[i for i in range(0, 20)], average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[i for i in range(0, 20)], average=True)
     # S0.generateTestSamples(experiment_title="SCS UC 747 10:100:4 0.6 Exp3 AE photorealistic, negative prompts for text, caption", idx=[i for i in range(0, 20)], average=True)
@@ -97,9 +97,9 @@ def main():
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 27", idx=[i for i in range(0, 20)], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided 3", idx=[i for i in range(0, 20)], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided Z only 5", idx=[i for i in range(0, 20)], average=True, refine_clip=False)
-    # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided clip_iter 3", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
+    S5.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided clip_iter 5", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
     # S6.generateTestSamples(experiment_title="SCS UC 747 VDVAE Init 6:100:4 4", idx=[i for i in range(0, 20)], average=True)
-    S7.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided clip_iter 4", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
+    # S7.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided clip_iter 4", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
 class StochasticSearch():
     def __init__(self, 
                 modelParams=["gnetEncoder"],
@@ -500,7 +500,7 @@ class StochasticSearch():
             # strength = 1.0-0.4*(math.pow(cur_iter/max_iter, 3))
             strength = 0.9-0.3*(math.pow(cur_iter/max_iter, 3))
             momentum = 0.05*(math.pow(cur_iter/max_iter, 2))
-            noise = 25
+            noise = 50
             n_i = max(10, int((n/n_branches)*strength))
             tqdm.write("Strength: {}, Momentum: {}, Noise: {}, N: {}".format(strength, momentum, noise, n_i))
             
