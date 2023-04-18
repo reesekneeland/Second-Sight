@@ -7,7 +7,6 @@ from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
-import textwrap
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -501,7 +500,7 @@ def slerp(v0, v1, t, DOT_THRESHOLD=0.9995):
     dot = np.sum(v0 * v1)
     # If absolute value of dot product is almost 1, vectors are ~colineal, so use lerp
     if np.abs(dot) > DOT_THRESHOLD:
-        return lerp(t, v0_copy, v1_copy)
+        return torch.lerp(t, v0_copy, v1_copy)
     # Calculate initial angle between v0 and v1
     theta_0 = np.arccos(dot)
     sin_theta_0 = np.sin(theta_0)

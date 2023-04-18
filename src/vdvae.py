@@ -1,5 +1,4 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 sys.path.append('vdvae')
 import torch
 import numpy as np
@@ -7,9 +6,6 @@ from image_utils import *
 from model_utils import *
 from PIL import Image
 import torchvision.transforms as T
-from nsd_access import NSDAccess
-from tqdm import tqdm
-import time
 
 
 # Main Class    

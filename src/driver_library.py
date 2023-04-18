@@ -1,45 +1,34 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
-from torch.autograd import Variable
 import numpy as np
 from PIL import Image
 from nsd_access import NSDAccess
-import glob
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import torch.nn as nn
-from pycocotools.coco import COCO
-import h5py
 from utils import *
-import wandb
-import random
-import copy
 from tqdm import tqdm
 from diffusers import StableUnCLIPImg2ImgPipeline
 from library_decoder import LibraryDecoder
-from torchmetrics import PearsonCorrCoef
 
 
 def main():
-    # benchmark_library("c_img_uc", average=True, config=["c_img_uc"])
+    benchmark_library("c_img_uc", average=True, config=["clipEncoder"])
+    benchmark_library("c_img_uc", average=True, config=["gnetEncoder"])
     # reconstructNImages(experiment_title="coco top 500 UC 738",
     #                    idx=[i for i in range(0, 20)],
     #                    mask=[],
     #                    average=True,
     #                    config=["c_img_uc"])
     
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], average=True)
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], average=True)
-    reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], average=True)
+    # reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], average=True)
+    # reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], average=True)
+    # reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], average=True)
 
 
 
             
 # Encode latent z (1x4x64x64) and condition c (1x77x1024) tensors into an image
 # Strength parameter controls the weighting between the two tensors
-def reconstructNImages(experiment_title, idx, mask=[], average=True, config=["AlexNet"]):
+def reconstructNImages(experiment_title, idx, mask=[], average=True, config=["alexnetEncoder"]):
     
     # First URL: This is the original read-only NSD file path (The actual data)
     # Second URL: Local files that we are adding to the dataset and need to access as part of the data
@@ -49,7 +38,7 @@ def reconstructNImages(experiment_title, idx, mask=[], average=True, config=["Al
     # Retriving the ground truth image. 
     subj1 = nsda.stim_descriptions[nsda.stim_descriptions['subject1'] != 0]
     LD = LibraryDecoder(vector="images",
-                        config=config,
+                        configList=config,
                         device="cuda:0")
 
     # Load data and targets
@@ -57,11 +46,11 @@ def reconstructNImages(experiment_title, idx, mask=[], average=True, config=["Al
     x = x[idx]
     
     
-    output_images, _ = LD.predictVector_coco(x, average=average)
+    output_images = LD.predict(x, average=average)
     LD = LibraryDecoder(vector="c_img_uc",
-                        config=config,
+                        configList=config,
                         device="cuda:0")
-    output_clips, _ = LD.predictVector_coco(x, average=average)
+    output_clips = LD.predict(x, average=average)
     output_clips = output_clips.reshape((len(idx), 500, 1, 1024))
     targets_c_i = targets_c_i[idx].reshape((len(idx), 1, 1024))
     R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
@@ -129,10 +118,10 @@ def reconstructNImages(experiment_title, idx, mask=[], average=True, config=["Al
         figure.save('reconstructions/{}/{}.png'.format(experiment_title, val))
         
     
-def benchmark_library(vector, average=True, config=["AlexNet"]):
+def benchmark_library(vector, average=True, config=["gnetEncoder"]):
     device = "cuda"
     LD = LibraryDecoder(vector=vector,
-                        config=config,
+                        configList=config,
                         device=device)
     LD.benchmark(average=average)
 
@@ -152,9 +141,9 @@ def reconstruct_test_samples(experiment_title, idx=[], test=False, average=True)
     
     device = "cuda"
     LD = LibraryDecoder(vector="images",
-                        config=["AlexNet"],
+                        configList=["alexnetEncoder"],
                         device=device)
-    output_images, _ = LD.predictVector_coco(x, average=average)
+    output_images = LD.predict(x, average=average)
     for i, image in enumerate(output_images):
         top_choice = image[0].reshape(425, 425, 3)
         top_choice = top_choice.detach().cpu().numpy().astype(np.uint8)

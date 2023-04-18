@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from utils import *
+import yaml
 from tqdm import tqdm
 from autoencoder  import AutoEncoder
 from torchmetrics import PearsonCorrCoef
@@ -15,18 +16,20 @@ class LibraryDecoder():
     def __init__(self, 
                  vector="images",
                  subject=1,
-                 config=["AlexNet"],
+                 configList=["gnetEncoder"],
                  device="cuda",
                  mask=torch.full((11838,), True)
                  ):
-
+        
+        self.subject=subject
+        with open("config.yml", "r") as yamlfile:
+            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
         self.AEModels = []
         self.EncModels = []
-        self.config = config
+        self.configList = configList
         self.vector = vector
         self.device = device
         self.mask = mask
-        self.subject=subject
         if(vector == "c_img_0" or vector == "c_text_0"):
             self.datasize = 768
         elif(vector == "z_img_mixer"):
@@ -38,51 +41,43 @@ class LibraryDecoder():
         elif(vector == "images"):
             self.datasize = 541875
             
-        self.prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/subject{}/".format(self.subject)
-        self.latent_path = "latent_vectors/subject{}/".format(self.subject)
+        self.prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
+        self.latent_path = "latent_vectors/"
 
-        for param in config:
-            if param == "AlexNet":
-                self.AEModels.append(AutoEncoder(hashNum = "582",
-                                                vector="alexnet_encoder_sub1", 
-                                                encoderHash="579",
-                                                log=False, 
+        for param in self.configList:
+            self.EncModels.append(self.config[param]["modelId"])
+            if param == "alexnetEncoder":
+                self.AEModels.append(AutoEncoder(config="alexnetAutoEncoder",
+                                                inference=True,
+                                                subject=self.subject,
                                                 device=self.device))
-                self.EncModels.append("alexnet_encoder")
-            elif param == "c_img_uc":
-                self.AEModels.append(AutoEncoder(hashNum = "743",
-                                        vector="c_img_uc",
-                                        encoderHash="738",
-                                        log=False, 
-                                        batch_size=750,
-                                        device=self.device))
-                self.EncModels.append("738_model_c_img_uc.pt")
-            elif param == "c_text_uc":
-                self.AEModels.append(AutoEncoder(hashNum = "742",
-                                                vector="c_text_uc",
-                                                encoderHash="739",
-                                                log=False, 
+            elif param == "gnetEncoder":
+                self.AEModels.append(AutoEncoder(config="gnetAutoEncoder",
+                                                inference=True,
+                                                subject=self.subject,
                                                 device=self.device))
-                self.EncModels.append("739_model_c_text_uc.pt")
+            elif param == "clipEncoder":
+                self.AEModels.append(AutoEncoder(config="clipAutoEncoder",
+                                                inference=True,
+                                                subject=self.subject,
+                                                device=self.device))
                 
-        
-        
-    def predictVector_coco(self, x, average=True):
+    def rankCoco(self, x, average=True):
         x_preds = []
         for model in self.EncModels:
-            modelPreds = torch.load(self.latent_path + model + "/coco_brain_preds.pt", map_location=self.device)
+            modelPreds = torch.load("{}/subject{}/{}/coco_brain_preds.pt".format(self.latent_path, self.subject, model), map_location=self.device)
             x_preds.append(modelPreds[:, self.mask])
        
-        y_full = torch.load(prep_path + self.vector + "/vector_73k.pt").reshape(73000, self.datasize)
-        y = prune_vector(y_full)[0:63000]
+        y_full = torch.load("{}/{}_73k.pt".format(self.prep_path, self.vector)).reshape(73000, self.datasize)
+        y = prune_vector(y_full)
         # print(x_preds.shape)
         if(average):
             x = x[:, :, self.mask]
         else:
             x = x[:, 0, self.mask]
 
-        out = torch.zeros((x.shape[0], 500, self.datasize))
-        ret_scores = torch.zeros((x.shape[0], 500))
+        out = torch.zeros((x.shape[0], 31500, self.datasize))
+        ret_scores = torch.zeros((x.shape[0], 31500))
         
         PeC = PearsonCorrCoef(num_outputs=21000).to(self.device)
         average_pearson = 0
@@ -109,46 +104,53 @@ class LibraryDecoder():
             scores /= div
                     
                 # Calculating the Average Pearson Across Samples
-            top5_pearson = torch.topk(scores, 500)
+            top5_pearson = torch.topk(scores, 31500)
             average_pearson += torch.mean(top5_pearson.values.detach()) 
             for rank, index in enumerate(top5_pearson.indices):
                 out[sample, rank] = y[index]
                 ret_scores[sample] = top5_pearson.values.detach()
             
         # torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
-        print("Average Pearson Across Samples: ", (average_pearson / x.shape[0]) ) 
+        print("Average Pearson Across Samples: {}".format(average_pearson / x.shape[0])) 
         return out, ret_scores
+
+    def predict(self, x, average=True, topn=1):
+        x_preds = self.rankCoco(x, average=average)
+        topn_x_preds = torch.mean(x_preds[:,0:topn], dim=1)
+        return topn_x_preds
+
     
     def benchmark(self, average=True):
-        LD = LibraryDecoder(vector=self.vector,
-                            config=self.config,
-                            device=self.device)
 
         # Load data and targets
         _, _, x_test, _, _, target, _ = load_nsd(vector=self.vector, loader=False, average=False, nest=True)
 
         
-        out, _ = LD.predictVector_coco(x_test, average=average)
+        out, _ = self.rankCoco(x_test, average=average)
         
         criterion = nn.MSELoss()
         
-        PeC = PearsonCorrCoef(num_outputs=x_test.shape[0]).to(self.device)
-        target = target.to(self.device)
-        out = out.to(self.device)
-        
-        loss = criterion(out[:, 0], target)
-        
-        pearson_loss = torch.mean(PeC(out[:, 0].moveaxis(0,1).to(self.device), target.moveaxis(0,1).to(self.device)).detach())
-        print("Vector Correlation: ", float(pearson_loss))
-        print("Loss: ", float(loss))
+        PeC = PearsonCorrCoef(num_outputs=x_test.shape[0])
+        target = target
+        out = out
         vc = []
         l2 = []
-        for i in range(500):
+        for i in tqdm(range(31500), desc="Scoring progressive topn"):
             loss = criterion(torch.mean(out[:,0:i], dim=1), target)
-            pearson_loss = torch.mean(PeC(torch.mean(out[:,0:i], dim=1).moveaxis(0,1).to(self.device), target.moveaxis(0,1).to(self.device)).detach())
+            pearson_loss = torch.mean(PeC(torch.mean(out[:,0:i], dim=1).moveaxis(0,1), target.moveaxis(0,1).detach()))
             vc.append(float(pearson_loss))
             l2.append(float(loss))
-            print("Vector Correlation Top " + str(i) + ": ", float(pearson_loss))
-            print("Loss Top " + str(i) + ":", float(loss))
-        np.save("logs/library_decoder_scores/{vec}_{config}_PeC.npy".format(vec=self.vector, config="_".join(self.config)), np.array(vc))
-        np.save("logs/library_decoder_scores/{vec}_{config}_L2.npy".format(vec=self.vector, config="_".join(self.config)), np.array(l2))
+        vc = np.array(vc)
+        l2 = np.array(l2)
+        print("Vector Correlation Top 1: ", float(vc[0]))
+        print("Loss Top 1:", float(l2[0]))
+        print("Vector Correlation Top 10: ", float(vc[9]))
+        print("Loss Top 10:", float(l2[9]))
+        print("Vector Correlation Top 100: ", float(vc[99]))
+        print("Loss Top 100:", float(l2[99]))
+        print("Vector Correlation Top 1000: ", float(vc[999]))
+        print("Loss Top 1000:", float(l2[999]))
+        print("Vector Correlation Top {}: {}".format(float(np.argmax(vc)), float(np.max(vc))))
+        print("Loss Top Top {}: {}".format(float(np.argmin(l2)), float(np.min(l2))))
+        np.save("logs/library_decoder_scores/{vec}_{config}_PeC.npy".format(vec=self.vector, config="_".join(self.config)), vc)
+        np.save("logs/library_decoder_scores/{vec}_{config}_L2.npy".format(vec=self.vector, config="_".join(self.config)), l2)

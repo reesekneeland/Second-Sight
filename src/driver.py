@@ -1,18 +1,11 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
-import numpy as np
 from PIL import Image
 from nsd_access import NSDAccess
-import glob
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import torch.nn as nn
-from pycocotools.coco import COCO
 from utils import *
-import copy
 from tqdm import tqdm
+import yaml
 from decoder_uc import Decoder_UC
 from encoder_uc import Encoder_UC
 from diffusers import StableUnCLIPImg2ImgPipeline
@@ -28,8 +21,8 @@ def main():
     train_decoder_uc(subject=2)
     train_decoder_uc(subject=5)
     train_decoder_uc(subject=7)
-    # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1, decHash="747", vdvaeHash="764") 
-    # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1, decHash="747", vdvaeHash="764") 
+    # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 
+    # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1) 
     # encHash = train_encoder_uc(subject=1)
 
     # train_decoder_uc(subject=5) 
@@ -40,30 +33,30 @@ def main():
     # train_autoencoder(subject=7, encHash="775")
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    # reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1, decHash="750")
-    # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2, decHash="753")
-    # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5, decHash="758")
-    # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7, decHash="761")
-    # reconstructNImages(experiment_title="UC Test Bug", idx=[i for i in range(194, 214)])
+    # reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1)
+    # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2)
+    # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5)
+    # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7)
+    # reconstructNImages(experiment_title="UC Text Test1", idx=[i for i in range(0, 1)])
     
     # train_autoencoder()
-
 
 def train_autoencoder(subject, encHash):
     
     hashNum = update_hash()
     # hashNum = "582"
      
-    AE = AutoEncoder(hashNum = hashNum,
-                        lr=0.00001,
-                        vector="images", #c_img_0, c_text_0, z_img_mixer, alexnet_encoder_sub1
-                        subject=subject,
-                        encoderHash=encHash,
-                        log=True, 
-                        device="cuda:0",
-                        num_workers=16,
-                        epochs=300
-                        )
+    AE = AutoEncoder(config="clipAutoencoder",
+                    inference=False,
+                    hashNum = hashNum,
+                    lr=0.00001,
+                    vector="images", #c_img_uc , c_text_uc, z_vdvae
+                    subject=subject,
+                    encoderHash=encHash,
+                    batch_size=64,
+                    device="cuda:0",
+                    num_workers=4,
+                    epochs=500)
     
     AE.train()
     AE.benchmark(encodedPass=False, average=False)
@@ -75,15 +68,17 @@ def train_encoder_uc(subject=1):
     
     hashNum = update_hash()
     # hashNum = "738"
-    E = Encoder_UC(hashNum = hashNum,
-                 lr=0.00001,
-                 vector="c_img_uc", #c_img_vd, c_text_vd
-                 subject=subject,
-                 log=True, 
-                 batch_size=750,
-                 device="cuda:0",
-                 num_workers=16,
-                 epochs=300
+    E = Encoder_UC(config="clipEncoder",
+                    inference=False,
+                    hashNum = hashNum,
+                    lr=0.00001,
+                    vector="c_img_uc", #c_img_vd, c_text_vd
+                    subject=subject,
+                    log=True, 
+                    batch_size=750,
+                    device="cuda:0",
+                    num_workers=16,
+                    epochs=300
                 )
     # E.train()
     
@@ -99,16 +94,16 @@ def train_encoder_uc(subject=1):
 def train_decoder_uc(subject=1):
     hashNum = update_hash()
     # hashNum = "765"
-    D = Decoder_UC(hashNum = hashNum,
-                 lr=0.00001,
-                 vector="z_vdvae", #c_img_uc , c_text_uc, z_vdvae
-                 subject=subject,
-                 log=True, 
-                 batch_size=64,
-                 device="cuda:0",
-                 num_workers=4,
-                 epochs=500
-                )
+    D = Decoder_UC(config="vdvaeDecoder",
+                    inference=False,
+                    hashNum = hashNum,
+                    lr=0.00001,
+                    vector="z_vdvae", #c_img_uc , c_text_uc, z_vdvae
+                    subject=subject,
+                    batch_size=64,
+                    device="cuda:0",
+                    num_workers=4,
+                    epochs=500)
     
     D.train()
     
@@ -118,23 +113,21 @@ def train_decoder_uc(subject=1):
     return hashNum
 
 
-def reconstructVDVAE(experiment_title, idx, subject=1, decHash="747", vdvaeHash="764"):
+def reconstructVDVAE(experiment_title, idx, subject=1):
     os.makedirs("reconstructions/{}/".format(experiment_title), exist_ok=True)
     
     _, _, x_test, y_train, y_val, targets_vdvae, trials = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True)
     _, _, _, _, _, targets_c_i, _ = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=True)
-    Dc_i = Decoder_UC(hashNum = decHash,
-                 vector="c_img_uc",
-                 subject=subject, 
-                 log=False, 
+    Dc_i = Decoder_UC(config="clipDecoder",
+                 inference=True, 
+                 subject=subject,
                  device="cuda",
                  )
     outputs_c_i = Dc_i.predict(x=x_test[idx]).reshape((len(idx), 1, 1024))
     del Dc_i
-    Dv = Decoder_UC(hashNum = vdvaeHash,
-                 vector="z_vdvae",
-                 subject=subject, 
-                 log=False, 
+    Dv = Decoder_UC(config="vdvaeDecoder",
+                 inference=True, 
+                 subject=subject,
                  device="cuda",
                  )
     outputs_vdvae = Dv.predict(x=x_test[idx])
@@ -187,19 +180,16 @@ def reconstructVDVAE(experiment_title, idx, subject=1, decHash="747", vdvaeHash=
     
 
 
-def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
+def reconstructNImages(experiment_title, idx, subject=1):
     
     _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=True)
-    Dc_i = Decoder_UC(hashNum = decHash,
-                 vector="c_img_uc",
-                 subject=subject, 
-
-                 log=False, 
+    Dc_i = Decoder_UC(config="clipDecoder",
+                 inference=True, 
+                 subject=subject,
                  device="cuda",
                  )
     outputs_c_i = Dc_i.predict(x=x_test[idx]).reshape((len(idx), 1, 1024))
     del Dc_i
-    
     os.makedirs("reconstructions/{}/".format(experiment_title), exist_ok=True)
     
     
@@ -232,12 +222,12 @@ def reconstructNImages(experiment_title, idx, subject=1, decHash="747"):
         figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
 
 
-def reconstructNImagesST(experiment_title, idx):
+def reconstructNImagesST(experiment_title, idx, subject=1):
     
-    Dc_i = Decoder_UC(hashNum = "747",
-                 vector="c_img_uc", 
-                 log=False, 
-                 device="cuda"
+    Dc_i = Decoder_UC(config="clipDecoder",
+                 inference=True, 
+                 subject=subject,
+                 device="cuda",
                  )
     
     # First URL: This is the original read-only NSD file path (The actual data)

@@ -1,5 +1,5 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
@@ -595,13 +595,10 @@ class AlexNetEncoder():
                                                     loader=False,
                                                     average=average)
         if(ae):
-            AE = AutoEncoder(hashNum = "582",
-                    lr=0.0000001,
-                    vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="579",
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:0"
+            AE = AutoEncoder(config="alexnetAutoencoder",
+                             inference=True,
+                             subject=1,
+                             device="cuda:0"
                     )
             y_test = AE.predict(y_test)
             

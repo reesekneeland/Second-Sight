@@ -9,9 +9,11 @@ from utils import *
 import math
 import wandb
 from tqdm import tqdm
+import yaml
 from decoder_uc import Decoder_UC
 from encoder_uc import Encoder_UC
 from alexnet_encoder import AlexNetEncoder
+from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
 from library_decoder import LibraryDecoder
@@ -28,21 +30,21 @@ def main():
     #     print(int(500-500*(1/(1+math.exp(-((i/10)/0.1 - 5))))))
     # for i in range(10):
     #     print(0.1+0.8*(math.pow(i/10, 2)))
-    # S0 = StochasticSearch(config=["AlexNet"],
+    # S0 = StochasticSearch(modelParams=["alexnetEncoder"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
-    # S1 = StochasticSearch(config=["AlexNet"],
+    # S1 = StochasticSearch(modelParams=["alexnetEncoder"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
     #                       n_samples=250,
     #                       n_branches=5,
                         #   ae=True)
-    # S2 = StochasticSearch(config=["AlexNet"],
+    # S2 = StochasticSearch(modelParams=["alexnetEncoder"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=2,
@@ -50,21 +52,28 @@ def main():
     #                       n_branches=2,
                         #   ae=True)
 
-    # S4 = StochasticSearch(config=["c_img_uc"],
+    # S4 = StochasticSearch(modelParams=["clipEncoder"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=10,
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
-    # S5 = StochasticSearch(config=["AlexNet", "c_img_uc"],
+    # S5 = StochasticSearch(modelParams=["alexnetEncoder", "clipEncoder"],
+    #                       device="cuda:0",
+    #                       log=False,
+    #                       n_iter=10,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
+    # S6 = StochasticSearch(modelParams=["alexnetEncoder"],
     #                       device="cuda:0",
     #                       log=False,
     #                       n_iter=6,
     #                       n_samples=100,
     #                       n_branches=4,
     #                       ae=True)
-    S6 = StochasticSearch(config=["AlexNet"],
+    S7 = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
                           device="cuda:0",
                           log=False,
                           n_iter=6,
@@ -88,11 +97,12 @@ def main():
     # S4.generateTestSamples(experiment_title="SCS UC 747 10:100:4 CLIP Guided 27", idx=[i for i in range(0, 20)], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided 3", idx=[i for i in range(0, 20)], average=True)
     # S5.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided Z only 5", idx=[i for i in range(0, 20)], average=True, refine_clip=False)
-    # S5.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided clip_iter 2", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
-    S6.generateTestSamples(experiment_title="SCS UC 747 VDVAE Init 6:100:4 4", idx=[i for i in range(0, 20)], average=True)
+    # S5.generateTestSamples(experiment_title="SCS UC 747 10:100:4 Dual Guided clip_iter 3", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
+    # S6.generateTestSamples(experiment_title="SCS UC 747 VDVAE Init 6:100:4 4", idx=[i for i in range(0, 20)], average=True)
+    S7.generateTestSamples(experiment_title="SCS UC 747 6:100:4 Dual Guided clip_iter 4", idx=[i for i in range(0, 20)], average=True, refine_clip=True, dual_guided=True)
 class StochasticSearch():
     def __init__(self, 
-                config=["AlexNet"],
+                modelParams=["gnetEncoder"],
                 device="cuda:0",
                 subject=1,
                 log=True,
@@ -100,46 +110,48 @@ class StochasticSearch():
                 n_samples=10,
                 n_branches=1,
                 ae=True):
-        self.config = config
+        self.subject = subject
+        with open("config.yml", "r") as yamlfile:
+            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
+        self.modelParams = modelParams
         self.log = log
         self.device = device
-        self.subject = subject
         self.n_iter = n_iter
         self.n_samples = n_samples
         self.n_branches = n_branches
         self.ae = ae
-        self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16")
-        self.R = self.R.to("cuda")
-        self.R.enable_xformers_memory_efficient_attention()
+        self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
         self.EncModels = []
         self.EncType = []
         self.AEModels = []
         self.nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
         mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
         
-        for param in config:
-            if param == "AlexNet":
-                self.AEModels.append(AutoEncoder(hashNum = "582",
-                                                vector="alexnet_encoder_sub1",
+        for param in modelParams:
+            self.EncType.append(self.config[param]["vector"])
+            #AlexNet only works for subject1
+            if param == "alexnetEncoder":
+                self.AEModels.append(AutoEncoder(config="alexnetAutoEncoder",
+                                                inference=True,
                                                 subject=self.subject,
-                                                encoderHash="579",
-                                                log=False, 
                                                 device=self.device))
                 self.EncModels.append(AlexNetEncoder(device=self.device))
-                self.EncType.append("images")
-            elif param == "c_img_uc":
-                self.AEModels.append(AutoEncoder(hashNum = "743",
-                                        vector="c_img_uc",
-                                        subject=self.subject,
-                                        encoderHash="738",
-                                        log=False, 
-                                        batch_size=750,
-                                        device=self.device))
-                self.EncModels.append(Encoder_UC(hashNum="738",
-                                                 subject=self.subject,
-                                                 vector="c_img_uc",
-                                                 device=self.device))
-                self.EncType.append("c_img_uc")
+            elif param == "gnetEncoder":
+                self.AEModels.append(AutoEncoder(config="gnetAutoEncoder",
+                                                inference=True,
+                                                subject=self.subject,
+                                                device=self.device))
+                self.EncModels.append(GNet8_Encoder(device=self.device,
+                                                   subject=self.subject))
+            elif param == "clipEncoder":
+                self.AEModels.append(AutoEncoder(config="clipAutoEncoder",
+                                                inference=True,
+                                                subject=self.subject,
+                                                device=self.device))
+                self.EncModels.append(Encoder_UC(config="clipEncoder",
+                                                inference=True,
+                                                subject=self.subject,
+                                                device=self.device))
 
     def generateNSamples(self, image, c_i, n, strength=1, noise_level=1):
         images = []
@@ -334,7 +346,7 @@ class StochasticSearch():
                 sample_clips.append(self.R.encode_image_raw(image))
             combined_scores_list = []
             for c, mType in enumerate(self.EncType):
-                if mType == "images":
+                if mType == "images" or mType == "alexnet_encoder_sub1":
                     beta_primes = self.EncModels[c].predict(samples, mask)
                 elif mType == "c_img_uc":
                     beta_primes = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask)
@@ -364,7 +376,7 @@ class StochasticSearch():
                 if(self.log):
                     wandb.log({'Alexnet Brain encoding pearson correlation_{}'.format(mType): cur_vector_corrrelation, 'score variance_{}'.format(mType): cur_var})
                 tqdm.write("Type: {}, VC: {}, Var: {}".format(mType, cur_vector_corrrelation, cur_var))
-                if mType == "images":
+                if mType == "images" or mType == "alexnet_encoder_sub1":
                     for i in range(n_branches):
                         iter_images[i] = samples[int(topn_pearson.indices[i])]
                     iter_image_scores.append(float(torch.max(scores)))
@@ -429,7 +441,7 @@ class StochasticSearch():
                 sample_clips.append(self.R.encode_image_raw(image))
             combined_scores = []
             for c, mType in enumerate(self.EncType):
-                if mType == "images":
+                if mType == "images" or mType == "alexnet_encoder_sub1":
                     beta_primes = self.EncModels[c].predict(samples, mask)
                 elif mType == "c_img_uc":
                     beta_primes = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask)
@@ -516,7 +528,7 @@ class StochasticSearch():
                 sample_clips.append(self.R.encode_image_raw(image))
             combined_scores_list = []
             for c, mType in enumerate(self.EncType):
-                if mType == "images":
+                if mType == "images" or mType == "alexnet_encoder_sub1":
                     beta_primes = self.EncModels[c].predict(samples, mask)
                 elif mType == "c_img_uc":
                     beta_primes = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask)
@@ -569,7 +581,7 @@ class StochasticSearch():
         return best_output, images, iter_scores, iter_clip_scores, iter_image_scores, var_scores
 
 
-    def generateTestSamples(self, experiment_title, idx, mask=[], ae=False, average=True, library=False, average_clips=False, refine_clip=True, dual_guided=False):    
+    def generateTestSamples(self, experiment_title, idx, mask=None, ae=False, average=True, library=False, average_clips=False, refine_clip=True, dual_guided=False):    
 
         os.makedirs("reconstructions/{}/".format(experiment_title), exist_ok=True)
         os.makedirs("logs/{}/".format(experiment_title), exist_ok=True)
@@ -583,10 +595,9 @@ class StochasticSearch():
         x_test = x_test[idx]
         outputs_c_i = [None] * len(idx)
         
-        Dv = Decoder_UC(hashNum = "764",
-                        vector="z_vdvae",
-                        subject=self.subject, 
-                        log=False, 
+        Dv = Decoder_UC(config="vdvaeDecoder",
+                        inference=True, 
+                        subject=self.subject,
                         device="cuda",
                         )
         outputs_vdvae = Dv.predict(x=x_test_averaged[idx])
@@ -606,17 +617,16 @@ class StochasticSearch():
         
         if library:
             LD = LibraryDecoder(vector="c_img_uc",
-                                config=["AlexNet"],
+                                modelParams=["clipEncoder"],
                                 device="cuda:0")
-            outputs_c_i, _ = LD.predictVector_coco(x_test, average=average)
-            outputs_c_i = torch.mean(outputs_c_i, dim=1)
+            outputs_c_i = LD.predict(x_test, average=average, topn=500)
             print(outputs_c_i.shape)
         else:
-            Dc_i = Decoder_UC(hashNum = "747",
-                              subject=self.subject,
-                              vector="c_img_uc", 
-                              log=False, 
-                              device="cuda")
+            Dc_i = Decoder_UC(config="clipDecoder",
+                                inference=True, 
+                                subject=self.subject,
+                                device="cuda",
+                                )
             outputs_c_i = Dc_i.predict(x=x_test_averaged[idx])
             print(outputs_c_i.shape)
             del Dc_i
@@ -627,7 +637,7 @@ class StochasticSearch():
         clip_scores = np.array(PeC(outputs_c_i.moveaxis(0,1).to("cpu"), targets_c_i.moveaxis(0,1).to("cpu")).detach())
         np.save("logs/{}/decoded_c_img_PeC.npy".format(experiment_title), clip_scores)
         scs_c_i = []
-        
+        c_i = []
         for i, val in enumerate(tqdm(idx, desc="Reconstructing samples")):
             os.makedirs("reconstructions/{}/{}/".format(experiment_title, val), exist_ok=True)
             
@@ -636,7 +646,7 @@ class StochasticSearch():
                     # set the wandb project where this run will be logged
                     project="StochasticSearch",
                     # track hyperparameters and run metadata
-                    config={
+                    modelParams={
                     "experiment": experiment_title,
                     "sample": val-194,
                     "masks": mask,
@@ -650,8 +660,8 @@ class StochasticSearch():
             target_c = self.R.reconstruct(image_embeds=targets_c_i[i], negative_prompt="text, caption", strength=1.0)
             output_cv = self.R.reconstruct(image=output_v, image_embeds=outputs_c_i[i], negative_prompt="text, caption", strength=0.9)
             target_cv = self.R.reconstruct(image=target_v, image_embeds=targets_c_i[i], negative_prompt="text, caption", strength=0.9)
-            
-            if len(self.config ) > 1:
+            c_i.append(self.R.encode_image_raw(output_c).reshape((1024,)))
+            if len(self.modelParams ) > 1:
                 if refine_clip and dual_guided:
                     scs_reconstruction, image_list, score_list, clip_score_list, image_score_list, var_list = self.zSearch_dual_guidance_clip_iter(beta=x_test[i], c_i=outputs_c_i[i], init_img=output_v, n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
                     np.save("logs/{}/{}_clip_score_list.npy".format(experiment_title, val), np.array(clip_score_list))
@@ -664,11 +674,11 @@ class StochasticSearch():
                     scs_reconstruction, image_list, score_list, var_list = self.zSearch_dual_guidance_z_only(beta=x_test[i], c_i=outputs_c_i[i], init_img=output_v, n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
                     clip_score_list = score_list
                     image_score_list = score_list
-            elif self.config[0] == "AlexNet":
+            elif self.modelParams[0] == "gnetEncoder" or self.modelParams[0] == "alexnetEncoder":
                 scs_reconstruction, image_list, score_list, var_list = self.zSearch(beta=x_test[i], c_i=outputs_c_i[i], init_img=output_v, n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
                 clip_score_list = score_list
                 image_score_list = score_list
-            elif self.config[0] == "c_img_uc":
+            elif self.modelParams[0] == "clipEncoder":
                 scs_reconstruction, image_list, score_list, var_list = self.zSearch_clip(beta=x_test[i], c_i=outputs_c_i[i], n=self.n_samples, max_iter=self.n_iter, n_branches=self.n_branches, mask=mask, average=average)
                 clip_score_list = score_list
                 image_score_list = score_list
@@ -677,7 +687,7 @@ class StochasticSearch():
             np.save("logs/{}/{}_var_list.npy".format(experiment_title, val), np.array(var_list))
             scs_c_i.append(self.R.encode_image_raw(scs_reconstruction).reshape((1024,)))
             new_clip_score = float(PeC1(scs_c_i[i].to("cpu"), targets_c_i[i].to("cpu").detach()))
-            tqdm.write("CLIP IMPROVEMENT: {} -> {}".format(clip_scores[i], new_clip_score))
+            tqdm.write("CLIP IMPROVEMENT: {} -> {}".format(c_i, new_clip_score))
             nsdId = trials[val]
             ground_truth_np_array = self.nsda.read_images([nsdId], show=True)
             ground_truth = Image.fromarray(ground_truth_np_array[0])

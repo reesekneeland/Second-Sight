@@ -1,4 +1,3 @@
-# Only GPU's in use
 import torch
 from torch.optim import Adam
 import numpy as np
@@ -6,6 +5,7 @@ import matplotlib.pyplot as plt
 import torch.nn as nn
 from utils import *
 import wandb
+import yaml
 from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
 
@@ -37,67 +37,70 @@ class MLP(torch.nn.Module):
 # Main Class    
 class AutoEncoder():
     def __init__(self, 
-                 hashNum,
-                 vector, 
-                 log=False, 
-                 subject=1,
+                 config="clipAutoEncoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
+                 inference=False, 
+                 hashNum=None,
+                 vector=None,
                  encoderHash=None,
+                 subject=1,
                  lr=0.00001,
                  batch_size=750,
                  device="cuda",
-                 num_workers=16,
+                 num_workers=4,
                  epochs=200
                  ):
-
-        # Set the parameters for pytorch model training
-        self.hashNum     = hashNum
-        self.vector      = vector
-        self.subject     = subject
-        if(encoderHash):
-            self.encoderModel = encoderHash + "_model_" + self.vector + ".pt"
         
-        self.device      = torch.device(device)
-        self.lr          = lr
-        self.batch_size  = batch_size
-        self.num_epochs  = epochs
-        self.num_workers = num_workers
-        self.log         = log
-    
-        
-        
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+        assert (vector is not None and hashNum is not None) or inference
+        self.subject = subject
+        self.device = torch.device(device)
+        with open("config.yml", "r") as yamlfile:
+            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
+        if inference:
+            self.hashNum = self.config["hashNum"]
+            self.vector = self.config["vector"]
+            self.log = False
+            self.encoderModel = "{}_model_{}.pt".format(self.config["encoderHash"], self.vector)
+        else:
+            self.hashNum = hashNum
+            self.vector = vector
+            self.log = True
+            self.encoderModel = "{}_model_{}.pt".format(encoderHash, self.vector)
+            self.lr = lr
+            self.batch_size = batch_size
+            self.num_epochs = epochs
+            self.num_workers = num_workers
+            # Initialize the data loaders
+            self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
                                                                 batch_size=self.batch_size, 
                                                                 num_workers=self.num_workers, 
                                                                 ae=True,
                                                                 encoderModel=self.encoderModel,
                                                                 average=False,
                                                                 subject=self.subject)
-        self.x_size = self.trainLoader.dataset[0][0].shape[0]
-        # Initialize the Pytorch model class
-        self.model = MLP(self.x_size)
+             # Initializes Weights and Biases to keep track of experiments and training runs
+            if(self.log):
+                wandb.init(
+                    # set the wandb project where this run will be logged
+                    project="Autoencoder",
+                    # track hyperparameters and run metadata
+                    config={
+                    "hash": self.hashNum,
+                    "architecture": "Autoencoder",
+                    "encoder Hash": encoderHash,
+                    "subject": self.subject,
+                    "vector": self.vector,
+                    "dataset": "Whole region visual cortex",
+                    "epochs": self.num_epochs,
+                    "learning_rate": self.lr,
+                    "batch_size:": self.batch_size,
+                    "num_workers": self.num_workers
+                    }
+                )
         
+        # Initialize the Pytorch model class
+        self.model = MLP(self.config["x_size"])
         # Send model to Pytorch Device 
         self.model.to(self.device)
-        # Initializes Weights and Biases to keep track of experiments and training runs
-        if(self.log):
-            wandb.init(
-                # set the wandb project where this run will be logged
-                project="Autoencoder",
-                # track hyperparameters and run metadata
-                config={
-                "hash": self.hashNum,
-                "architecture": "Autoencoder",
-                "encoder Hash": encoderHash,
-                "subject": self.subject,
-                "vector": self.vector,
-                "dataset": "Whole region visual cortex",
-                "epochs": self.num_epochs,
-                "learning_rate": self.lr,
-                "batch_size:": self.batch_size,
-                "num_workers": self.num_workers
-                }
-            )
     
 
     def train(self):

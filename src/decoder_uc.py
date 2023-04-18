@@ -1,16 +1,11 @@
 import torch
 from torch.optim import Adam
-import numpy as np
-import matplotlib.pyplot as plt
 import torch.nn as nn
 from torchmetrics import PearsonCorrCoef
 from utils import *
 import wandb
+import yaml
 from tqdm import tqdm
-import pickle as pk
-import seaborn as sns
-import matplotlib.pylab as plt
-# import bitsandbytes as bnb
 
 # Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
@@ -49,9 +44,10 @@ class MLP(torch.nn.Module):
 # Main Class    
 class Decoder_UC():
     def __init__(self, 
-                 hashNum,
-                 vector, 
-                 log=False, 
+                 config="clipDecoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
+                 inference=False, 
+                 hashNum=None,
+                 vector=None,
                  subject=1,
                  lr=0.00001,
                  batch_size=750,
@@ -59,52 +55,55 @@ class Decoder_UC():
                  num_workers=4,
                  epochs=200
                  ):
-
-        # Set the parameters for pytorch model training
-        self.hashNum = hashNum
-        self.vector = vector
-        self.device = torch.device(device)
-        self.lr = lr
-        self.batch_size = batch_size
-        self.num_epochs = epochs
-        self.num_workers = num_workers
-        self.log = log
+        
+        assert (vector is not None and hashNum is not None) or inference
         self.subject = subject
+        self.device = torch.device(device)
+        with open("config.yml", "r") as yamlfile:
+            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
+        if inference:
+            self.hashNum = self.config["hashNum"]
+            self.vector = self.config["vector"]
+            self.log = False
+        else:
+            self.hashNum = hashNum
+            self.vector = vector
+            self.log = True
+            self.lr = lr
+            self.batch_size = batch_size
+            self.num_epochs = epochs
+            self.num_workers = num_workers
+            # Initialize the data loaders
+            self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+                                                            batch_size=self.batch_size, 
+                                                            num_workers=self.num_workers, 
+                                                            loader=True,
+                                                            average=False,
+                                                            subject=self.subject)
+             # Initializes Weights and Biases to keep track of experiments and training runs
+            if(self.log):
+                wandb.init(
+                    # set the wandb project where this run will be logged
+                    project="decoder_uc",
+                    # track hyperparameters and run metadata
+                    config={
+                    "hash": self.hashNum,
+                    "architecture": "MLP unCLIP",
+                    "subject": self.subject,
+                    "vector": self.vector,
+                    "dataset": "Z scored",
+                    "epochs": self.num_epochs,
+                    "learning_rate": self.lr,
+                    "batch_size:": self.batch_size,
+                    "num_workers": self.num_workers
+                    }
+                )
         
-        
-        # Initialize the data loaders
-        self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
-                                                                    batch_size=self.batch_size, 
-                                                                    num_workers=self.num_workers, 
-                                                                    loader=True,
-                                                                    average=False,
-                                                                    subject=self.subject)
-        x_size = self.trainLoader.dataset[0][0].shape[0]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, x_size)
-
+        self.model = MLP(self.vector, self.config["x_size"])
         # Send model to Pytorch Device 
         self.model.to(self.device)
         
-        # Initializes Weights and Biases to keep track of experiments and training runs
-        if(self.log):
-            wandb.init(
-                # set the wandb project where this run will be logged
-                project="decoder_uc",
-                # track hyperparameters and run metadata
-                config={
-                "hash": self.hashNum,
-                "architecture": "MLP unCLIP",
-                "subject": self.subject,
-                "vector": self.vector,
-                "dataset": "Z scored",
-                "epochs": self.num_epochs,
-                "learning_rate": self.lr,
-                "batch_size:": self.batch_size,
-                "num_workers": self.num_workers
-                }
-            )
-    
 
     def train(self):
         # Set best loss to negative value so it always gets overwritten
