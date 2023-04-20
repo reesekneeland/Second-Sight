@@ -310,19 +310,6 @@ class GNet8_Encoder():
         
         y_test = y_test.to(self.device)
         
-        # mask_path = "masks/subject1/"
-        # masks = {0:torch.full((11838,), False),
-        #             1:torch.load(mask_path + "V1.pt"),
-        #             2:torch.load(mask_path + "V2.pt"),
-        #             3:torch.load(mask_path + "V3.pt"),
-        #             4:torch.load(mask_path + "V4.pt"),
-        #             5:torch.load(mask_path + "early_vis.pt"),
-        #             6:torch.load(mask_path + "higher_vis.pt")}
-        
-        # beta_mask = masks[0]
-        # for i in [1,2]:
-        #     beta_mask = torch.logical_or(beta_mask, masks[i])        
-        
         pred_y = self.predict(images).to(self.device)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
@@ -346,11 +333,48 @@ class GNet8_Encoder():
         plt.hist(r, bins=50, log=True)
         plt.savefig("charts/gnet_encoder_voxel_PeC.png")
         
+    def score_voxels(self, average=True):
+            
+        _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",
+                                                      subject=self.subject,  
+                                                      loader=False,
+                                                      average=average)
+        
+        print(len(y_test), len(y_test)*0.2)
+        test_images = test_images[0:int((len(y_test)*0.2))].to(self.device)
+        y_test = y_test[0:int((len(y_test)*0.2))]
+        # Load our best model into the class to be used for predictions
+        images = []
+        for im in test_images:
+            images.append(process_image(im))
+        
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+        
+        y_test = y_test.to(self.device)
+        
+        pred_y = self.predict(images).to(self.device)
+
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = torch.stack(r)
+        print(r.shape, r)
+        torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
+        
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Mean Pearson: ", torch.mean(r))
         
 def main():
     
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
-    GN = GNet8_Encoder(subject=7, device="cuda:2")
+    # GN = GNet8_Encoder(subject=7, device="cuda:2")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -363,10 +387,19 @@ def main():
     
     
     #AN.benchmark(average=False)
-    GN.benchmark(average=False, ae=False)
-    GN.benchmark(average=True, ae=False)
-    GN.benchmark(average=False, ae=True)
-    GN.benchmark(average=True, ae=True)
+    # GN.benchmark(average=False, ae=False)
+    # GN.benchmark(average=True, ae=False)
+    # GN.benchmark(average=False, ae=True)
+    # GN.benchmark(average=True, ae=True)
+    
+    GN = GNet8_Encoder(subject=1, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=2, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=5, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=7, device="cuda:2")
+    GN.score_voxels(average=False)
     
     # mask_path = "masks/subject1/"
     # masks = {0:torch.full((11838,), False),

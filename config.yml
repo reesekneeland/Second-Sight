@@ -54,6 +54,13 @@
           "x_size": 11838,
           "encoderHash": "579"
         },
+        #storing the topN parameter for each config
+        "libraryDecoder": 
+        {
+          "clipEncoder": 399,
+          "gnetEncoder": 117,
+          "dualGuided": 137
+        },
     },
   2: 
     {
@@ -96,6 +103,13 @@
           "vector": "images",
           "x_size": 10325,
           "encoderHash": "772"
+        },
+        #storing the topN parameter for each config
+        "libraryDecoder": 
+        {
+          "clipEncoder": 726,
+          "gnetEncoder": 69,
+          "dualGuided": 137
         },
     },
   5: 
@@ -140,6 +154,13 @@
           "x_size": 9565,
           "encoderHash": "774"
         },
+        #storing the topN parameter for each config
+        "libraryDecoder": 
+        {
+          "clipEncoder": 271,
+          "gnetEncoder": 125,
+          "dualGuided": 137
+        },
     },
   7: 
     {
@@ -182,6 +203,13 @@
           "vector": "images",
           "x_size": 9162,
           "encoderHash": "775"
+        },
+        #storing the topN parameter for each config
+        "libraryDecoder": 
+        {
+          "clipEncoder": 998,
+          "gnetEncoder": 153,
+          "dualGuided": 582
         },
     },
 }

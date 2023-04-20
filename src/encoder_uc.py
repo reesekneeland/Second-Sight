@@ -237,6 +237,39 @@ class Encoder_UC():
         plt.hist(r, bins=50, log=True)
         plt.savefig("charts/subject{}/{}_{}_encoder_voxel_PeC.png".format(self.subject, self.hashNum, self.vector))
     
+    def score_voxels(self, average=True):
+            
+        # y_test = Brain data
+        # x_test = clip data
+        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
+                                                loader=False,
+                                                average=average,
+                                                subject=self.subject)
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
+        self.model.eval()
+
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+        print(len(y_test), len(y_test)*0.2)
+        x_test = x_test[0:int((len(y_test)*0.2))].to(self.device)
+        y_test = y_test[0:int((len(y_test)*0.2))]
+        
+        pred_y = self.model(x_test)
+
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = torch.stack(r)
+        print(r.shape, r)
+        torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
+        
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Mean Pearson: ", torch.mean(r))
+    
     
     
     

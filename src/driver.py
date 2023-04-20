@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 from PIL import Image
 from nsd_access import NSDAccess
@@ -18,12 +18,15 @@ from vdvae import VDVAE
 nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 def main():
-    train_decoder_uc(subject=2)
-    train_decoder_uc(subject=5)
-    train_decoder_uc(subject=7)
+    # train_decoder_uc(subject=2)
+    # train_decoder_uc(subject=5)
+    # train_decoder_uc(subject=7)
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1) 
-    # encHash = train_encoder_uc(subject=1)
+    train_encoder_uc(subject=1)
+    train_encoder_uc(subject=2)
+    train_encoder_uc(subject=5)
+    train_encoder_uc(subject=7)
 
     # train_decoder_uc(subject=5) 
     # encHash = train_encoder_uc(subject=5)
@@ -33,7 +36,7 @@ def main():
     # train_autoencoder(subject=7, encHash="775")
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    # reconstructNImages(experiment_title="UC CLIP S1", idx=[i for i in range(0, 20)], subject=1)
+    # reconstructNImages(experiment_title="UC test", idx=[i for i in range(0, 20)], subject=1)
     # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2)
     # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5)
     # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7)
@@ -66,15 +69,14 @@ def train_autoencoder(subject, encHash):
     
 def train_encoder_uc(subject=1):
     
-    hashNum = update_hash()
-    # hashNum = "738"
+    # hashNum = update_hash()
+    hashNum = "738"
     E = Encoder_UC(config="clipEncoder",
-                    inference=False,
+                    inference=True,
                     hashNum = hashNum,
                     lr=0.00001,
                     vector="c_img_uc", #c_img_vd, c_text_vd
                     subject=subject,
-                    log=True, 
                     batch_size=750,
                     device="cuda:0",
                     num_workers=16,
@@ -85,8 +87,9 @@ def train_encoder_uc(subject=1):
     
     # E.benchmark(average=False)
     # E.benchmark(average=True)
+    E.score_voxels(average=False)
 
-    process_x_encoded(Encoder=E)
+    # process_x_encoded(Encoder=E)
     
     return hashNum
 
