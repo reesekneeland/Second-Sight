@@ -7,11 +7,11 @@ import torch.nn.init as I
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch import nn
-from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
 from autoencoder import AutoEncoder
 import time
+import yaml
 from torchmetrics import PearsonCorrCoef
 
 class TrunkBlock(L.Module):
@@ -150,7 +150,7 @@ def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoi
 
     # allocate
     subject_image_pred = {s: np.zeros(shape=(len(image_data[s]), subject_nv[s]), dtype=np.float32) for s in subjects}
-    print(subject_image_pred)
+    # print(subject_image_pred)
     _log_act_fn = lambda _x: T.log(1 + T.abs(_x))*T.tanh(_x)
      
     best_params = checkpoint['best_params']
@@ -179,7 +179,7 @@ def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoi
         # print(params['b'].shape)
         # sd.load_state_dict(best_params['fwrfs'][s])
         sd.eval() 
-        print(sd)
+        # print(sd)
         
         subject_image_pred[s] = subject_pred_pass(_pred_fn, shared_model, sd, image_data[s], batch_size)
 
@@ -191,23 +191,26 @@ def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoi
 #######################################
 
 
-class Gnet8_Encoder():
+class GNet8_Encoder():
     
-    def __init__(self, subject = 1, hash_num = "771", device = "cuda"):
+    def __init__(self, subject = 1, device = "cuda"):
         
         # Setting up Cuda
         torch.manual_seed(time.time())
         self.device = torch.device(device) #cuda
         torch.backends.cudnn.enabled=True
-        
         # Subject number
         self.subject = subject
         
+        # Config info
+        with open("config.yml", "r") as yamlfile:
+            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]["gnetEncoder"]
+        
         # Hash number 
-        self.hashNum = hash_num
+        self.hashNum = self.config["hashNum"]
         
         # Vector type
-        self.vector = "images"
+        self.vector = self.config["vector"]
         
         # Config Information
         self.root_dir   = '/export/raid1/home/styvesg/code/nsd_gnet8x/'
@@ -227,10 +230,6 @@ class Gnet8_Encoder():
         
         # Reload joined GNet model files
         self.joined_checkpoint = torch.load(self.joined_model_dir + 'model_params_final', map_location=self.device)
-        
-        # Voxel Masks
-        self.roi_group_names = ['V1', 'V2', 'V3', 'hV4']
-        self.roi_group = [[1,2],[3,4],[5,6], [7]]
         
         self.subjects = list(self.joined_checkpoint['voxel_mask'].keys())
         self.gnet8j_voxel_mask = self.joined_checkpoint['voxel_mask']
@@ -262,9 +261,6 @@ class Gnet8_Encoder():
                     
 
     def predict(self, images, mask = None):
-        
-        
-        
         self.stim_data = {}
         data = []
         w, h = 227, 227  # resize to integer multiple of 64
@@ -288,23 +284,20 @@ class Gnet8_Encoder():
 
         gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, mask, batch_size=100, device=self.device)
         
-        print(gnet8j_image_pred)
-        print(gnet8j_image_pred[self.subject].shape)
+        # print(gnet8j_image_pred)
+        # print(gnet8j_image_pred[self.subject].shape)
         return torch.from_numpy(gnet8j_image_pred[self.subject])
       
     def benchmark(self, average=True, ae=False):
-        _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",  
-                                                    loader=False,
-                                                    average=average)
+        _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",
+                                                      subject=self.subject,  
+                                                      loader=False,
+                                                      average=average)
         if(ae):
-            AE = AutoEncoder(hashNum = "776",
-                    lr=0.0000001,
-                    vector="images", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash=self.hashNum,
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:3"
-                    )
+            AE = AutoEncoder(config="gnetAutoEncoder",
+                             inference=True,
+                             subject=self.subject,
+                             device="cuda:3")
             y_test = AE.predict(y_test)
             
         # Load our best model into the class to be used for predictions
@@ -316,19 +309,6 @@ class Gnet8_Encoder():
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
         y_test = y_test.to(self.device)
-        
-        # mask_path = "masks/subject1/"
-        # masks = {0:torch.full((11838,), False),
-        #             1:torch.load(mask_path + "V1.pt"),
-        #             2:torch.load(mask_path + "V2.pt"),
-        #             3:torch.load(mask_path + "V3.pt"),
-        #             4:torch.load(mask_path + "V4.pt"),
-        #             5:torch.load(mask_path + "early_vis.pt"),
-        #             6:torch.load(mask_path + "higher_vis.pt")}
-        
-        # beta_mask = masks[0]
-        # for i in [1,2]:
-        #     beta_mask = torch.logical_or(beta_mask, masks[i])        
         
         pred_y = self.predict(images).to(self.device)
         
@@ -351,13 +331,50 @@ class Gnet8_Encoder():
         print("Loss: ", float(loss))
         
         plt.hist(r, bins=50, log=True)
-        plt.savefig("charts/alexnet_encoder_voxel_PeC.png")
+        plt.savefig("charts/gnet_encoder_voxel_PeC.png")
         
+    def score_voxels(self, average=True):
+            
+        _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",
+                                                      subject=self.subject,  
+                                                      loader=False,
+                                                      average=average)
+        
+        print(len(y_test), len(y_test)*0.2)
+        test_images = test_images[0:int((len(y_test)*0.2))].to(self.device)
+        y_test = y_test[0:int((len(y_test)*0.2))]
+        # Load our best model into the class to be used for predictions
+        images = []
+        for im in test_images:
+            images.append(process_image(im))
+        
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+        
+        y_test = y_test.to(self.device)
+        
+        pred_y = self.predict(images).to(self.device)
+
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = torch.stack(r)
+        print(r.shape, r)
+        torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
+        
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Mean Pearson: ", torch.mean(r))
         
 def main():
     
-    #GN = Gnet8_Encoder(subject=7, hash_num=update_hash())
-    GN = Gnet8_Encoder(subject=1, hash_num = "771", device= "cuda:3")
+    #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
+    # GN = GNet8_Encoder(subject=7, device="cuda:2")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -370,7 +387,19 @@ def main():
     
     
     #AN.benchmark(average=False)
-    GN.benchmark(average=True, ae=True)
+    # GN.benchmark(average=False, ae=False)
+    # GN.benchmark(average=True, ae=False)
+    # GN.benchmark(average=False, ae=True)
+    # GN.benchmark(average=True, ae=True)
+    
+    GN = GNet8_Encoder(subject=1, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=2, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=5, device="cuda:2")
+    GN.score_voxels(average=False)
+    GN = GNet8_Encoder(subject=7, device="cuda:2")
+    GN.score_voxels(average=False)
     
     # mask_path = "masks/subject1/"
     # masks = {0:torch.full((11838,), False),

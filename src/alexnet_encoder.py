@@ -1,11 +1,12 @@
 import os, sys
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+# os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
 from nsd_access import NSDAccess
 from PIL import Image
 from utils import *
+from torchmetrics import PearsonCorrCoef
 from autoencoder import AutoEncoder
 import time
 from torchmetrics import PearsonCorrCoef
@@ -594,13 +595,10 @@ class AlexNetEncoder():
                                                     loader=False,
                                                     average=average)
         if(ae):
-            AE = AutoEncoder(hashNum = "582",
-                    lr=0.0000001,
-                    vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-                    encoderHash="579",
-                    log=False, 
-                    batch_size=750,
-                    device="cuda:0"
+            AE = AutoEncoder(config="alexnetAutoencoder",
+                             inference=True,
+                             subject=1,
+                             device="cuda:0"
                     )
             y_test = AE.predict(y_test)
             
@@ -614,64 +612,68 @@ class AlexNetEncoder():
         
         y_test = y_test.to(self.device)
         
-        pred_y = self.predict(images).to(self.device)
+        pred_y = self.predict(images, mask=None, unmasked=True).to(self.device)
         
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
         
         pred_y = pred_y.detach()
         y_test = y_test.detach()
-        PeC = PearsonCorrCoef()
+        PeC = PearsonCorrCoef().to(self.device)
         r = []
         for voxel in range(pred_y.shape[1]):
             
             # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]).cpu())
         r = np.array(r)
-        
+        modelId = "{hash}_model_{vec}.pt".format(hash="579", vec="alexnet_encoder_sub1")
+        print("Model ID: {}, Subject: {}, Averaged: {}, AE: {}".format(modelId, 1, average, ae))
         print("Vector Correlation: ", float(pearson))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
-        plt.hist(r, bins=50, log=True)
-        plt.savefig("charts/alexnet_encoder_voxel_PeC.png")
+        # plt.hist(r, bins=50, log=True)
+        # plt.savefig("charts/alexnet_encoder_voxel_PeC.png")
 
 def main():
     
     AN = AlexNetEncoder(predict_normal_flag = False, predict_73k = False)
     
-    subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
-    data = []
-    for i in tqdm(range(10), desc="loading in images"):
+    # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
+    # data = []
+    # for i in tqdm(range(1), desc="loading in images"):
         
-        nsdId = subj1_train.iloc[i]['nsdId']
-        ground_truth_np_array = nsda.read_images([nsdId], show=False)
-        ground_truth = Image.fromarray(ground_truth_np_array[0])
-        data.append(ground_truth)
+    #     nsdId = subj1_train.iloc[i]['nsdId']
+    #     ground_truth_np_array = nsda.read_images([nsdId], show=False)
+    #     ground_truth = Image.fromarray(ground_truth_np_array[0])
+    #     data.append(ground_truth)
     
     #AN.predict_cc3m()
     # AN.predict_73k_coco()
     # AN.benchmark(average=False)
+    AN.benchmark(average=False, ae=False)
+    AN.benchmark(average=True, ae=False)
+    AN.benchmark(average=False, ae=True)
     AN.benchmark(average=True, ae=True)
     
     #AN.load_data()
     #AN.predict_normal()
     
-    mask_path = "masks/"
-    masks = {0:torch.full((11838,), False),
-                1:torch.load(mask_path + "V1.pt"),
-                2:torch.load(mask_path + "V2.pt"),
-                3:torch.load(mask_path + "V3.pt"),
-                4:torch.load(mask_path + "V4.pt"),
-                5:torch.load(mask_path + "V5.pt"),
-                6:torch.load(mask_path + "V6.pt"),
-                7:torch.load(mask_path + "V7.pt")}
+    # mask_path = "masks/"
+    # masks = {0:torch.full((11838,), False),
+    #             1:torch.load(mask_path + "V1.pt"),
+    #             2:torch.load(mask_path + "V2.pt"),
+    #             3:torch.load(mask_path + "V3.pt"),
+    #             4:torch.load(mask_path + "V4.pt"),
+    #             5:torch.load(mask_path + "V5.pt"),
+    #             6:torch.load(mask_path + "V6.pt"),
+    #             7:torch.load(mask_path + "V7.pt")}
     
-    beta_mask = masks[0]
-    for i in [1,2]:
-        beta_mask = torch.logical_or(beta_mask, masks[i])        
+    # beta_mask = masks[0]
+    # for i in [1,2]:
+    #     beta_mask = torch.logical_or(beta_mask, masks[i])        
         
     
-    AN.predict(data, beta_mask, True)
+    # AN.predict(data, beta_mask, True)
            
         
 if __name__ == "__main__":

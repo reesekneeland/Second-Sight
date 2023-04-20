@@ -3,7 +3,6 @@ import sys
 import torch
 import pandas as pd
 from PIL import Image
-from pycocotools.coco import COCO
 sys.path.append('src')
 from utils import *
 from tqdm import tqdm
@@ -42,14 +41,10 @@ class Stochastic_Search_Statistics():
 
     def autoencoded_brain_samples(self):
         
-        AE = AutoEncoder(hashNum = "582",
-                        lr=0.0000001,
-                        vector="alexnet_encoder_sub1", #c_img_0, c_text_0, z_img_mixer
-                        encoderHash="579",
-                        log=False, 
-                        batch_size=750,
-                        device="cuda:0"
-                        )
+        AE = AutoEncoder(config="alexnetAutoEncoder",
+                        inference=True,
+                        subject=1,
+                        device="cuda:0")
         
         # Load the test samples
         _, _, x_test, _, _, y_test, test_trials = load_nsd(vector="images", subject=1, loader=False, average=False, nest=True)

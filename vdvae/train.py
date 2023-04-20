@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from data import set_up_data
-from utils import get_cpu_stats_over_ranks
+from vdvae_utils import get_cpu_stats_over_ranks
 from train_helpers import set_up_hyperparams, load_vaes, load_opt, accumulate_stats, save_model, update_ema
 
 

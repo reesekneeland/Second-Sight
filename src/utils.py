@@ -7,7 +7,6 @@ from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
-import textwrap
 
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
@@ -256,7 +255,7 @@ def process_masks(subject=1):
     
 def process_data(vector="c_img_uc", subject = 1):
     vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[0]
-    
+    print("VECTOR LENGTH: ", vecLength)
     if(vector == "images"):
         vec_target = torch.zeros((vecLength, 541875))
         datashape = (1, 541875)
@@ -267,13 +266,12 @@ def process_data(vector="c_img_uc", subject = 1):
         vec_target = torch.zeros((vecLength, 78848))
         datashape = (1,78848)
     elif(vector == "z_vdvae"):
-        vec_target = torch.zeros((73000, 91168))
+        vec_target = torch.zeros((vecLength, 91168))
         datashape = (1, 91168)
-
+    print(vec_target.shape)
     # Loading the description object for subejct1
     subj = "subject" + str(subject)
     subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
-    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[1]
     full_vec = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector))
     for i in tqdm(range(0,vecLength), desc="vector loader subject{}".format(subject)):
         index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
@@ -502,7 +500,7 @@ def slerp(v0, v1, t, DOT_THRESHOLD=0.9995):
     dot = np.sum(v0 * v1)
     # If absolute value of dot product is almost 1, vectors are ~colineal, so use lerp
     if np.abs(dot) > DOT_THRESHOLD:
-        return lerp(t, v0_copy, v1_copy)
+        return torch.lerp(t, v0_copy, v1_copy)
     # Calculate initial angle between v0 and v1
     theta_0 = np.arccos(dot)
     sin_theta_0 = np.sin(theta_0)

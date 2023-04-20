@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from PIL import Image
 sys.path.append('src')
 from utils import *
@@ -17,21 +17,21 @@ import cv2
 # for it in os.scandir("/logs"):
 #     if it.is_dir():
 #         folder_list.append(it.name)
-count = 0
+# count = 0
 
-for i in range(25):
-    ground_truth   = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Ground Truth.png')
-    reconstruction = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Search Reconstruction.png')
+# for i in range(25):
+#     ground_truth   = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Ground Truth.png')
+#     reconstruction = cv2.imread('/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS VD 10:250:5 HS nsd_general AE/' + str(i) + '/Search Reconstruction.png')
     
-    ground_truth = cv2.resize(ground_truth, (425, 425))
-    reconstruction = cv2.resize(reconstruction, (425, 425))
+#     ground_truth = cv2.resize(ground_truth, (425, 425))
+#     reconstruction = cv2.resize(reconstruction, (425, 425))
 
-    ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2GRAY)
-    reconstruction = cv2.cvtColor(reconstruction, cv2.COLOR_BGR2GRAY)
+#     ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2GRAY)
+#     reconstruction = cv2.cvtColor(reconstruction, cv2.COLOR_BGR2GRAY)
 
-    count += ssim_scs(ground_truth, reconstruction)
+#     count += ssim_scs(ground_truth, reconstruction)
     
-print(count / 25)
+# print(count / 25)
 
 
 # brain_correlation_V1            = np.empty((25, 10))
@@ -119,3 +119,14 @@ print(count / 25)
 # # plt.title('Encoded Brain Pearson Correlation in Early Visual Cortex ')
 # # plt.legend(title='Players', title_fontsize = 13, labels=['L. Messi', 'Cristiano Ronaldo', 'K. De Bruyne', 'V. van Dijk', 'K. Mbappé'])
 # plt.savefig("charts/brain_correlation_plot_twin.png")
+
+Library_L2 = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_decoder_scores/c_img_uc_gnetEncoder_L2.npy")
+Library_PeC = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_decoder_scores/c_img_uc_gnetEncoder_PeC.npy")
+
+# print(Library_L2)
+# print(Library_PeC)
+print(np.argmin(Library_L2[1:1000]))
+print(np.argmax(Library_PeC[1:1000]))
+
+plt.plot(Library_PeC[30:1000])
+plt.savefig("charts/Library_decoder_gnet_topn_1000_PeC.png")
