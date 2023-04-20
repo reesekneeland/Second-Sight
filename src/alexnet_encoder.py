@@ -549,7 +549,7 @@ class AlexNetEncoder():
                         
                         
                         
-    def predict(self, images, mask, unmasked=True):
+    def predict(self, images, mask = None):
         
         self.image_data = {}
         data = []
@@ -574,7 +574,7 @@ class AlexNetEncoder():
 
         subject_image_pred = {}
         for s,bp in self.model_params.items():
-            if(unmasked):
+             if(mask is None):
                 subject_image_pred[1] = get_predictions(self.image_data[1], _fmaps_fn, _fwrf_fn, bp, sample_batch_size=sample_batch_size)
                 break
             
