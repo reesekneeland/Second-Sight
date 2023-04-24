@@ -208,8 +208,7 @@ class Stochastic_Search_Statistics():
             folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
-            sampleTypes = ["iter_0.png", "iter_1.png", "iter_2.png", "iter_3.png", "iter_4.png", "iter_5.png", "iter_6.png", "iter_7.png",
-                           "iter_8.png", "iter_9.png","Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
+            sampleTypes = ["iter_0.png", "iter_1.png", "iter_2.png", "iter_3.png", "iter_4.png", "iter_5.png" ,"Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
             random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
             image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
