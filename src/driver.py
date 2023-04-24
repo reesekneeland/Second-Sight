@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 from PIL import Image
 from nsd_access import NSDAccess
@@ -18,19 +18,31 @@ from vdvae import VDVAE
 nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 def main():
-    # train_decoder_uc(subject=2)
-    # train_decoder_uc(subject=5)
+    
+    # encHash = train_encoder_uc(subject=1)
+    # train_autoencoder(subject=1, encHash=encHash)
+    # train_autoencoder(subject=1, encHash="788")
+    # train_encoder_uc(subject=2)
+    # train_autoencoder(subject=5, encHash="802", config="clipAutoEncoder", vector="c_img_uc")
+    train_autoencoder(subject=5, encHash=None, config="gnetAutoEncoder", vector="images")
+    subjects = [7]
+    for subject in subjects:
+        # train_decoder_uc(subject=subject)
+        encHash = train_encoder_uc(subject=subject)
+        train_autoencoder(subject=subject, encHash=encHash, config="clipAutoEncoder", vector="c_img_uc")
+        train_autoencoder(subject=subject, encHash=None, config="gnetAutoEncoder", vector="images")
+    # train_decoder_uc(subject=1)
     # train_decoder_uc(subject=7)
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1) 
-    # train_encoder_uc(subject=1)
+    
     # train_encoder_uc(subject=2)
     # train_encoder_uc(subject=5)
     # train_encoder_uc(subject=7)
 
     # train_decoder_uc(subject=1) 
     # encHash = train_encoder_uc(subject=5)
-    train_autoencoder(subject=1, encHash="SCS_gnetEncoder_clipEncoder")
+    
     # train_autoencoder(subject=2, encHash="772")
     # train_autoencoder(subject=5, encHash="774")
     # train_autoencoder(subject=7, encHash="775")
@@ -44,16 +56,16 @@ def main():
     
     # train_autoencoder()
 
-def train_autoencoder(subject, encHash):
+def train_autoencoder(subject, encHash, config="gnetAutoEncoder", vector="images"):
     
-    # hashNum = update_hash()
-    hashNum = "787"
+    hashNum = update_hash()
+    # hashNum = "803"
      
-    AE = AutoEncoder(config="dualAutoencoder",
+    AE = AutoEncoder(config=config,
                     inference=False,
                     hashNum = hashNum,
                     lr=0.00001,
-                    vector="images", #c_img_uc , c_text_uc, z_vdvae
+                    vector=vector, #c_img_uc , c_text_uc, z_vdvae
                     subject=subject,
                     encoderHash=encHash,
                     batch_size=64,
@@ -61,7 +73,7 @@ def train_autoencoder(subject, encHash):
                     num_workers=4,
                     epochs=500)
     
-    # AE.train()
+    AE.train()
     AE.benchmark(encodedPass=False, average=False)
     AE.benchmark(encodedPass=False, average=True)
     AE.benchmark(encodedPass=True, average=False)
@@ -70,7 +82,7 @@ def train_autoencoder(subject, encHash):
 def train_encoder_uc(subject=1):
     
     hashNum = update_hash()
-    # hashNum = "738"
+    # hashNum = "798"
     E = Encoder_UC(config="clipEncoder",
                     inference=False,
                     hashNum = hashNum,
@@ -87,9 +99,9 @@ def train_encoder_uc(subject=1):
     
     E.benchmark(average=False)
     E.benchmark(average=True)
-    # E.score_voxels(average=False)
+    E.score_voxels(average=False)
 
-    # process_x_encoded(Encoder=E)
+    process_x_encoded(Encoder=E)
     
     return hashNum
 

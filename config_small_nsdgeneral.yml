@@ -3,107 +3,126 @@
     {
       "vdvaeDecoder": 
         {
-          "hashNum": "797",
+          "hashNum": "764",
           "vector": "z_vdvae",
-          "x_size": 15724
+          "x_size": 11838
         },
       "clipDecoder":
         {
-          "hashNum": "792",
+          "hashNum": "750",
           "vector": "c_img_uc",
-          "x_size": 15724
+          "x_size": 11838
+        },
+        "clipDecoder_big":
+        {
+          "hashNum": "786",
+          "vector": "c_img_uc",
+          "x_size": 15660
         },
       "clipEncoder": 
         {
-          "hashNum": "793",
+          "hashNum": "749",
           "vector": "c_img_uc",
-          "x_size": 15724,
-          "modelId": "793_model_c_img_uc.pt"
+          "x_size": 11838,
+          "modelId": "749_model_c_img_uc.pt"
         },
       "clipAutoEncoder": 
         {
-          "hashNum": "794",
+          "hashNum": "752",
           "vector": "c_img_uc",
-          "x_size": 15724,
-          "encoderHash": "793"
+          "x_size": 11838,
+          "encoderHash": "749"
         },
       "gnetEncoder": 
         {
-          "hashNum": "788",
+          "hashNum": "771",
           "vector": "images",
-          "x_size": 15724,
-          "modelId": "788_model_images.pt"
+          "x_size": 11838,
+          "modelId": "771_model_images.pt"
         },
       "gnetAutoEncoder":
         {
-          "hashNum": "796",
+          "hashNum": "776",
           "vector": "images",
-          "x_size": 15724,
-          "encoderHash": "788"
+          "x_size": 11838,
+          "encoderHash": "771"
         },
         "dualEncoder":
         {
           "hashNum": "SCS_gnetEncoder_clipEncoder",
           "vector": "images",
-          "x_size": 15724,
+          "x_size": 11838,
           "modelId": "SCS_gnetEncoder_clipEncoder_model_images.pt"
         },
         "dualAutoEncoder":
         {
-          "hashNum": "",
+          "hashNum": "787",
           "vector": "images",
-          "x_size": 15724,
+          "x_size": 11838,
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
+        },
+      "alexnetEncoder": 
+        {
+          "hashNum": "579",
+          "vector": "alexnet_encoder_sub1",
+          "modelId": "alexnet_encoder.pt"
+        },
+      "alexnetAutoEncoder": 
+        {
+          "hashNum": "582",
+          "vector": "alexnet_encoder_sub1",
+          "x_size": 11838,
+          "encoderHash": "579"
         },
         #storing the topN parameter for each config
         "libraryDecoder": 
         {
-          "clipEncoder": 200,
-          "gnetEncoder": 200,
-          "dualGuided": 200
+          "clipEncoder": 399,
+          "gnetEncoder": 117,
+          "dualGuided": 137
         },
     },
   2: 
     {
       "vdvaeDecoder": 
         {
-          "hashNum": "",
+          "hashNum": "783",
           "vector": "z_vdvae",
-          "x_size": 14278
+          "x_size": 10325
         },
       "clipDecoder":
         {
-          "hashNum": "",
+          "hashNum": "753",
           "vector": "c_img_uc",
-          "x_size": 14278
+          "x_size": 10325
         },
       "clipEncoder":
         {
-          "hashNum": "798",
+          "hashNum": "755",
           "vector": "c_img_uc",
-          "x_size": 14278,
-          "modelId": "798_model_c_img_uc.pt"
+          "x_size": 10325,
+          "modelId": "755_model_c_img_uc.pt"
         },
       "clipAutoEncoder":
         {
-          "hashNum": "799",
+          "hashNum": "757",
           "vector": "c_img_uc",
-          "x_size": 14278,
-          "encoderHash": "798"
+          "x_size": 10325,
+          "encoderHash": "755"
         },
       "gnetEncoder":
         {
-          "hashNum": "789",
+          "hashNum": "772",
           "vector": "images",
-          "x_size": 14278,
-          "modelId": "789_model_images.pt"
+          "x_size": 10325,
+          "modelId": "772_model_images.pt"
         },
       "gnetAutoEncoder":
         {
-          "hashNum": "801",
+          "hashNum": "778",
           "vector": "images",
-          "x_size": 14278,
-          "encoderHash": "789"
+          "x_size": 10325,
+          "encoderHash": "772"
         },
         #storing the topN parameter for each config
         "libraryDecoder": 
@@ -117,43 +136,43 @@
     {
       "vdvaeDecoder": 
         {
-          "hashNum": "",
+          "hashNum": "784",
           "vector": "z_vdvae",
-          "x_size": 13039
+          "x_size": 9565
         },
       "clipDecoder":
         {
-          "hashNum": "",
+          "hashNum": "758",
           "vector": "c_img_uc",
-          "x_size": 13039
+          "x_size": 9565
         },
       "clipEncoder":
         {
-          "hashNum": "802",
+          "hashNum": "759",
           "vector": "c_img_uc",
-          "x_size": 13039,
-          "modelId": "802_model_c_img_uc.pt"
+          "x_size": 9565,
+          "modelId": "759_model_c_img_uc.pt"
         },
       "clipAutoEncoder":
         {
-          "hashNum": "803",
+          "hashNum": "760",
           "vector": "c_img_uc",
-          "x_size": 13039,
-          "encoderHash": "802"
+          "x_size": 9565,
+          "encoderHash": "759"
         },
       "gnetEncoder":
         {
-          "hashNum": "790",
+          "hashNum": "774",
           "vector": "images",
-          "x_size": 13039,
-          "modelId": "790_model_images.pt"
+          "x_size": 9565,
+          "modelId": "774_model_images.pt"
         },
       "gnetAutoEncoder":
         {
-          "hashNum": "804",
+          "hashNum": "779",
           "vector": "images",
-          "x_size": 13039,
-          "encoderHash": "790"
+          "x_size": 9565,
+          "encoderHash": "774"
         },
         #storing the topN parameter for each config
         "libraryDecoder": 
@@ -167,43 +186,43 @@
     {
       "vdvaeDecoder": 
         {
-          "hashNum": "",
+          "hashNum": "785",
           "vector": "z_vdvae",
-          "x_size": 12682
+          "x_size": 9162
         },
       "clipDecoder":
         {
-          "hashNum": "",
+          "hashNum": "761",
           "vector": "c_img_uc",
-          "x_size": 12682
+          "x_size": 9162
         },
       "clipEncoder":
         {
-          "hashNum": "805",
+          "hashNum": "762",
           "vector": "c_img_uc",
-          "x_size": 12682,
-          "modelId": "805_model_c_img_uc.pt"
+          "x_size": 9162,
+          "modelId": "762_model_c_img_uc.pt"
         },
       "clipAutoEncoder":
         {
-          "hashNum": "806",
+          "hashNum": "763",
           "vector": "c_img_uc",
-          "x_size": 12682,
-          "encoderHash": "805"
+          "x_size": 9162,
+          "encoderHash": "762"
         },
       "gnetEncoder":
         {
-          "hashNum": "791",
+          "hashNum": "775",
           "vector": "images",
-          "x_size": 12682,
-          "modelId": "791_model_images.pt"
+          "x_size": 9162,
+          "modelId": "775_model_images.pt"
         },
       "gnetAutoEncoder":
         {
-          "hashNum": "807",
+          "hashNum": "780",
           "vector": "images",
-          "x_size": 12682,
-          "encoderHash": "791"
+          "x_size": 9162,
+          "encoderHash": "775"
         },
         #storing the topN parameter for each config
         "libraryDecoder": 

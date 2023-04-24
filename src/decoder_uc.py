@@ -79,7 +79,8 @@ class Decoder_UC():
                                                             num_workers=self.num_workers, 
                                                             loader=True,
                                                             average=False,
-                                                            subject=self.subject)
+                                                            subject=self.subject,
+                                                            big=True)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -201,7 +202,8 @@ class Decoder_UC():
         _, _, x_test, _, _, y_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average,
-                                                subject=self.subject)
+                                                subject=self.subject,
+                                                big=True)
         # Load our best model into the class to be used for predictions
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
         self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))

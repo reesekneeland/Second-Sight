@@ -212,16 +212,19 @@ class GNet8_Encoder():
         # Vector type
         self.vector = self.config["vector"]
         
+        # x size
+        self.x_size = self.config["x_size"]
+        
         # Config Information
         self.root_dir   = '/export/raid1/home/styvesg/code/nsd_gnet8x/'
         
         # File locations
         
         # 11838
-        self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
+        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
         
         # 15724
-        #self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/'
+        self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/'
         
 
         self.input_dir = self.root_dir + "output/multisubject/"
@@ -298,26 +301,25 @@ class GNet8_Encoder():
         _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",
                                                       subject=self.subject,  
                                                       loader=False,
-                                                      average=average)
+                                                      average=average,
+                                                      big=True)
         if(ae):
             AE = AutoEncoder(config="gnetAutoEncoder",
                              inference=True,
                              subject=self.subject,
-                             device="cuda:3")
+                             device=self.device)
             y_test = AE.predict(y_test)
             
         # Load our best model into the class to be used for predictions
         images = []
         for im in test_images:
             images.append(process_image(im))
-        
         criterion = nn.MSELoss()
         PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
         
         y_test = y_test.to(self.device)
         
         pred_y = self.predict(images).to(self.device)
-        
         pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
         loss = criterion(pred_y, y_test)
         
@@ -344,7 +346,8 @@ class GNet8_Encoder():
         _, _, y_test, _, _, test_images, _ = load_nsd(vector="images",
                                                       subject=self.subject,  
                                                       loader=False,
-                                                      average=average)
+                                                      average=average,
+                                                      big=True)
         
         print(len(y_test), len(y_test)*0.2)
         test_images = test_images[0:int((len(y_test)*0.2))].to(self.device)
@@ -374,13 +377,13 @@ class GNet8_Encoder():
         torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
         
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
-        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
-        print("Mean Pearson: ", torch.mean(r))
+        print("Scoring Voxels, Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Mean Pearson: {}".format(torch.mean(r)))
         
 def main():
     
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
-    GN = GNet8_Encoder(subject=1, device="cuda:3")
+    # GN = GNet8_Encoder(subject=1, device="cuda:1")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -393,13 +396,19 @@ def main():
     
     
     #AN.benchmark(average=False)
-    GN.benchmark(average=False, ae=False)
-    GN.benchmark(average=True, ae=False)
+    # GN.benchmark(average=False, ae=False)
+    # GN.benchmark(average=True, ae=False)
     # GN.benchmark(average=False, ae=True)
     # GN.benchmark(average=True, ae=True)
-    
-    # GN = GNet8_Encoder(subject=1, device="cuda:0")
-    # GN.score_voxels(average=False)
+    subjects = [5,7]
+    for subject in subjects:
+        GN = GNet8_Encoder(subject=subject, device="cuda:1")
+        process_x_encoded(Encoder=GN)
+        GN.score_voxels(average=False)
+        GN.benchmark(average=False, ae=False)
+        GN.benchmark(average=True, ae=False)
+        # GN.benchmark(average=False, ae=True)
+        # GN.benchmark(average=True, ae=True)
     # GN = GNet8_Encoder(subject=2, device="cuda:2")
     # GN.score_voxels(average=False)
     # GN = GNet8_Encoder(subject=5, device="cuda:2")
@@ -420,7 +429,7 @@ def main():
     # print(torch.sum(masks[1] == True))
     # GN.predict(data, masks[1])
     
-    #process_x_encoded(Encoder=GN)
+    # process_x_encoded(Encoder=GN)
            
         
 if __name__ == "__main__":

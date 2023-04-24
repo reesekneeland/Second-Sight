@@ -64,7 +64,10 @@ class AutoEncoder():
             self.hashNum = hashNum
             self.vector = vector
             self.log = True
-            self.encoderModel = "{}_model_{}.pt".format(encoderHash, self.vector)
+            if encoderHash is None:
+                self.encoderModel = "{}_model_{}.pt".format(self.config["encoderHash"], self.vector)
+            else:
+                self.encoderModel = "{}_model_{}.pt".format(encoderHash, self.vector)
             self.lr = lr
             self.batch_size = batch_size
             self.num_epochs = epochs
@@ -76,7 +79,8 @@ class AutoEncoder():
                                                                 ae=True,
                                                                 encoderModel=self.encoderModel,
                                                                 average=False,
-                                                                subject=self.subject)
+                                                                subject=self.subject,
+                                                                big=True)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -220,7 +224,8 @@ class AutoEncoder():
                                         ae=True,
                                         encoderModel=self.encoderModel,
                                         average=average,
-                                        subject=self.subject)
+                                        subject=self.subject,
+                                        big=True)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,self.x_size))
         target = torch.zeros((datasize, self.x_size))

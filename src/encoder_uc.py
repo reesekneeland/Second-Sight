@@ -67,7 +67,8 @@ class Encoder_UC():
                                                             num_workers=self.num_workers, 
                                                             loader=True,
                                                             average=False,
-                                                            subject=self.subject)
+                                                            subject=self.subject,
+                                                            big=True)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -87,9 +88,9 @@ class Encoder_UC():
                     "num_workers": self.num_workers
                     }
                 )
-        
+        self.x_size = self.config["x_size"]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, self.config["x_size"])
+        self.model = MLP(self.vector, self.x_size)
         # Send model to Pytorch Device 
         self.model.to(self.device)
     
@@ -204,7 +205,8 @@ class Encoder_UC():
         _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average,
-                                                subject=self.subject)
+                                                subject=self.subject,
+                                                big=True)
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
         self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()
@@ -244,7 +246,8 @@ class Encoder_UC():
         _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average,
-                                                subject=self.subject)
+                                                subject=self.subject,
+                                                big=True)
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
         self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()

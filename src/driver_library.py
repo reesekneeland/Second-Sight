@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import numpy as np
 from PIL import Image
@@ -39,8 +39,11 @@ def main():
     #                 mask=None,
     #                 average=True,
     #                 config=["gnetEncoder"])
-    
-    # benchmark_library("z_vdvae", subject=1, average=True, config=["gnetEncoder", "clipEncoder"])
+    benchmark_library("z_vdvae", subject=1, average=True, config=["gnetEncoder"])
+    subjects = [2, 5, 7]
+    for subject in subjects:
+        benchmark_library(vector="c_img_uc", subject=subject, average=True, config=["gnetEncoder", "clipEncoder"])
+        benchmark_library(vector="z_vdvae", subject=subject, average=True, config=["gnetEncoder"])
     # benchmark_library("c_img_uc", subject=2, average=True, config=["gnetEncoder", "clipEncoder"])
     # benchmark_library("c_img_uc", subject=5, average=True, config=["gnetEncoder", "clipEncoder"])
     # benchmark_library("c_img_uc", subject=7, average=True, config=["gnetEncoder", "clipEncoder"])
@@ -59,12 +62,12 @@ def main():
     #                    mask=None,
     #                    average=True,
     #                    config=["gnetEncoder"])
-    reconstructNImages(experiment_title="LD S1 CLIP+VDVAE dualGuided ",
-                       subject=1,
-                       idx=[i for i in range(0, 20)],
-                       ae=True,
-                       mask=None,
-                       config=["gnetEncoder", "clipEncoder"])
+    # reconstructNImages(experiment_title="LD S1 CLIP+VDVAE dualGuided",
+    #                    subject=1,
+    #                    idx=[i for i in range(0, 20)],
+    #                    ae=True,
+    #                    mask=None,
+    #                    config=["gnetEncoder", "clipEncoder"])
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], average=True)
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], average=True)
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], average=True)
@@ -81,39 +84,27 @@ def reconstructNImages(experiment_title, subject, idx, ae=True, mask=None, confi
     targets_vdvae = normalize_vdvae(targets_vdvae[idx]).reshape((len(idx), 1, 91168))
     targets_clips = targets_clips[idx].reshape((len(idx), 1, 1024))
     
-    LD_i = LibraryDecoder(vector="images",
-                        configList=config,
+    LD = LibraryDecoder(configList=config,
                         subject=subject,
                         ae=ae,
                         device="cuda")
-    print(torch.cuda.memory_allocated(device="cuda")/1e9)
-    output_images  = LD_i.predict(x)
-    del LD_i
-    print(torch.cuda.memory_reserved(device="cuda")/1e9)
-    LD_c = LibraryDecoder(vector="c_img_uc",
-                        configList=config,
-                        subject=subject,
-                        mask=mask,
-                        ae=ae,
-                        device="cuda")
-    output_clips = LD_c.predict(x).reshape((len(idx), 1, 1024))
-    del LD_c
-    print(torch.cuda.memory_reserved(device="cuda")/1e9)
-    LD_v = LibraryDecoder(vector="z_vdvae",
-                        configList=["gnetEncoder"],
+    output_images  = LD.predict(x, vector="images")
+    
+    output_clips = LD.predict(x, vector="c_img_uc").reshape((len(idx), 1, 1024))
+    del LD
+
+    LD_v = LibraryDecoder(configList=["gnetEncoder"],
                         subject=subject,
                         ae=ae,
-                        mask=torch.load("masks/subject{}/early_vis.pt".format(subject)),
+                        mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),
                         device="cuda")
-    output_vdvae = LD_v.predict(x, topn=25)
+    output_vdvae = LD_v.predict(x, vector="z_vdvae", topn=25)
     output_vdvae = normalize_vdvae(output_vdvae).reshape((len(idx), 1, 91168))
     del LD_v
-    print(torch.cuda.memory_reserved(device="cuda")/1e9)
     V = VDVAE()
     R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
     for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):
         tqdm.write("{}, {}".format(i, val))
-        print(torch.cuda.memory_allocated(device="cuda")/1e9)
         print(output_vdvae[i].shape, output_vdvae[i].device)
         rec_target_vdvae = V.reconstruct(latents=targets_vdvae[i])
         rec_vdvae = V.reconstruct(latents=output_vdvae[i])
@@ -231,11 +222,10 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
 
 def benchmark_library(vector, subject=1, average=True, config=["gnetEncoder"]):
     device = "cuda"
-    LD = LibraryDecoder(vector=vector,
-                        configList=config,
+    LD = LibraryDecoder(configList=config,
                         subject=subject,
                         device=device)
-    LD.benchmark(average=average)
+    LD.benchmark(average=average, vector=vector)
 
 
 

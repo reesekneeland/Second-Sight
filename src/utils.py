@@ -42,16 +42,18 @@ def update_hash():
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False):
+def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False, big=True):
+    if(big):
+        nsd_general = "nsd_general_big.pt"
+    else:
+        nsd_general = "nsd_general.pt"
     if(ae):
         assert encoderModel is not None
-        x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
+        x = torch.load(prep_path + "subject{}/{}".format(subject, nsd_general)).requires_grad_(False).to("cpu")
         y = torch.load(prep_path + "subject{}/x_encoded/{}".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
-        x = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
+        x = torch.load(prep_path + "subject{}/{}".format(subject, nsd_general)).requires_grad_(False)
         y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
-        # x = torch.load(prep_path + "x/whole_region_11838.pt").requires_grad_(False)
-        # y = torch.load(prep_path + "{}/vector.pt".format(vector)).requires_grad_(False)
     
     if(not split): 
         if(loader):
@@ -140,7 +142,7 @@ def ghislain_stimuli_ordering(subject=1):
     return stimuli_ordering
 
 
-def create_whole_region_unnormalized(subject = 1, whole=False, big_mask=False):
+def create_whole_region_unnormalized(subject = 1, whole=False, big=False):
     
     #  Subject #1
     #   - NSD General = 11838
@@ -153,7 +155,7 @@ def create_whole_region_unnormalized(subject = 1, whole=False, big_mask=False):
     #   - Flatten Brain Shape = 730128
     #
     numScans = {1: 40, 2: 40, 3:32, 4: 30, 5:40, 6:32, 7:40, 8:30}
-    if big_mask:
+    if big:
         nsd_general = nib.load("masks/subject{}/nsdgeneral_big.nii.gz".format(subject)).get_fdata()
         nsd_general = np.nan_to_num(nsd_general)
         nsd_general = np.where(nsd_general==1.0, True, False)
@@ -170,7 +172,7 @@ def create_whole_region_unnormalized(subject = 1, whole=False, big_mask=False):
         whole_region = torch.zeros((750*data, layer_size))
     else:
         data = numScans[subject]-3
-        if big_mask:
+        if big:
             file = "subject{}/nsd_general_unnormalized_big.pt".format(subject)
         else:
             file = "subject{}/nsd_general_unnormalized.pt".format(subject)
@@ -205,13 +207,13 @@ def create_whole_region_unnormalized(subject = 1, whole=False, big_mask=False):
     torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized(subject = 1, whole = False, big_mask=False):
+def create_whole_region_normalized(subject = 1, whole = False, big=False):
     
     if(whole):
 
         whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized_all.pt".format(subject))
     else:
-        if big_mask:
+        if big:
             whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized_big.pt".format(subject))
         else:
             whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized.pt".format(subject))
@@ -229,16 +231,23 @@ def create_whole_region_normalized(subject = 1, whole = False, big_mask=False):
     if(whole):
         torch.save(whole_region_norm, prep_path + "subject{}/nsd_general_all.pt".format(subject))
     else:
-        if big_mask:
+        if big:
             torch.save(whole_region_norm, prep_path + "subject{}/nsd_general_big.pt".format(subject))
         else:
             torch.save(whole_region_norm, prep_path + "subject{}/nsd_general.pt".format(subject))
     
-def process_masks(subject=1):
-    nsd_general = nib.load(mask_path + "subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
-    nsd_general = np.nan_to_num(nsd_general).astype(bool)
+def process_masks(subject=1, big=False):
+    if big:
+        nsd_general = nib.load(mask_path + "subject{}/nsdgeneral_big.nii.gz".format(subject)).get_fdata()
+        nsd_general = np.nan_to_num(nsd_general)
+        nsd_general = np.where(nsd_general==1.0, True, False)
+        visual_rois = nib.load(mask_path + "subject{}/prf-visualrois_big.nii.gz".format(subject)).get_fdata()
+    else:
+        nsd_general = nib.load(mask_path + "subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
+        nsd_general = np.nan_to_num(nsd_general).astype(bool)
+        visual_rois = nib.load(mask_path + "subject{}/prf-visualrois.nii.gz".format(subject)).get_fdata()
     
-    visual_rois = nib.load(mask_path + "subject{}/prf-visualrois.nii.gz".format(subject)).get_fdata()
+    
     V1L = np.where(visual_rois==1.0, True, False)
     V1R = np.where(visual_rois==2.0, True, False)
     V1 = torch.from_numpy(V1L[nsd_general] + V1R[nsd_general])
@@ -253,13 +262,15 @@ def process_masks(subject=1):
     early_vis = V1 + V2 + V3 + V4
     higher_vis = ~early_vis
     
-
-    torch.save(V1, mask_path + "subject{}/V1.pt".format(subject))
-    torch.save(V2, mask_path + "subject{}/V2.pt".format(subject))
-    torch.save(V3, mask_path + "subject{}/V3.pt".format(subject))
-    torch.save(V4, mask_path + "subject{}/V4.pt".format(subject))
-    torch.save(early_vis, mask_path + "subject{}/early_vis.pt".format(subject))
-    torch.save(higher_vis, mask_path + "subject{}/higher_vis.pt".format(subject))
+    flag = ""
+    if big:
+        flag = "_big"
+    torch.save(V1, mask_path + "subject{}/V1{}.pt".format(subject, flag))
+    torch.save(V2, mask_path + "subject{}/V2{}.pt".format(subject, flag))
+    torch.save(V3, mask_path + "subject{}/V3{}.pt".format(subject, flag))
+    torch.save(V4, mask_path + "subject{}/V4{}.pt".format(subject, flag))
+    torch.save(early_vis, mask_path + "subject{}/early_vis{}.pt".format(subject, flag))
+    torch.save(higher_vis, mask_path + "subject{}/higher_vis{}.pt".format(subject, flag))
     print("V1: ", np.unique(V1, return_counts=True))
     print("V2: ", np.unique(V2, return_counts=True))
     print("V3: ", np.unique(V3, return_counts=True))
@@ -326,20 +337,20 @@ def process_raw_tensors(vector):
     torch.save(vec_target, prep_path + vector + "_73k.pt")
     
 def process_x_encoded(Encoder):
-    modelId = Encoder.hashNum + "_model_" + Encoder.vector + ".pt"
-    os.makedirs("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/subject{}/{}".format(Encoder.subject, modelId), exist_ok=True)
-    coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(Encoder.vector))
-    vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(Encoder.subject)).shape[1]
-    coco_preds_full = torch.zeros((73000, vecLength))
-    for i in tqdm(range(4), desc="predicting images"):
-        coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
-    pruned_encodings = prune_vector(coco_preds_full)
-    torch.save(pruned_encodings, "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/latent_vectors/subject{}/{}/coco_brain_preds.pt".format(Encoder.subject, modelId))
-    
-    os.makedirs(prep_path + "subject{}/x_encoded/".format(Encoder.subject), exist_ok=True)
-    _, y = load_nsd(vector = Encoder.vector, subject=Encoder.subject, loader = False, split = False)
-    outputs = Encoder.predict(y)
-    torch.save(outputs, prep_path + "subject{}/x_encoded/{}".format(Encoder.subject, modelId))
+    with torch.no_grad():
+        modelId = Encoder.hashNum + "_model_" + Encoder.vector + ".pt"
+        os.makedirs("latent_vectors/subject{}/{}".format(Encoder.subject, modelId), exist_ok=True)
+        coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(Encoder.vector))
+        coco_preds_full = torch.zeros((73000, Encoder.x_size))
+        for i in tqdm(range(4), desc="predicting images"):
+            coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
+        pruned_encodings = prune_vector(coco_preds_full)
+        torch.save(pruned_encodings, "latent_vectors/subject{}/{}/coco_brain_preds.pt".format(Encoder.subject, modelId))
+        
+        os.makedirs(prep_path + "subject{}/x_encoded/".format(Encoder.subject), exist_ok=True)
+        _, y = load_nsd(vector = Encoder.vector, subject=Encoder.subject, loader = False, split = False)
+        outputs = Encoder.predict(y)
+        torch.save(outputs, prep_path + "subject{}/x_encoded/{}".format(Encoder.subject, modelId))
     
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
@@ -521,8 +532,8 @@ def slerp(q1, q2, u):
 
 
 def normalize_vdvae(v):
-    latent_mean = torch.load("vdvae/train_mean.pt")
-    latent_std = torch.load("vdvae/train_std.pt")
+    latent_mean = torch.load("vdvae/train_mean.pt").to(v.device)
+    latent_std = torch.load("vdvae/train_std.pt").to(v.device)
 
     outputs_vdvae_norm = (v - torch.mean(v, dim=0)) / torch.std(v, dim=0)
     outputs_vdvae_norm = (outputs_vdvae_norm * latent_std) + latent_mean

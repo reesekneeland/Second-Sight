@@ -18,25 +18,30 @@ import re
 
 class Stochastic_Search_Statistics():
     
-    def __init__(self):
+    def __init__(self, big=False, device="cuda"):
 
-        self.directory_path = '/export/raid1/home/ojeda040/Second-Sight/reconstructions/SCS 10:250:5 HS nsd_general AE'
-        #subdirs = [os.path.join(d, o) for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
-        #length_subdirs = len(subdirs)
-        # self.R = Reconstructor(device=self.device)
-        self.device="cuda:0"
-        model_id = "openai/clip-vit-large-patch14"
+        self.device=device
+        model_id = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
         self.PeC = PearsonCorrCoef().to(self.device)
         self.mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/subject1/"
-        self.masks = {0:torch.full((11838,), False),
-                    1:torch.load(self.mask_path + "V1.pt"),
-                    2:torch.load(self.mask_path + "V2.pt"),
-                    3:torch.load(self.mask_path + "V3.pt"),
-                    4:torch.load(self.mask_path + "V4.pt"),
-                    5:torch.load(self.mask_path + "early_vis.pt"),
-                    6:torch.load(self.mask_path + "higher_vis.pt")}  
+        if big:
+            self.masks = {0:torch.full((11838,), False),
+                        1:torch.load(self.mask_path + "V1_big.pt"),
+                        2:torch.load(self.mask_path + "V2_big.pt"),
+                        3:torch.load(self.mask_path + "V3_big.pt"),
+                        4:torch.load(self.mask_path + "V4_big.pt"),
+                        5:torch.load(self.mask_path + "early_vis_big.pt"),
+                        6:torch.load(self.mask_path + "higher_vis_big.pt")}  
+        else:
+            self.masks = {0:torch.full((11838,), False),
+                        1:torch.load(self.mask_path + "V1.pt"),
+                        2:torch.load(self.mask_path + "V2.pt"),
+                        3:torch.load(self.mask_path + "V3.pt"),
+                        4:torch.load(self.mask_path + "V4.pt"),
+                        5:torch.load(self.mask_path + "early_vis.pt"),
+                        6:torch.load(self.mask_path + "higher_vis.pt")}  
 
     def autoencoded_brain_samples(self):
         
@@ -199,17 +204,26 @@ class Stochastic_Search_Statistics():
         #   8 --> iter_8
         #   9 --> iter_9
         #   10 --> Ground Truth
-        #   11 --> Decoded CLIP Only
-        #   12 --> Library Reconstruction
+        #   11 --> Decoded VDVAE Only
+        #   12--> Decoded CLIP Only
+        #   13 --> Decoded CLIP+VDVAE
+        #   14 --> Search Reconstruction
+        #   15 --> Library Reconstruction
+        #   16 --> Ground Truth CLIP
+        #   17 --> Ground Truth VDVAE
+        #   18 --> Ground Truth CLIP+VDVAE
     def calculate_clip_similarity(self, experiment_name, sample, sampleType=1, subject = 1):
         with torch.no_grad():
-            exp_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + experiment_name + "/"
+            exp_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(subject, experiment_name)
             
             folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
-            sampleTypes = ["iter_0.png", "iter_1.png", "iter_2.png", "iter_3.png", "iter_4.png", "iter_5.png", "iter_6.png", "iter_7.png",
-                           "iter_8.png", "iter_9.png","Ground Truth.png", "Decoded CLIP Only.png", "Library Reconstruction.png"]
+            sampleTypes = {0: "iter_0.png", 1: "iter_1.png", 2: "iter_2.png", 3: "iter_3.png", 4: "iter_4.png", 
+                           5: "iter_5.png", 6: "iter_6.png", 7: "iter_7.png", 8: "iter_8.png", 9: "iter_9.png", 
+                           10: "Ground Truth.png", 11: "Decoded VDVAE.png", 12: "Decoded CLIP Only.png", 
+                           13: "Decoded CLIP+VDVAE.png", 14: "Search Reconstruction.png", 15: "Library Reconstruction.png",
+                           16: "Ground Truth CLIP.png", 17: "Ground Truth VDVAE.png", 18: "Ground Truth CLIP+VDVAE.png"}
             random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
             image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
             ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
@@ -217,9 +231,9 @@ class Stochastic_Search_Statistics():
             inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
             outputs = self.visionmodel(**inputs)
             
-            gt_feature = outputs.image_embeds[0].reshape((768))
-            reconstruct_feature = outputs.image_embeds[1].reshape((768))
-            rand_image_feature = outputs.image_embeds[2].reshape((768))
+            gt_feature = outputs.image_embeds[0].reshape((1024))
+            reconstruct_feature = outputs.image_embeds[1].reshape((1024))
+            rand_image_feature = outputs.image_embeds[2].reshape((1024))
             rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
             gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
             reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
@@ -388,7 +402,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for library resonstruction
             pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
             ssim_library = self.calculate_ssim(ground_truth_path, library_reconstruction_path)
-            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, (iter_count + 2), subject = subject)
+            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, 15, subject = subject)
             row_library = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "3", 'SSIM' : str(round(ssim_library, 10)), 'Pixel Correlation' : str(round(pix_corr_library, 10)), 
                                          'CLIP Pearson' : str(round(clip_pearson_library, 10)), 'CLIP Two-way' : str(round(two_way_prob_library, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -397,7 +411,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
             ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, (iter_count + 1), subject = subject)
+            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, 12, subject = subject)
             row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)),
                                          'CLIP Pearson' : str(round(clip_pearson_decoded, 10)), 'CLIP Two-way' : str(round(two_way_prob_decoded, 10))}, index=[df_row_num])
             df_row_num += 1
