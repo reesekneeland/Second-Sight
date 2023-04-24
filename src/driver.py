@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 from PIL import Image
 from nsd_access import NSDAccess
@@ -23,20 +23,20 @@ def main():
     # train_decoder_uc(subject=7)
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1) 
-    train_encoder_uc(subject=1)
-    train_encoder_uc(subject=2)
-    train_encoder_uc(subject=5)
-    train_encoder_uc(subject=7)
+    # train_encoder_uc(subject=1)
+    # train_encoder_uc(subject=2)
+    # train_encoder_uc(subject=5)
+    # train_encoder_uc(subject=7)
 
-    # train_decoder_uc(subject=5) 
+    # train_decoder_uc(subject=1) 
     # encHash = train_encoder_uc(subject=5)
-    # train_autoencoder(subject=1, encHash="771")
+    train_autoencoder(subject=1, encHash="SCS_gnetEncoder_clipEncoder")
     # train_autoencoder(subject=2, encHash="772")
     # train_autoencoder(subject=5, encHash="774")
     # train_autoencoder(subject=7, encHash="775")
     # reconstructNImagesST(experiment_title="UC 747 ST", idx=[i for i in range(20)])
     
-    # reconstructNImages(experiment_title="UC test", idx=[i for i in range(0, 20)], subject=1)
+    # reconstructNImages(experiment_title="UC 786 S1", idx=[i for i in range(0, 20)], subject=1)
     # reconstructNImages(experiment_title="UC CLIP S2", idx=[i for i in range(0, 20)], subject=2)
     # reconstructNImages(experiment_title="UC CLIP S5", idx=[i for i in range(0, 20)], subject=5)
     # reconstructNImages(experiment_title="UC CLIP S7", idx=[i for i in range(0, 20)], subject=7)
@@ -46,10 +46,10 @@ def main():
 
 def train_autoencoder(subject, encHash):
     
-    hashNum = update_hash()
-    # hashNum = "582"
+    # hashNum = update_hash()
+    hashNum = "787"
      
-    AE = AutoEncoder(config="clipAutoencoder",
+    AE = AutoEncoder(config="dualAutoencoder",
                     inference=False,
                     hashNum = hashNum,
                     lr=0.00001,
@@ -61,7 +61,7 @@ def train_autoencoder(subject, encHash):
                     num_workers=4,
                     epochs=500)
     
-    AE.train()
+    # AE.train()
     AE.benchmark(encodedPass=False, average=False)
     AE.benchmark(encodedPass=False, average=True)
     AE.benchmark(encodedPass=True, average=False)
@@ -69,10 +69,10 @@ def train_autoencoder(subject, encHash):
     
 def train_encoder_uc(subject=1):
     
-    # hashNum = update_hash()
-    hashNum = "738"
+    hashNum = update_hash()
+    # hashNum = "738"
     E = Encoder_UC(config="clipEncoder",
-                    inference=True,
+                    inference=False,
                     hashNum = hashNum,
                     lr=0.00001,
                     vector="c_img_uc", #c_img_vd, c_text_vd
@@ -82,12 +82,12 @@ def train_encoder_uc(subject=1):
                     num_workers=16,
                     epochs=300
                 )
-    # E.train()
+    E.train()
     
     
-    # E.benchmark(average=False)
-    # E.benchmark(average=True)
-    E.score_voxels(average=False)
+    E.benchmark(average=False)
+    E.benchmark(average=True)
+    # E.score_voxels(average=False)
 
     # process_x_encoded(Encoder=E)
     
@@ -97,11 +97,11 @@ def train_encoder_uc(subject=1):
 def train_decoder_uc(subject=1):
     hashNum = update_hash()
     # hashNum = "765"
-    D = Decoder_UC(config="vdvaeDecoder",
+    D = Decoder_UC(config="clipDecoder",
                     inference=False,
                     hashNum = hashNum,
                     lr=0.00001,
-                    vector="z_vdvae", #c_img_uc , c_text_uc, z_vdvae
+                    vector="c_img_uc", #c_img_uc , c_text_uc, z_vdvae
                     subject=subject,
                     batch_size=64,
                     device="cuda:0",
@@ -117,11 +117,11 @@ def train_decoder_uc(subject=1):
 
 
 def reconstructVDVAE(experiment_title, idx, subject=1):
-    os.makedirs("reconstructions/{}/".format(experiment_title), exist_ok=True)
+    os.makedirs("reconstructions/subject{}/{}/".format(subject, experiment_title), exist_ok=True)
     
     _, _, x_test, y_train, y_val, targets_vdvae, trials = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True)
     _, _, _, _, _, targets_c_i, _ = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=True)
-    Dc_i = Decoder_UC(config="clipDecoder",
+    Dc_i = Decoder_UC(config="clipDecoder_big",
                  inference=True, 
                  subject=subject,
                  device="cuda",
@@ -179,21 +179,21 @@ def reconstructVDVAE(experiment_title, idx, subject=1):
         captions = ["Ground Truth", "", "Ground Truth VDVAE", "Decoded VDVAE", "Ground Truth CLIP", "Decoded CLIP", "Ground Truth CLIP + VDVAE", "Decoded CLIP + VDVAE"]
         figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
         
-        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
+        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject{}/{}/{}.png'.format(subject, experiment_title, val))
     
 
 
 def reconstructNImages(experiment_title, idx, subject=1):
     
     _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=True)
-    Dc_i = Decoder_UC(config="clipDecoder",
+    Dc_i = Decoder_UC(config="clipDecoder_big",
                  inference=True, 
                  subject=subject,
                  device="cuda",
                  )
     outputs_c_i = Dc_i.predict(x=x_test[idx]).reshape((len(idx), 1, 1024))
     del Dc_i
-    os.makedirs("reconstructions/{}/".format(experiment_title), exist_ok=True)
+    os.makedirs("reconstructions/subject{}/{}/".format(subject, experiment_title), exist_ok=True)
     
     
     targets_c_i = targets_c_i[idx].reshape((len(idx), 1, 1024))
@@ -222,7 +222,7 @@ def reconstructNImages(experiment_title, idx, subject=1):
         captions = ["Ground Truth", "", "Target C_2", "Output C_2", "Target C_i", "Output C_i"]
         figure = tileImages(experiment_title + ": " + str(val), images, captions, rows, columns)
         
-        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/{}/{}.png'.format(experiment_title, val))
+        figure.save('/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject{}/{}/{}.png'.format(subject, experiment_title, val))
 
 
 def reconstructNImagesST(experiment_title, idx, subject=1):

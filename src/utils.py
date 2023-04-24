@@ -140,7 +140,7 @@ def ghislain_stimuli_ordering(subject=1):
     return stimuli_ordering
 
 
-def create_whole_region_unnormalized(subject = 1, whole=False):
+def create_whole_region_unnormalized(subject = 1, whole=False, big_mask=False):
     
     #  Subject #1
     #   - NSD General = 11838
@@ -153,7 +153,13 @@ def create_whole_region_unnormalized(subject = 1, whole=False):
     #   - Flatten Brain Shape = 730128
     #
     numScans = {1: 40, 2: 40, 3:32, 4: 30, 5:40, 6:32, 7:40, 8:30}
-    nsd_general = nib.load("masks/subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
+    if big_mask:
+        nsd_general = nib.load("masks/subject{}/nsdgeneral_big.nii.gz".format(subject)).get_fdata()
+        nsd_general = np.nan_to_num(nsd_general)
+        nsd_general = np.where(nsd_general==1.0, True, False)
+    else:
+        nsd_general = nib.load("masks/subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
+        
     layer_size = np.sum(nsd_general == True)
     print(nsd_general.shape)
     os.makedirs(prep_path + "subject{}/".format(subject), exist_ok=True)
@@ -164,7 +170,10 @@ def create_whole_region_unnormalized(subject = 1, whole=False):
         whole_region = torch.zeros((750*data, layer_size))
     else:
         data = numScans[subject]-3
-        file = "subject{}/nsd_general_unnormalized.pt".format(subject)
+        if big_mask:
+            file = "subject{}/nsd_general_unnormalized_big.pt".format(subject)
+        else:
+            file = "subject{}/nsd_general_unnormalized.pt".format(subject)
         whole_region = torch.zeros((750*data, layer_size))
 
     nsd_general_mask = np.nan_to_num(nsd_general)
@@ -196,13 +205,16 @@ def create_whole_region_unnormalized(subject = 1, whole=False):
     torch.save(whole_region, prep_path + file)
     
     
-def create_whole_region_normalized(subject = 1, whole = False):
+def create_whole_region_normalized(subject = 1, whole = False, big_mask=False):
     
     if(whole):
 
         whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized_all.pt".format(subject))
     else:
-        whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized.pt".format(subject))
+        if big_mask:
+            whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized_big.pt".format(subject))
+        else:
+            whole_region = torch.load(prep_path + "subject{}/nsd_general_unnormalized.pt".format(subject))
     whole_region_norm = torch.zeros_like(whole_region)
             
     # Normalize the data using Z scoring method for each voxel
@@ -217,7 +229,10 @@ def create_whole_region_normalized(subject = 1, whole = False):
     if(whole):
         torch.save(whole_region_norm, prep_path + "subject{}/nsd_general_all.pt".format(subject))
     else:
-        torch.save(whole_region_norm, prep_path + "subject{}/nsd_general.pt".format(subject))
+        if big_mask:
+            torch.save(whole_region_norm, prep_path + "subject{}/nsd_general_big.pt".format(subject))
+        else:
+            torch.save(whole_region_norm, prep_path + "subject{}/nsd_general.pt".format(subject))
     
 def process_masks(subject=1):
     nsd_general = nib.load(mask_path + "subject{}/brainmask_nsdgeneral_1.0.nii".format(subject)).get_fdata()
@@ -470,49 +485,46 @@ def prune_vector(x, subject=1):
             pruned_x[count] = x[pred]
             count+=1
     return pruned_x
+
+def get_pruned_indices(subject=1):
+    subj = nsda.stim_descriptions[nsda.stim_descriptions["subject" + str(subject)] != 0]
+    nsdIds = set(subj['nsdId'].tolist())
     
-def slerp(v0, v1, t, DOT_THRESHOLD=0.9995):
-    '''
-    Spherical linear interpolation
-    Args:
-        t (float/np.ndarray): Float value between 0.0 and 1.0
-        v0 (np.ndarray): Starting vector
-        v1 (np.ndarray): Final vector
-        DOT_THRESHOLD (float): Threshold for considering the two vectors as
-                               colineal. Not recommended to alter this.
-    Returns:
-        v2 (np.ndarray): Interpolation vector between v0 and v1
-    '''
-    c = False
-    if not isinstance(v0,np.ndarray):
-        c = True
-        v0 = v0.detach().cpu().numpy()
-    if not isinstance(v1,np.ndarray):
-        c = True
-        v1 = v1.detach().cpu().numpy()
-    # Copy the vectors to reuse them later
-    v0_copy = np.copy(v0)
-    v1_copy = np.copy(v1)
-    # Normalize the vectors to get the directions and angles
-    v0 = v0 / np.linalg.norm(v0)
-    v1 = v1 / np.linalg.norm(v1)
-    # Dot product with the normalized vectors (can't use np.dot in W)
-    dot = np.sum(v0 * v1)
-    # If absolute value of dot product is almost 1, vectors are ~colineal, so use lerp
-    if np.abs(dot) > DOT_THRESHOLD:
-        return torch.lerp(t, v0_copy, v1_copy)
-    # Calculate initial angle between v0 and v1
-    theta_0 = np.arccos(dot)
-    sin_theta_0 = np.sin(theta_0)
-    # Angle at timestep t
-    theta_t = theta_0 * t
-    sin_theta_t = np.sin(theta_t)
-    # Finish the slerp algorithm
-    s0 = np.sin(theta_0 - theta_t) / sin_theta_0
-    s1 = sin_theta_t / sin_theta_0
-    v2 = s0 * v0_copy + s1 * v1_copy
-    if c:
-        res = torch.from_numpy(v2).to("cuda")
-    else:
-        res = v2
-    return res
+    pruned_indices = torch.zeros((73000-len(nsdIds), ))
+    count = 0
+    for pred in range(73000):
+        if pred not in nsdIds:
+            pruned_indices[count] = pred
+            count+=1
+    return pruned_indices
+    
+def slerp(q1, q2, u):
+    """Spherical Linear intERPolation."""
+    output_shape = q1.shape
+    output_type = q1.dtype
+    output_device = q1.device
+    q1 = q1.flatten().to(dtype=output_type, device=output_device)
+    q2 = q2.flatten().to(dtype=output_type, device=output_device)
+    cos_theta = torch.dot(q1, q2)
+    if cos_theta < 0:
+        q1, cos_theta = -q1, -cos_theta
+
+    if cos_theta > 0.9995:
+        return torch.lerp(q1, q2, u)
+
+    theta = torch.acos(cos_theta)
+    sin_theta = torch.sin(theta)
+    a = torch.sin((1 - u) * theta) / sin_theta
+    b = torch.sin(u * theta) / sin_theta
+    ret = a * q1 + b * q2
+    return ret.reshape(output_shape).to(dtype=output_type, device=output_device)
+
+
+def normalize_vdvae(v):
+    latent_mean = torch.load("vdvae/train_mean.pt")
+    latent_std = torch.load("vdvae/train_std.pt")
+
+    outputs_vdvae_norm = (v - torch.mean(v, dim=0)) / torch.std(v, dim=0)
+    outputs_vdvae_norm = (outputs_vdvae_norm * latent_std) + latent_mean
+    outputs_vdvae_norm = outputs_vdvae_norm.reshape((v.shape[0], 1, 91168))
+    return outputs_vdvae_norm

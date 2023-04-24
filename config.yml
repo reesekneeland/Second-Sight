@@ -13,6 +13,12 @@
           "vector": "c_img_uc",
           "x_size": 11838
         },
+        "clipDecoder_big":
+        {
+          "hashNum": "786",
+          "vector": "c_img_uc",
+          "x_size": 15660
+        },
       "clipEncoder": 
         {
           "hashNum": "749",
@@ -40,6 +46,20 @@
           "vector": "images",
           "x_size": 11838,
           "encoderHash": "771"
+        },
+        "dualEncoder":
+        {
+          "hashNum": "SCS_gnetEncoder_clipEncoder",
+          "vector": "images",
+          "x_size": 11838,
+          "modelId": "SCS_gnetEncoder_clipEncoder_model_images.pt"
+        },
+        "dualAutoEncoder":
+        {
+          "hashNum": "787",
+          "vector": "images",
+          "x_size": 11838,
+          "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
       "alexnetEncoder": 
         {

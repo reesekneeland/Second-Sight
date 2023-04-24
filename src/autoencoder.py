@@ -96,9 +96,9 @@ class AutoEncoder():
                     "num_workers": self.num_workers
                     }
                 )
-        
+        self.x_size = self.config["x_size"]
         # Initialize the Pytorch model class
-        self.model = MLP(self.config["x_size"])
+        self.model = MLP(self.x_size)
         # Send model to Pytorch Device 
         self.model.to(self.device)
     
