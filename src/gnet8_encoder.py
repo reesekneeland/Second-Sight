@@ -216,7 +216,13 @@ class GNet8_Encoder():
         self.root_dir   = '/export/raid1/home/styvesg/code/nsd_gnet8x/'
         
         # File locations
+        
+        # 11838
         self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
+        
+        # 15724
+        #self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/'
+        
 
         self.input_dir = self.root_dir + "output/multisubject/"
         self.roiwise_model_dir = self.input_dir + 'gnet8r_mpf_evc_Feb-05-2022_2105/'# 'gnet8r_mpf_evc_Feb-04-2022_1844/'
@@ -374,7 +380,7 @@ class GNet8_Encoder():
 def main():
     
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
-    # GN = GNet8_Encoder(subject=7, device="cuda:2")
+    GN = GNet8_Encoder(subject=1, device="cuda:3")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -387,19 +393,19 @@ def main():
     
     
     #AN.benchmark(average=False)
-    # GN.benchmark(average=False, ae=False)
-    # GN.benchmark(average=True, ae=False)
+    GN.benchmark(average=False, ae=False)
+    GN.benchmark(average=True, ae=False)
     # GN.benchmark(average=False, ae=True)
     # GN.benchmark(average=True, ae=True)
     
-    GN = GNet8_Encoder(subject=1, device="cuda:2")
-    GN.score_voxels(average=False)
-    GN = GNet8_Encoder(subject=2, device="cuda:2")
-    GN.score_voxels(average=False)
-    GN = GNet8_Encoder(subject=5, device="cuda:2")
-    GN.score_voxels(average=False)
-    GN = GNet8_Encoder(subject=7, device="cuda:2")
-    GN.score_voxels(average=False)
+    # GN = GNet8_Encoder(subject=1, device="cuda:0")
+    # GN.score_voxels(average=False)
+    # GN = GNet8_Encoder(subject=2, device="cuda:2")
+    # GN.score_voxels(average=False)
+    # GN = GNet8_Encoder(subject=5, device="cuda:2")
+    # GN.score_voxels(average=False)
+    # GN = GNet8_Encoder(subject=7, device="cuda:2")
+    # GN.score_voxels(average=False)
     
     # mask_path = "masks/subject1/"
     # masks = {0:torch.full((11838,), False),

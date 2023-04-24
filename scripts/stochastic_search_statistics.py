@@ -7,6 +7,7 @@ sys.path.append('src')
 from utils import *
 from tqdm import tqdm
 from alexnet_encoder import AlexNetEncoder
+from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from torchmetrics import PearsonCorrCoef
 import cv2
@@ -28,23 +29,21 @@ class Stochastic_Search_Statistics():
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
         self.PeC = PearsonCorrCoef().to(self.device)
-        self.brain_masks =  {1:[1,2], 2: [3,4], 3:[5,6], 4:[7], 5:[1,2,3,4,5,6,7]}
-        self.mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/"
+        self.mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/subject1/"
         self.masks = {0:torch.full((11838,), False),
                     1:torch.load(self.mask_path + "V1.pt"),
                     2:torch.load(self.mask_path + "V2.pt"),
                     3:torch.load(self.mask_path + "V3.pt"),
                     4:torch.load(self.mask_path + "V4.pt"),
-                    5:torch.load(self.mask_path + "V5.pt"),
-                    6:torch.load(self.mask_path + "V6.pt"),
-                    7:torch.load(self.mask_path + "V7.pt")}
+                    5:torch.load(self.mask_path + "early_vis.pt"),
+                    6:torch.load(self.mask_path + "higher_vis.pt")}  
 
     def autoencoded_brain_samples(self):
         
         AE = AutoEncoder(config="alexnetAutoEncoder",
                         inference=True,
                         subject=1,
-                        device="cuda:0")
+                        device="cuda:3")
         
         # Load the test samples
         _, _, x_test, _, _, y_test, test_trials = load_nsd(vector="images", subject=1, loader=False, average=False, nest=True)
@@ -62,44 +61,18 @@ class Stochastic_Search_Statistics():
         #     x_test_ae[i] = torch.mean(AE.predict(x_test[i]),dim=0)
         
         for i in tqdm(range(100), desc = "Autoencoding samples and averaging" ):
-            x_test_ae[i] = torch.mean(AE.predict(x_param[i]),dim=0)
+            repetitions = []
+            for j in range(3):
+                if(torch.count_nonzero(x_test[i,j]) > 0):
+                    repetitions.append(x_test[i,j])
+                
+            x_test_ae[i] = torch.mean(AE.predict(torch.stack(repetitions)),dim=0)
         
         return x_test_ae
     
     def return_all_masks(self):
         
-        # Instantiate all the mask variales
-        brain_mask_V1 = self.masks[0]
-        brain_mask_V2 = self.masks[0]
-        brain_mask_V3 = self.masks[0]
-        brain_mask_V4 = self.masks[0]
-        brain_mask_early_visual = self.masks[0]
-        brain_mask_higher_visual = self.masks[0]
-        
-        # Fill V1 mask
-        for i in self.brain_masks[1]:
-            brain_mask_V1 = torch.logical_or(brain_mask_V1, self.masks[i])
-        
-        # Fill V2 mask
-        for i in self.brain_masks[2]:
-            brain_mask_V2 = torch.logical_or(brain_mask_V2, self.masks[i])
-        
-        # Fill V3 Mask
-        for i in self.brain_masks[3]:
-            brain_mask_V3 = torch.logical_or(brain_mask_V3, self.masks[i])
-        
-        # Fill V4 Mask
-        for i in self.brain_masks[4]:
-            brain_mask_V4 = torch.logical_or(brain_mask_V4, self.masks[i])
-            
-        # Fill early visual mask
-        for i in self.brain_masks[5]:
-            brain_mask_early_visual = torch.logical_or(brain_mask_early_visual, self.masks[i])
-           
-        # Negate the early visual cortex to get the higher visual cortex region.  
-        brain_mask_higher_visual = ~brain_mask_early_visual
-        
-        return brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual, brain_mask_higher_visual
+        return self.masks[1], self.masks[2], self.masks[3], self.masks[4], self.masks[5], self.masks[6]
 
     def generate_brain_predictions(self):
         
@@ -228,10 +201,10 @@ class Stochastic_Search_Statistics():
         #   10 --> Ground Truth
         #   11 --> Decoded CLIP Only
         #   12 --> Library Reconstruction
-    def calculate_clip_similarity(self, experiment_name, sample, sampleType=1):
+    def calculate_clip_similarity(self, experiment_name, sample, sampleType=1, subject = 1):
         with torch.no_grad():
-            exp_path = "/export/raid1/home/kneel027/Second-Sight/reconstructions/" + experiment_name + "/"
-
+            exp_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + experiment_name + "/"
+            
             folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
             rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
             rand_index = random.choice(rand_list)
@@ -257,10 +230,10 @@ class Stochastic_Search_Statistics():
         return float(two_way_prob), float(clip_pearson)
     
     
-    def image_indices(self, folder):
+    def image_indices(self, folder, subject = 1):
         
         # Directory path
-        dir_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        dir_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + folder + "/"
         
         # Grab the list of files
         files = []
@@ -289,7 +262,7 @@ class Stochastic_Search_Statistics():
         
         
         # List of image numbers created. 
-        idx = self.image_indices(folder)
+        idx = self.image_indices(folder, subject = subject)
         
         # Autoencoded avearged brain samples 
         beta_samples = self.autoencoded_brain_samples()
@@ -363,7 +336,7 @@ class Stochastic_Search_Statistics():
                         ssim_search_reconstruction = self.calculate_ssim(search_reconstruction_path, reconstruction_path)
                         
                         # CLIP metrics calculation
-                        two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i, iter_count)
+                        two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
                         
                         # Calculate the strength at that reconstruction iter image. 
                         strength = 1.0-0.6*(math.pow(iter_count/10, 3))
@@ -415,7 +388,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for library resonstruction
             pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
             ssim_library = self.calculate_ssim(ground_truth_path, library_reconstruction_path)
-            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, (iter_count + 2))
+            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, (iter_count + 2), subject = subject)
             row_library = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "3", 'SSIM' : str(round(ssim_library, 10)), 'Pixel Correlation' : str(round(pix_corr_library, 10)), 
                                          'CLIP Pearson' : str(round(clip_pearson_library, 10)), 'CLIP Two-way' : str(round(two_way_prob_library, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -424,7 +397,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
             ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, (iter_count + 1))
+            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, (iter_count + 1), subject = subject)
             row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)),
                                          'CLIP Pearson' : str(round(clip_pearson_decoded, 10)), 'CLIP Two-way' : str(round(two_way_prob_decoded, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -438,7 +411,7 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth_CLIP])
             
             # Make data frame row for ground truth Image
-            two_way_prob_ground_truth, clip_pearson_ground_truth = self.calculate_clip_similarity(folder, i, iter_count)
+            two_way_prob_ground_truth, clip_pearson_ground_truth = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
             row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 
                                               'CLIP Pearson' : str(round(clip_pearson_ground_truth, 10)), 'CLIP Two-way' : str(round(two_way_prob_ground_truth, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -471,8 +444,10 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    GN = Gnet8_Encoder(subject=1, hash_num = "771", device= "cuda:3")
-    SCS.create_dataframe("SCS UC 747 10:100:4 0.6 Exp3 AE", GN, subject=1)
+    GN = GNet8_Encoder(subject=1, device= "cuda:3")
+    SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 17", GN, subject=1)
+    SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
+    SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
     
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
