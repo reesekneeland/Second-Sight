@@ -281,18 +281,15 @@ class Stochastic_Search_Statistics():
         
         
         
-    def create_dataframe(self, folder):
+    def create_dataframe(self, folder, encoder, subject = 1):
         
         # Path to the folder
-        log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/" + folder + "/"
-        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/" + folder + "/"
+        log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/subject" + str(subject) + "/" + folder + "/"
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + folder + "/"
         
         
         # List of image numbers created. 
         idx = self.image_indices(folder)
-         
-        # Instantiate the alexnet class for predicts
-        AN =  AlexNetEncoder()
         
         # Autoencoded avearged brain samples 
         beta_samples = self.autoencoded_brain_samples()
@@ -396,23 +393,23 @@ class Stochastic_Search_Statistics():
             folder_image_set.append(ground_truth_CLIP)
             folder_image_set.append(ground_truth)
                         
-            # Alexnet predictions for each region
-            alexnet_prediction_V1               = AN.predict(folder_image_set, brain_mask_V1, False)
-            alexnet_prediction_V2               = AN.predict(folder_image_set, brain_mask_V2, False)
-            alexnet_prediction_V3               = AN.predict(folder_image_set, brain_mask_V3, False)
-            alexnet_prediction_V4               = AN.predict(folder_image_set, brain_mask_V4, False)
-            alexnet_prediction_early_visual     = AN.predict(folder_image_set, brain_mask_early_visual, False)
-            alexnet_prediction_higher_visual    = AN.predict(folder_image_set, brain_mask_higher_visual, False)
-            alexnet_prediction_unmasked         = AN.predict(folder_image_set, brain_mask_higher_visual, True)
+            # Encoder predictions for each region
+            encoder_prediction_V1               = encoder.predict(folder_image_set, brain_mask_V1)
+            encoder_prediction_V2               = encoder.predict(folder_image_set, brain_mask_V2)
+            encoder_prediction_V3               = encoder.predict(folder_image_set, brain_mask_V3)
+            encoder_prediction_V4               = encoder.predict(folder_image_set, brain_mask_V4)
+            encoder_prediction_early_visual     = encoder.predict(folder_image_set, brain_mask_early_visual)
+            encoder_prediction_higher_visual    = encoder.predict(folder_image_set, brain_mask_higher_visual)
+            encoder_prediction_unmasked         = encoder.predict(folder_image_set)
             
             # Pearson correlations for each reconstruction region
-            pearson_correlation_V1              = self.generate_pearson_correlation(alexnet_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
-            pearson_correlation_V2              = self.generate_pearson_correlation(alexnet_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
-            pearson_correlation_V3              = self.generate_pearson_correlation(alexnet_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
-            pearson_correlation_V4              = self.generate_pearson_correlation(alexnet_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
-            pearson_correlation_early_visual    = self.generate_pearson_correlation(alexnet_prediction_early_visual, beta_samples[i], brain_mask_early_visual, unmasked=False)
-            pearson_correlation_higher_visual   = self.generate_pearson_correlation(alexnet_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
-            pearson_correlation_unmasked        = self.generate_pearson_correlation(alexnet_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
+            pearson_correlation_V1              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
+            pearson_correlation_V2              = self.generate_pearson_correlation(encoder_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
+            pearson_correlation_V3              = self.generate_pearson_correlation(encoder_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
+            pearson_correlation_V4              = self.generate_pearson_correlation(encoder_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
+            pearson_correlation_early_visual    = self.generate_pearson_correlation(encoder_prediction_early_visual, beta_samples[i], brain_mask_early_visual, unmasked=False)
+            pearson_correlation_higher_visual   = self.generate_pearson_correlation(encoder_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
+            pearson_correlation_unmasked        = self.generate_pearson_correlation(encoder_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
                         
                         
             # Make data frame row for library resonstruction
@@ -474,8 +471,9 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-
-    SCS.create_dataframe("SCS UC 747 10:100:4 0.6 Exp3 AE")
+    GN = Gnet8_Encoder(subject=1, hash_num = "771", device= "cuda:3")
+    SCS.create_dataframe("SCS UC 747 10:100:4 0.6 Exp3 AE", GN, subject=1)
+    
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.6 Exp3 AE NA")
@@ -484,9 +482,9 @@ def main():
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
     # reconstruct = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Search Reconstruction.png")
     # surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
-    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
-    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
-    print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
+    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
+    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
+    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
         
 if __name__ == "__main__":
     main()
