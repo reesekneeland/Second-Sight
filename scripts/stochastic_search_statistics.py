@@ -245,6 +245,11 @@ class Stochastic_Search_Statistics():
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
         return float(two_way_prob), float(clip_pearson), float(clip_cosine_sim)
     
+    def inception(self):
+        
+        model = torch.hub.load('pytorch/vision:v0.10.0', 'inception_v3', pretrained=True)
+        model.eval()
+    
     
     def image_indices(self, folder, subject = 1):
         
