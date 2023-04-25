@@ -227,7 +227,6 @@ class StochasticSearch():
                 combined_preds = torch.zeros((len(self.EncType), len(samples), beta.shape[1])).to(self.device)
                 # if(self.ae):
                 #     autoencoded_betas = torch.zeros((len(self.EncType), beta.shape[1]))
-                print("COMBINED PREDS SHAPE: {}".format(combined_preds.shape))
                 for c, mType in enumerate(self.EncType):
                     if mType == "images" or mType == "alexnet_encoder_sub1":
                         combined_preds[c] = self.EncModels[c].predict(samples).to(self.device)

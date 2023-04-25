@@ -21,7 +21,8 @@ class Stochastic_Search_Statistics():
     def __init__(self, big=False, device="cuda"):
 
         self.device=device
-        model_id = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
+        # model_id = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
+        model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
         self.PeC = PearsonCorrCoef().to(self.device)
@@ -231,9 +232,10 @@ class Stochastic_Search_Statistics():
             inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
             outputs = self.visionmodel(**inputs)
             
-            gt_feature = outputs.image_embeds[0].reshape((1024))
-            reconstruct_feature = outputs.image_embeds[1].reshape((1024))
-            rand_image_feature = outputs.image_embeds[2].reshape((1024))
+            gt_feature = outputs.image_embeds[0].reshape((768))
+            reconstruct_feature = outputs.image_embeds[1].reshape((768))
+            clip_cosine_sim = torch.nn.functional.cosine_similarity(gt_feature, reconstruct_feature, dim=0)
+            rand_image_feature = outputs.image_embeds[2].reshape((768))
             rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
             gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
             reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
@@ -241,7 +243,7 @@ class Stochastic_Search_Statistics():
             loss = (torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) *100)
             two_way_prob = loss.softmax(dim=0)[0]
             clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
-        return float(two_way_prob), float(clip_pearson)
+        return float(two_way_prob), float(clip_pearson), float(clip_cosine_sim)
     
     
     def image_indices(self, folder, subject = 1):
@@ -350,7 +352,7 @@ class Stochastic_Search_Statistics():
                         ssim_search_reconstruction = self.calculate_ssim(search_reconstruction_path, reconstruction_path)
                         
                         # CLIP metrics calculation
-                        two_way_prob, clip_pearson = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
+                        two_way_prob, clip_pearson, _ = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
                         
                         # Calculate the strength at that reconstruction iter image. 
                         strength = 1.0-0.6*(math.pow(iter_count/10, 3))
@@ -402,7 +404,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for library resonstruction
             pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
             ssim_library = self.calculate_ssim(ground_truth_path, library_reconstruction_path)
-            two_way_prob_library, clip_pearson_library = self.calculate_clip_similarity(folder, i, 15, subject = subject)
+            two_way_prob_library, clip_pearson_library, _ = self.calculate_clip_similarity(folder, i, 15, subject = subject)
             row_library = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "3", 'SSIM' : str(round(ssim_library, 10)), 'Pixel Correlation' : str(round(pix_corr_library, 10)), 
                                          'CLIP Pearson' : str(round(clip_pearson_library, 10)), 'CLIP Two-way' : str(round(two_way_prob_library, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -411,7 +413,7 @@ class Stochastic_Search_Statistics():
             # Make data frame row for decoded clip only
             pix_corr_decoded = self.calculate_pixel_correlation(ground_truth, decoded_CLIP_only)
             ssim_decoded = self.calculate_ssim(ground_truth_path, decoded_CLIP_only_path)
-            two_way_prob_decoded, clip_pearson_decoded = self.calculate_clip_similarity(folder, i, 12, subject = subject)
+            two_way_prob_decoded, clip_pearson_decoded, _ = self.calculate_clip_similarity(folder, i, 12, subject = subject)
             row_decoded = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "2", 'SSIM' : str(round(ssim_decoded, 10)), 'Pixel Correlation' : str(round(pix_corr_decoded, 10)),
                                          'CLIP Pearson' : str(round(clip_pearson_decoded, 10)), 'CLIP Two-way' : str(round(two_way_prob_decoded, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -425,7 +427,7 @@ class Stochastic_Search_Statistics():
             df = pd.concat([df, row_ground_truth_CLIP])
             
             # Make data frame row for ground truth Image
-            two_way_prob_ground_truth, clip_pearson_ground_truth = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
+            two_way_prob_ground_truth, clip_pearson_ground_truth, _ = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
             row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 
                                               'CLIP Pearson' : str(round(clip_pearson_ground_truth, 10)), 'CLIP Two-way' : str(round(two_way_prob_ground_truth, 10))}, index=[df_row_num])
             df_row_num += 1
@@ -452,16 +454,16 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    SCS = Stochastic_Search_Statistics()
+    SCS = Stochastic_Search_Statistics(device="cuda:3")
     
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    GN = GNet8_Encoder(subject=1, device= "cuda:3")
-    SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 17", GN, subject=1)
-    SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
-    SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
+    # GN = GNet8_Encoder(subject=1, device= "cuda:3")
+    # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 17", GN, subject=1)
+    # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
+    # SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
     
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
@@ -471,9 +473,9 @@ def main():
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
     # reconstruct = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Search Reconstruction.png")
     # surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
-    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 10))
-    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 3))
-    # print(SCS.calculate_clip_similarity("VD/SCS VD PCA LR 10:250:5 0.4 Exp AE", 26))
+    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 2, sampleType=14, subject = 1))
+    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 4, sampleType=14, subject = 1))
+    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 10, sampleType=14, subject = 1))
         
 if __name__ == "__main__":
     main()

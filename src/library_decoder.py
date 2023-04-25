@@ -124,19 +124,19 @@ class LibraryDecoder():
                 best_im_indices, _ = self.rankCoco(x[sample], topn=topn)
                 if vector == "images":
                     if topn == 1:
-                        x_preds[sample] = library[int(best_im_indices)]
+                        x_preds[sample] = library[int(best_im_indices)].reshape((1, self.datasize[vector]))
                     else:
                         for idx, index in enumerate(best_im_indices):
-                            x_preds[sample, idx] = library[int(index)]
+                            x_preds[sample, idx] = library[int(index)].reshape((1, self.datasize[vector]))
                 else:
                     vectors = torch.zeros((topn, self.datasize[vector]))
                     for idx, index in enumerate(best_im_indices):
-                        vectors[idx] = library[int(index)]
+                        vectors[idx] = library[int(index)].reshape((1, self.datasize[vector]))
                     x_preds[sample] = torch.mean(vectors, dim=0)
         return x_preds
 
     
-    def benchmark(self, vector="c_img_uc", average=True):
+    def benchmark(self, vector="c_img_uc"):
 
         # Load data and targets
         _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True)
@@ -164,7 +164,7 @@ class LibraryDecoder():
         l2 = np.array(l2)
         print("Library Decoder: Subject: {}, Config: {}".format(self.subject, ", ".join(self.configList)))
         print("Vector Correlation Top {}: {}".format(float(np.argmax(vc)), float(np.max(vc))))
-        print("Loss Top Top {}: {}".format(float(np.argmin(l2)), float(np.min(l2))))
+        print("Loss Top {}: {}".format(float(np.argmin(l2)), float(np.min(l2))))
         print("Vector Correlation Top 1: ", float(vc[0]))
         print("Loss Top 1:", float(l2[0]))
         print("Vector Correlation Top 10: ", float(vc[9]))
@@ -175,5 +175,6 @@ class LibraryDecoder():
         print("Loss Top 500:", float(l2[499]))
         print("Vector Correlation Top 1000: ", float(vc[-1]))
         print("Loss Top 1000:", float(l2[-1]))
+        os.mkdir("logs/subject{sub}/library_decoder_scores/".format(sub=self.subject))
         np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_PeC.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), vc)
         np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_L2.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), l2)

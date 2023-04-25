@@ -39,11 +39,11 @@ def main():
     #                 mask=None,
     #                 average=True,
     #                 config=["gnetEncoder"])
-    benchmark_library("z_vdvae", subject=1, average=True, config=["gnetEncoder"])
+    # benchmark_library("z_vdvae", subject=1, average=True, config=["gnetEncoder"])
     subjects = [2, 5, 7]
     for subject in subjects:
-        benchmark_library(vector="c_img_uc", subject=subject, average=True, config=["gnetEncoder", "clipEncoder"])
-        benchmark_library(vector="z_vdvae", subject=subject, average=True, config=["gnetEncoder"])
+        benchmark_library(vector="c_img_uc", subject=subject, config=["gnetEncoder", "clipEncoder"])
+        # benchmark_library(vector="z_vdvae", subject=subject, average=True, config=["gnetEncoder"])
     # benchmark_library("c_img_uc", subject=2, average=True, config=["gnetEncoder", "clipEncoder"])
     # benchmark_library("c_img_uc", subject=5, average=True, config=["gnetEncoder", "clipEncoder"])
     # benchmark_library("c_img_uc", subject=7, average=True, config=["gnetEncoder", "clipEncoder"])
@@ -220,12 +220,12 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
         figure.save('reconstructions/subject{}/{}/{}.png'.format(subject, experiment_title, val))
         
 
-def benchmark_library(vector, subject=1, average=True, config=["gnetEncoder"]):
+def benchmark_library(vector, subject=1, config=["gnetEncoder"]):
     device = "cuda"
     LD = LibraryDecoder(configList=config,
                         subject=subject,
                         device=device)
-    LD.benchmark(average=average, vector=vector)
+    LD.benchmark(vector=vector)
 
 
 

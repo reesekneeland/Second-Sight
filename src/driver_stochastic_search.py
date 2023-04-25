@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 from utils import *
 from tqdm import tqdm
 from library_decoder import LibraryDecoder
@@ -34,7 +34,7 @@ def main():
     # del LD
     # print(outputs_c_i.shape)
     
-    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 30", 
+    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 32", 
                         idx=[i for i in range(0, 20)], 
                         modelParams=["gnetEncoder", "clipEncoder"],
                         subject=1,
@@ -66,7 +66,7 @@ def generateTestSamples(experiment_title,
         nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
             # Load data and targets
         _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=False, nest=True)
-        _, _, x_test_avg, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=True)
+        _, _, x_test_avg, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
         x_test = x_test[idx]
         x_test_avg = x_test_avg[idx]
         
