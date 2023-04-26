@@ -13,27 +13,27 @@ import wandb
 import math
 
 def main():
-    generateTestSamples(experiment_title="SCS Plan B Samples", 
-                        idx=[0, 15], 
-                        modelParams=["gnetEncoder"],
-                        subject=1,
-                        n_samples=100,
-                        n_iter=10,
-                        n_branches=4,
-                        ae=True,  
-                        refine_clip = False,
-                        refine_z = True,
-                        custom_weighting=False,
-                        library=False)
-    SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
-                          device="cuda:0",
-                          n_iter=6,
-                          n_samples=100,
-                          n_branches=4,
-                          ae=True)
-    for index in [46, 0, 15, 52]:
-        for iteration in range(-1, 10):
-            SCS.generate_image(experiment_title="SCS Plan B Samples", sample=index, iteration=iteration, n=10)
+    # generateTestSamples(experiment_title="SCS Plan B Samples", 
+    #                     idx=[240, 246], 
+    #                     modelParams=["gnetEncoder"],
+    #                     subject=1,
+    #                     n_samples=100,
+    #                     n_iter=10,
+    #                     n_branches=4,
+    #                     ae=True,  
+    #                     refine_clip = False,
+    #                     refine_z = True,
+    #                     custom_weighting=False,
+    #                     library=False)
+    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+    #                       device="cuda:0",
+    #                       n_iter=6,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
+    # for index in [240, 246]:
+    #     for iteration in range(-1, 10):
+    #         SCS.generate_image_distribution(experiment_title="SCS Plan B Samples", sample=index, iteration=iteration, n=10, vdvae_override=True)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=-1, n=10)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=0, n=10)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=1, n=10)
@@ -46,18 +46,18 @@ def main():
     # SCS.benchmark_config()
     
     
-    # generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 41", 
-    #                     idx=[i for i in range(0, 20)], 
-    #                     modelParams=["gnetEncoder", "clipEncoder"],
-    #                     subject=1,
-    #                     n_samples=100,
-    #                     n_iter=6,
-    #                     n_branches=4,
-    #                     ae=True,  
-    #                     refine_clip = True,
-    #                     refine_z = True,
-    #                     custom_weighting=False,
-    #                     library=True)
+    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 45", 
+                        idx=[i for i in range(0, 20)], 
+                        modelParams=["gnetEncoder", "clipEncoder"],
+                        subject=1,
+                        n_samples=100,
+                        n_iter=6,
+                        n_branches=4,
+                        ae=True,  
+                        refine_clip = True,
+                        refine_z = True,
+                        custom_weighting=False,
+                        library=True)
     
 def generateTestSamples(experiment_title, 
                         idx, 
@@ -90,7 +90,7 @@ def generateTestSamples(experiment_title,
                             device="cuda")
         output_images  = LD.predict(x_test, vector="images", topn=1)
         if library:
-            output_clips = LD.predict(x_test, vector="c_img_uc", topn=200).reshape((len(idx), 1, 1024))
+            output_clips = LD.predict(x_test, vector="c_img_uc").reshape((len(idx), 1, 1024))
             del LD
             LD_v = LibraryDecoder(configList=["gnetEncoder"],
                                 subject=subject,
@@ -140,7 +140,7 @@ def generateTestSamples(experiment_title,
             target_c = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
             output_cv = SCS.R.reconstruct(image=output_v, image_embeds=output_clips[i], negative_prompt="text, caption", strength=0.9)
             target_cv = SCS.R.reconstruct(image=target_v, image_embeds=targets_clips[i], negative_prompt="text, caption", strength=0.9)
-            scs_reconstruction, image_list, clip_list, score_list, var_list = SCS.search(beta=x_test[i], c_i=output_clips[i], init_img=None, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches, custom_weighting=custom_weighting)
+            scs_reconstruction, image_list, clip_list, score_list, var_list = SCS.search(beta=x_test[i], c_i=output_clips[i], init_img=output_v, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches, custom_weighting=custom_weighting)
             
             # Log the data to a file
             np.save("logs/subject{}/{}/{}/score_list.npy".format(subject, experiment_title, val), np.array(score_list))

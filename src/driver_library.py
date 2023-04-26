@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "2"
 import torch
 import numpy as np
 from PIL import Image
@@ -18,13 +18,13 @@ from vdvae import VDVAE
 nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 def main():
-    reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder early_vis",
-                    subject=1,
-                    idx=[i for i in range(0, 20)],
-                    ae=True,
-                    mask=torch.load("masks/subject1/early_vis_big.pt"),
-                    average=True,
-                    config=["gnetEncoder"])
+    # reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder early_vis",
+    #                 subject=1,
+    #                 idx=[i for i in range(0, 20)],
+    #                 ae=True,
+    #                 mask=torch.load("masks/subject1/early_vis_big.pt"),
+    #                 average=True,
+    #                 config=["gnetEncoder"])
     reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder nsd_general",
                     subject=1,
                     idx=[i for i in range(0, 20)],
@@ -151,6 +151,7 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
     LD_i = LibraryDecoder(configList=config,
                         subject=subject,
                         ae=ae,
+                        mask=mask,
                         device="cuda")
     output_images = LD_i.predict(x, vector="images", topn=5)
     del LD_i
@@ -167,7 +168,7 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
     LD_v = LibraryDecoder(configList=["gnetEncoder"],
                         subject=subject,
                         ae=ae,
-                        mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),
+                        mask=mask,
                         device="cuda")
  
     v_0 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=100).reshape((len(idx), 1, 91168)))

@@ -185,7 +185,8 @@ class StochasticSearch():
     #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
     #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
     # n: number of images to generate in distribution
-    def generate_image_distribution(self, experiment_title, sample, iteration, n):
+    # vdvae_override: if True, will generate distribution not using VDVAE for iteration -1, clip only
+    def generate_image_distribution(self, experiment_title, sample, iteration, n, vdvae_override=False):
         exp_path = "reconstructions/subject{}/{}/{}/".format(self.subject, experiment_title, sample)
         dist_path = exp_path + "distribution_{}/".format(iteration)
         os.makedirs(dist_path, exist_ok=True)
@@ -196,13 +197,19 @@ class StochasticSearch():
                 images.append(Image.open(os.path.join(dist_path,file)))
             return images
         if iteration == -1:
-            image = Image.open(exp_path+"Decoded VDVAE.png")
+            if vdvae_override:
+                image = None
+                strength=1
+            else:
+                image = Image.open(exp_path+"Decoded VDVAE.png")
+                strength=0.9
             c_i = torch.load(exp_path+"decoded_clip.pt")
+            
         else:
             image = Image.open(exp_path+"iter_{}.png".format(iteration))
             c_i = torch.load(exp_path+"iter_clip_{}.pt".format(iteration))
+            strength = 0.9-0.4*(math.pow(iteration/10, 3))
         images = []
-        strength = 0.9-0.4*(math.pow(iteration/6, 3))
         for i in tqdm(range(n), desc="generating distribution around iteration {}".format(iteration)):
             im = self.R.reconstruct(image=image,
                                     image_embeds=c_i, 
@@ -245,7 +252,7 @@ class StochasticSearch():
                 else:
                     strength = 1
                 if refine_clip:
-                    momentum = 0.3*(math.pow(cur_iter/max_iter, 2))
+                    momentum = 0.15*(math.pow(cur_iter/max_iter, 2))
                     noise = int(50-50*(cur_iter/max_iter))
                     # noise = 25
                 else:
@@ -275,7 +282,6 @@ class StochasticSearch():
                                                         n=n_i,  
                                                         strength=strength,
                                                         noise_level=noise)
-                print("ORIGIN CLIP LEN: {}, {}".format(len(origin_clips), len(samples)))
                 for image in samples:
                     sample_clips.append(self.R.encode_image_raw(image))
                         
