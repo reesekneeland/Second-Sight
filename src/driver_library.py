@@ -18,31 +18,35 @@ from vdvae import VDVAE
 nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 def main():
-    # reconstructVDVAE(experiment_title="LD VDVAE S1 gnetEncoder 8 V1",
-    #                 subject=1,
-    #                 idx=[i for i in range(0, 20)],
-    #                 ae=True,
-    #                 mask=torch.load("masks/subject1/V1.pt"),
-    #                 average=True,
-    #                 config=["gnetEncoder"])
-    # reconstructVDVAE(experiment_title="LD VDVAE S1 gnetEncoder 9 early_vis 2",
-    #                 subject=1,
-    #                 idx=[i for i in range(0, 20)],
-    #                 ae=True,
-    #                 mask=torch.load("masks/subject1/early_vis.pt"),
-    #                 average=True,
-    #                 config=["gnetEncoder"])
-    # reconstructVDVAE(experiment_title="LD VDVAE S1 gnetEncoder 10 nsd_general",
-    #                 subject=1,
-    #                 idx=[i for i in range(0, 20)],
-    #                 ae=True,
-    #                 mask=None,
-    #                 average=True,
-    #                 config=["gnetEncoder"])
+    reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder early_vis",
+                    subject=1,
+                    idx=[i for i in range(0, 20)],
+                    ae=True,
+                    mask=torch.load("masks/subject1/early_vis_big.pt"),
+                    average=True,
+                    config=["gnetEncoder"])
+    reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder nsd_general",
+                    subject=1,
+                    idx=[i for i in range(0, 20)],
+                    ae=True,
+                    mask=None,
+                    average=True,
+                    config=["gnetEncoder"])
+    reconstructVDVAE(experiment_title="LD VDVAE gnetEncoder V1",
+                    subject=1,
+                    idx=[i for i in range(0, 20)],
+                    ae=True,
+                    mask=torch.load("masks/subject1/V1_big.pt"),
+                    average=True,
+                    config=["gnetEncoder"])
     # benchmark_library("z_vdvae", subject=1, average=True, config=["gnetEncoder"])
-    subjects = [2, 5, 7]
-    for subject in subjects:
-        benchmark_library(vector="c_img_uc", subject=subject, config=["gnetEncoder", "clipEncoder"])
+    # benchmark_library(vector="c_img_uc", subject=1, config=["gnetEncoder", "clipEncoder"], big=True)
+    # benchmark_library(vector="c_img_uc", subject=1, config=["gnetEncoder", "clipEncoder"], big=False)
+    # benchmark_library(vector="c_img_uc", subject=2, config=["gnetEncoder", "clipEncoder"], big=True)
+    # benchmark_library(vector="c_img_uc", subject=2, config=["gnetEncoder", "clipEncoder"], big=False)
+    # subjects = [2, 5, 7]
+    # for subject in subjects:
+    #     benchmark_library(vector="c_img_uc", subject=subject, config=["gnetEncoder", "clipEncoder"])
         # benchmark_library(vector="z_vdvae", subject=subject, average=True, config=["gnetEncoder"])
     # benchmark_library("c_img_uc", subject=2, average=True, config=["gnetEncoder", "clipEncoder"])
     # benchmark_library("c_img_uc", subject=5, average=True, config=["gnetEncoder", "clipEncoder"])
@@ -62,23 +66,24 @@ def main():
     #                    mask=None,
     #                    average=True,
     #                    config=["gnetEncoder"])
-    # reconstructNImages(experiment_title="LD S1 CLIP+VDVAE dualGuided",
-    #                    subject=1,
-    #                    idx=[i for i in range(0, 20)],
+    # reconstructNImages(experiment_title="LD S2 CLIP+VDVAE dualGuided 4",
+    #                    subject=2,
+    #                    idx=[i for i in range(0, 5)],
     #                    ae=True,
     #                    mask=None,
-    #                    config=["gnetEncoder", "clipEncoder"])
+    #                    config=["gnetEncoder", "clipEncoder"],
+    #                    big=True)
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.4 Exp3 AE", idx=[], average=True)
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.5 Exp3 AE", idx=[], average=True)
     # reconstruct_test_samples("SCS UC 747 10:100:4 0.6 Exp3 AE", idx=[], average=True)
 
 
 
-def reconstructNImages(experiment_title, subject, idx, ae=True, mask=None, config=["gnetEncoder"]):
+def reconstructNImages(experiment_title, subject, idx, ae=True, mask=None, config=["gnetEncoder"], big=True):
     
     os.makedirs("reconstructions/subject{}/{}/".format(subject, experiment_title), exist_ok=True)
-    _, _, x, _, _, targets_clips, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=False, nest=True)
-    _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=True)
+    _, _, x, _, _, targets_clips, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=False, nest=True, big=big)
+    _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=True, big=big)
     x = x[idx]
     
     targets_vdvae = normalize_vdvae(targets_vdvae[idx]).reshape((len(idx), 1, 91168))
@@ -105,7 +110,6 @@ def reconstructNImages(experiment_title, subject, idx, ae=True, mask=None, confi
     R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
     for i, val in enumerate(tqdm(idx, desc="Generating reconstructions")):
         tqdm.write("{}, {}".format(i, val))
-        print(output_vdvae[i].shape, output_vdvae[i].device)
         rec_target_vdvae = V.reconstruct(latents=targets_vdvae[i])
         rec_vdvae = V.reconstruct(latents=output_vdvae[i])
         
@@ -144,12 +148,11 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
     _, _, x_avg, _, _, _, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True)
     x = x[idx]
     x_avg = x_avg[idx]
-    LD_i = LibraryDecoder(vector="images",
-                        configList=config,
+    LD_i = LibraryDecoder(configList=config,
                         subject=subject,
                         ae=ae,
                         device="cuda")
-    output_images = LD_i.predict(x, topn=5)
+    output_images = LD_i.predict(x, vector="images", topn=5)
     del LD_i
 
     Dv = Decoder_UC(config="vdvaeDecoder",
@@ -161,18 +164,17 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
     outputs_decoded_vdvae = normalize_vdvae(outputs_decoded_vdvae.to("cpu"))
     del Dv
 
-    LD_v = LibraryDecoder(vector="z_vdvae",
-                        configList=["gnetEncoder"],
+    LD_v = LibraryDecoder(configList=["gnetEncoder"],
                         subject=subject,
                         ae=ae,
-                        mask=torch.load("masks/subject{}/early_vis.pt".format(subject)),
+                        mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),
                         device="cuda")
  
-    v_0 = normalize_vdvae(LD_v.predict(x, topn=100).reshape((len(idx), 1, 91168)))
-    v_1 = normalize_vdvae(LD_v.predict(x, topn=50).reshape((len(idx), 1, 91168)))
-    v_2 = normalize_vdvae(LD_v.predict(x, topn=25).reshape((len(idx), 1, 91168)))
-    v_3 = normalize_vdvae(LD_v.predict(x, topn=10).reshape((len(idx), 1, 91168)))
-    v_4 = normalize_vdvae(LD_v.predict(x, topn=1).reshape((len(idx), 1, 91168)))
+    v_0 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=100).reshape((len(idx), 1, 91168)))
+    v_1 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=50).reshape((len(idx), 1, 91168)))
+    v_2 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=25).reshape((len(idx), 1, 91168)))
+    v_3 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=10).reshape((len(idx), 1, 91168)))
+    v_4 = normalize_vdvae(LD_v.predict(x, vector="z_vdvae", topn=1).reshape((len(idx), 1, 91168)))
     del LD_v
     targets_vdvae = normalize_vdvae(targets_vdvae).to("cuda")
     
@@ -220,11 +222,11 @@ def reconstructVDVAE(experiment_title, subject, idx, ae=True, mask=None, average
         figure.save('reconstructions/subject{}/{}/{}.png'.format(subject, experiment_title, val))
         
 
-def benchmark_library(vector, subject=1, config=["gnetEncoder"]):
-    device = "cuda"
+def benchmark_library(vector, subject=1, config=["gnetEncoder"], big=True):
     LD = LibraryDecoder(configList=config,
                         subject=subject,
-                        device=device)
+                        device="cuda",
+                        big=big)
     LD.benchmark(vector=vector)
 
 

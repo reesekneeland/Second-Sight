@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "2"
+os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 from utils import *
 from tqdm import tqdm
 from library_decoder import LibraryDecoder
@@ -13,40 +13,51 @@ import wandb
 import math
 
 def main():
- 
-    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
-    #                       device="cuda:0",
-    #                       n_iter=6,
-    #                       n_samples=100,
-    #                       n_branches=4,
-    #                       ae=True)
+    generateTestSamples(experiment_title="SCS Plan B Samples", 
+                        idx=[0, 15], 
+                        modelParams=["gnetEncoder"],
+                        subject=1,
+                        n_samples=100,
+                        n_iter=10,
+                        n_branches=4,
+                        ae=True,  
+                        refine_clip = False,
+                        refine_z = True,
+                        custom_weighting=False,
+                        library=False)
+    SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+                          device="cuda:0",
+                          n_iter=6,
+                          n_samples=100,
+                          n_branches=4,
+                          ae=True)
+    for index in [46, 0, 15, 52]:
+        for iteration in range(-1, 10):
+            SCS.generate_image(experiment_title="SCS Plan B Samples", sample=index, iteration=iteration, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=-1, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=0, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=1, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=2, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=3, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=4, n=10)
+    # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=5, n=10)
     # # SCS.generate_accuracy_weights()
     # process_x_encoded(SCS)
     # SCS.benchmark_config()
-    # _, _, x_test, _, _, targets_c_i, trials = load_nsd(vector="c_img_uc", subject=1, loader=False, average=False, nest=True)
-    # idx = [i for i in range(0, 20)]
-    # x_test = x_test[idx]
-    # LD = LibraryDecoder(vector="c_img_uc",
-    #                     configList=["gnetEncoder", "clipEncoder"],
-    #                     subject=1,
-    #                     device="cuda:0")
-    # outputs_c_i = LD.predict(x_test, average=True, topn=400)
-    # del LD
-    # print(outputs_c_i.shape)
     
-    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 32", 
-                        idx=[i for i in range(0, 20)], 
-                        modelParams=["gnetEncoder", "clipEncoder"],
-                        subject=1,
-                        n_samples=100,
-                        n_iter=6,
-                        n_branches=4,
-                        ae=True,  
-                        refine_clip = True,
-                        refine_z = True,
-                        custom_weighting=False,
-                        library=True)
-    # S7.benchmark()
+    
+    # generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 41", 
+    #                     idx=[i for i in range(0, 20)], 
+    #                     modelParams=["gnetEncoder", "clipEncoder"],
+    #                     subject=1,
+    #                     n_samples=100,
+    #                     n_iter=6,
+    #                     n_branches=4,
+    #                     ae=True,  
+    #                     refine_clip = True,
+    #                     refine_z = True,
+    #                     custom_weighting=False,
+    #                     library=True)
     
 def generateTestSamples(experiment_title, 
                         idx, 
@@ -121,7 +132,7 @@ def generateTestSamples(experiment_title,
         for i, val in enumerate(tqdm(idx, desc="Reconstructing samples")):
             os.makedirs("reconstructions/subject{}/{}/{}/".format(subject, experiment_title, val), exist_ok=True)
             os.makedirs("logs/subject{}/{}/{}/".format(subject, experiment_title, val), exist_ok=True)
-            
+            torch.save(output_clips[i], "reconstructions/subject{}/{}/{}/decoded_clip.pt".format(subject, experiment_title, val))
             # Generate reconstructions
             output_v = V.reconstruct(output_vdvae[i])
             target_v = V.reconstruct(targets_vdvae[i])
@@ -129,7 +140,7 @@ def generateTestSamples(experiment_title,
             target_c = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
             output_cv = SCS.R.reconstruct(image=output_v, image_embeds=output_clips[i], negative_prompt="text, caption", strength=0.9)
             target_cv = SCS.R.reconstruct(image=target_v, image_embeds=targets_clips[i], negative_prompt="text, caption", strength=0.9)
-            scs_reconstruction, image_list, score_list, var_list = SCS.zSearch(beta=x_test[i], c_i=output_clips[i], init_img=output_v, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches, custom_weighting=custom_weighting)
+            scs_reconstruction, image_list, clip_list, score_list, var_list = SCS.search(beta=x_test[i], c_i=output_clips[i], init_img=None, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches, custom_weighting=custom_weighting)
             
             # Log the data to a file
             np.save("logs/subject{}/{}/{}/score_list.npy".format(subject, experiment_title, val), np.array(score_list))
@@ -168,6 +179,7 @@ def generateTestSamples(experiment_title,
             for j in range(len(images)):
                 if("BC" in captions[j]):
                     images[j].save("reconstructions/subject{}/{}/{}/iter_{}.png".format(subject, experiment_title, val, count))
+                    torch.save(clip_list[count], "reconstructions/subject{}/{}/{}/iter_clip_{}.pt".format(subject, experiment_title, val, count))
                     count +=1
                 else:
                     images[j].save("reconstructions/subject{}/{}/{}/{}.png".format(subject, experiment_title, val, captions[j]))

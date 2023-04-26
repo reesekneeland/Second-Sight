@@ -47,14 +47,20 @@ class AutoEncoder():
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
-                 epochs=200
+                 epochs=200,
+                 big = True
                  ):
         
         assert (vector is not None and hashNum is not None) or inference
         self.subject = subject
         self.device = torch.device(device)
-        with open("config.yml", "r") as yamlfile:
-            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
+        self.big = big
+        if self.big:
+            with open("config.yml", "r") as yamlfile:
+                self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
+        else:
+            with open("config_small_nsdgeneral.yml", "r") as yamlfile:
+                self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
         if inference:
             self.hashNum = self.config["hashNum"]
             self.vector = self.config["vector"]
@@ -80,7 +86,7 @@ class AutoEncoder():
                                                                 encoderModel=self.encoderModel,
                                                                 average=False,
                                                                 subject=self.subject,
-                                                                big=True)
+                                                                big=self.big)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -225,7 +231,7 @@ class AutoEncoder():
                                         encoderModel=self.encoderModel,
                                         average=average,
                                         subject=self.subject,
-                                        big=True)
+                                        big=self.big)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,self.x_size))
         target = torch.zeros((datasize, self.x_size))

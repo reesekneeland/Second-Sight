@@ -18,13 +18,19 @@ class LibraryDecoder():
                  configList=["gnetEncoder"],
                  ae=True,
                  device="cuda",
-                 mask=None
+                 mask=None,
+                 big=True
                  ):
         
         with torch.no_grad():
             self.subject=subject
-            with open("config.yml", "r") as yamlfile:
-                self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
+            self.big = big
+            if self.big:
+                with open("config.yml", "r") as yamlfile:
+                    self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
+            else:
+                with open("config_small_nsdgeneral.yml", "r") as yamlfile:
+                    self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
             self.x_size = self.config[configList[0]]["x_size"]
             self.AEModels = []
             self.EncModels = []
@@ -48,13 +54,15 @@ class LibraryDecoder():
                         self.AEModels.append(AutoEncoder(config="gnetAutoEncoder",
                                                         inference=True,
                                                         subject=self.subject,
-                                                        device=self.device))
+                                                        device=self.device,
+                                                        big=self.big))
                 elif param == "clipEncoder":
                     if self.ae:
                         self.AEModels.append(AutoEncoder(config="clipAutoEncoder",
                                                         inference=True,
                                                         subject=self.subject,
-                                                        device=self.device))
+                                                        device=self.device,
+                                                        big=self.big))
             self.x_preds = []
             for model in self.EncModels:
                 modelPreds = torch.load("{}subject{}/{}/coco_brain_preds.pt".format(self.latent_path, self.subject, model), map_location=self.device)
@@ -95,7 +103,8 @@ class LibraryDecoder():
             topn_pearson = torch.topk(scores, topn)
             average_pearson += torch.mean(topn_pearson.values) 
             for rank, index in enumerate(topn_pearson.indices):
-                out[rank] = int(self.y_indices[index])
+                # out[rank] = int(self.y_indices[index])
+                out[rank] = int(index)
                 ret_scores = topn_pearson.values
             
         # torch.save(out, latent_path + encModel + "/" + vector + "_coco_library_preds.pt")
@@ -103,7 +112,8 @@ class LibraryDecoder():
         return out, ret_scores
 
     def predict(self, x, vector="images", topn=None):
-        library = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector), map_location="cpu")
+        library = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector), map_location="cpu").reshape((73000, self.datasize[vector]))
+        library = prune_vector(library)
         with torch.no_grad():
             if vector == "images" and topn is not None:
                 x_preds = torch.zeros((x.shape[0], topn, self.datasize[vector])).cpu()
@@ -139,14 +149,15 @@ class LibraryDecoder():
     def benchmark(self, vector="c_img_uc"):
 
         # Load data and targets
-        _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True)
-
+        _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True, big=self.big)
+        library = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector), map_location="cpu").reshape((73000, self.datasize[vector]))
+        library = prune_vector(library)
         out = torch.zeros((x_test.shape[0], 1000, self.datasize[vector]))
         topn = 1000
         for sample in tqdm(range(x_test.shape[0]), desc="predicting samples for {}".format(vector)):
             best_im_indices, _ = self.rankCoco(x_test[sample], topn=topn)
             for idx, index in enumerate(best_im_indices):
-                out[sample, idx] = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/{}/{}.pt".format(vector, int(index))).to("cpu")
+                out[sample, idx] = library[int(index)].reshape((1, self.datasize[vector]))
         
         criterion = nn.MSELoss()
         
@@ -175,6 +186,6 @@ class LibraryDecoder():
         print("Loss Top 500:", float(l2[499]))
         print("Vector Correlation Top 1000: ", float(vc[-1]))
         print("Loss Top 1000:", float(l2[-1]))
-        os.mkdir("logs/subject{sub}/library_decoder_scores/".format(sub=self.subject))
-        np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_PeC.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), vc)
-        np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_L2.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), l2)
+        # os.mkdir("logs/subject{sub}/library_decoder_scores/".format(sub=self.subject), exist_ok=True)
+        # np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_PeC.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), vc)
+        # np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_L2.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), l2)

@@ -59,8 +59,8 @@
         "libraryDecoder": 
         {
           "clipEncoder": 200,
-          "gnetEncoder": 200,
-          "dualGuided": 200
+          "gnetEncoder": 25,
+          "dualGuided": 76
         },
     },
   2: 
@@ -110,7 +110,7 @@
         {
           "clipEncoder": 726,
           "gnetEncoder": 69,
-          "dualGuided": 137
+          "dualGuided": 106
         },
     },
   5: 
@@ -160,7 +160,7 @@
         {
           "clipEncoder": 271,
           "gnetEncoder": 125,
-          "dualGuided": 137
+          "dualGuided": 86
         },
     },
   7: 
@@ -210,7 +210,7 @@
         {
           "clipEncoder": 998,
           "gnetEncoder": 153,
-          "dualGuided": 582
+          "dualGuided": 146
         },
     },
 }

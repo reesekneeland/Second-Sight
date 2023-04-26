@@ -44,9 +44,15 @@ class StochasticSearch():
             self.EncModels = []
             self.EncType = []
             
-            self.encoderWeights = torch.load("masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams))).to(self.device)
+            
             
             if len(modelParams)>1:
+                self.AEModel = AutoEncoder(config="gnetAutoEncoder",
+                                                    inference=True,
+                                                    subject=self.subject,
+                                                    device=self.device)
+                self.encoderWeights = torch.load("masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams))).to(self.device)
+            else:
                 self.AEModel = AutoEncoder(config="gnetAutoEncoder",
                                                     inference=True,
                                                     subject=self.subject,
@@ -64,6 +70,13 @@ class StochasticSearch():
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device))
+            self.masks = {0:torch.full((self.x_size,), False),
+                        1:torch.load("masks/subject{}/V1_big.pt".format(self.subject)),
+                        2:torch.load("masks/subject{}/V2_big.pt".format(self.subject)),
+                        3:torch.load("masks/subject{}/V3_big.pt".format(self.subject)),
+                        4:torch.load("masks/subject{}/V4_big.pt".format(self.subject)),
+                        5:torch.load("masks/subject{}/early_vis_big.pt".format(self.subject)),
+                        6:torch.load("masks/subject{}/higher_vis_big.pt".format(self.subject))}  
 
     def generate_accuracy_weights(self):
         _, _, x_test_avg, _, _, y_test_c, _ = load_nsd(vector="c_img_uc", 
@@ -82,6 +95,7 @@ class StochasticSearch():
         accuracy_probabilities = (SM(accuracy_ratios)).to(self.device)
         torch.save(accuracy_probabilities, "masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams)))
 
+    # Predict using the ensemble of encoding models in the SCS config
     def predict(self, x, mask=None):
         combined_preds = torch.zeros((len(self.EncType), len(x), self.config[self.modelParams[0]]["x_size"]))
         print("COMBINED PREDS SHAPE: {}".format(combined_preds.shape))
@@ -162,18 +176,54 @@ class StochasticSearch():
                                              negative_prompt="text, caption"))
         return images
 
-    #clip is a 1024 clip vector
-    #beta is a 3xdim tensor of brain data to reconstruct
-    #n is the number of samples to generate at each iteration
-    #max_iter caps the number of iterations it will perform
-    
-    
-    def zSearch(self, beta, c_i, init_img=None, refine_z=True, refine_clip=True, n=10, max_iter=10, n_branches=1, custom_weighting=False):
+
+    # Method to generate image distributions from a given spot in a search (when it crosses threshold)
+    # experiment_title: title of experiment to use
+    # sample: sample number to use, individual value of idx list generated in experiment
+    # iteration: iteration number to generate a distribution at: 
+    #   - provide the iteration number for the iteration BEFORE the threshold is crossed
+    #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
+    #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
+    # n: number of images to generate in distribution
+    def generate_image_distribution(self, experiment_title, sample, iteration, n):
+        exp_path = "reconstructions/subject{}/{}/{}/".format(self.subject, experiment_title, sample)
+        dist_path = exp_path + "distribution_{}/".format(iteration)
+        os.makedirs(dist_path, exist_ok=True)
+        contents = os.listdir(dist_path)
+        images = []
+        if(len(contents)> 0):
+            for file in contents:
+                images.append(Image.open(os.path.join(dist_path,file)))
+            return images
+        if iteration == -1:
+            image = Image.open(exp_path+"Decoded VDVAE.png")
+            c_i = torch.load(exp_path+"decoded_clip.pt")
+        else:
+            image = Image.open(exp_path+"iter_{}.png".format(iteration))
+            c_i = torch.load(exp_path+"iter_clip_{}.pt".format(iteration))
+        images = []
+        strength = 0.9-0.4*(math.pow(iteration/6, 3))
+        for i in tqdm(range(n), desc="generating distribution around iteration {}".format(iteration)):
+            im = self.R.reconstruct(image=image,
+                                    image_embeds=c_i, 
+                                    strength=strength,
+                                    noise_level=25,
+                                    negative_prompt="text, caption")
+            images.append(im)
+            im.save(dist_path+"/{}.png".format(i))
+        return images
+
+    # Main search method
+    # c_i is a 1024 clip vector
+    # beta is a 3*x_size tensor of brain data to use as guidance targets
+    # n is the number of samples to generate at each iteration
+    # max_iter caps the number of iterations it will perform
+    def search(self, beta, c_i, init_img=None, refine_z=True, refine_clip=True, n=10, max_iter=10, n_branches=1, custom_weighting=False):
         with torch.no_grad():
             best_image, best_clip, cur_clip = init_img, c_i, c_i
             iter_clips = [c_i] * n_branches
             iter_images = [init_img] * n_branches
-            images, iter_scores, var_scores = [], [], []
+            images, clips, iter_scores, var_scores = [], [], [], []
             best_vector_corrrelation = -1
             # Preprocess beta, remove empty trials, and autoencode if necessary
             beta_list = []
@@ -191,13 +241,13 @@ class StochasticSearch():
                     if init_img is None:
                         strength = 1-0.4*(math.pow(cur_iter/max_iter, 3))
                     else:
-                        strength = 0.9-0.3*(math.pow(cur_iter/max_iter, 3))
+                        strength = 0.9-0.4*(math.pow(cur_iter/max_iter, 3))
                 else:
                     strength = 1
                 if refine_clip:
-                    momentum = 0.05*(math.pow(cur_iter/max_iter, 2))
-                # noise = int(50-50*(cur_iter/max_iter))
-                    noise = 25
+                    momentum = 0.3*(math.pow(cur_iter/max_iter, 2))
+                    noise = int(50-50*(cur_iter/max_iter))
+                    # noise = 25
                 else:
                     momentum = 0
                     noise = 0
@@ -206,21 +256,26 @@ class StochasticSearch():
                 
                 samples = []
                 sample_clips = []
+                origin_clips = []
                 for i in range(n_branches):
+                    branch_clip = slerp(cur_clip, iter_clips[i], momentum)
+                    origin_clips += [branch_clip] * n_i
                     samples += self.generateNSamples(image=iter_images[i], 
-                                                    c_i=slerp(cur_clip, iter_clips[i], momentum),  
+                                                    c_i=branch_clip,  
                                                     n=n_i,  
                                                     strength=strength,
                                                     noise_level=noise)
                 if cur_iter > 0:
                     if not best_image not in iter_images:
                         tqdm.write("Adding best image and clip to branches!")
+                        branch_clip = cur_clip
+                        origin_clips += [branch_clip] * n_i
                         samples += self.generateNSamples(image=best_image, 
-                                                        c_i=slerp(cur_clip, best_clip, momentum),
+                                                        c_i=branch_clip,
                                                         n=n_i,  
                                                         strength=strength,
                                                         noise_level=noise)
-                
+                print("ORIGIN CLIP LEN: {}, {}".format(len(origin_clips), len(samples)))
                 for image in samples:
                     sample_clips.append(self.R.encode_image_raw(image))
                         
@@ -254,7 +309,9 @@ class StochasticSearch():
                 if(self.log):
                     wandb.log({'Brain encoding pearson correlation_{}'.format(mType): cur_vector_corrrelation, 'score variance_{}'.format(mType): cur_var})
                 tqdm.write("Type: {}, VC: {}, Var: {}".format(mType, cur_vector_corrrelation, cur_var))
-                images.append(samples[int(torch.argmax(scores))])
+                best_im_index = int(torch.argmax(scores))
+                images.append(samples[best_im_index])
+                clips.append(origin_clips[best_im_index])
                 iter_scores.append(cur_vector_corrrelation)
                 var_scores.append(float(torch.var(scores)))
                 for i in range(n_branches):
@@ -264,12 +321,12 @@ class StochasticSearch():
                         iter_clips[i] = sample_clips[int(topn_pearson.indices[i])]
                 if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
                     best_vector_corrrelation = cur_vector_corrrelation
-                    best_image = samples[int(torch.argmax(scores))]
+                    best_image = samples[best_im_index]
                     if refine_clip:
-                        best_clip = sample_clips[int(torch.argmax(scores))]
+                        best_clip = sample_clips[best_im_index]
                         cur_clip = slerp(cur_clip, best_clip, momentum)
             
-        return best_image, images, iter_scores, var_scores
+        return best_image, images, clips, iter_scores, var_scores
 
 
     
