@@ -215,27 +215,15 @@ class GNet8_Encoder():
         # x size
         self.x_size = self.config["x_size"]
         
-        # Config Information
-        self.root_dir   = '/export/raid1/home/styvesg/code/nsd_gnet8x/'
-        
         # File locations
         
         # 11838
         # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
+        self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_Jan-25-2023_1316_11838/'
         
         # 15724
-        self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/'
-        
-
-        self.input_dir = self.root_dir + "output/multisubject/"
-        self.roiwise_model_dir = self.input_dir + 'gnet8r_mpf_evc_Feb-05-2022_2105/'# 'gnet8r_mpf_evc_Feb-04-2022_1844/'
-
-        self.stim_dir = self.root_dir+'../../data/nsd/stims/'
-        self.voxel_dir = self.root_dir+'../../data/nsd/voxels/'
-
-        self.exp_design_file = self.root_dir+"../../data/nsd/nsd_expdesign.mat"
-
-        self.output_dir = self.joined_model_dir
+        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/' 
+        self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452_15724/'
         
         # Reload joined GNet model files
         self.joined_checkpoint = torch.load(self.joined_model_dir + 'model_params_final', map_location=self.device)
@@ -383,7 +371,7 @@ class GNet8_Encoder():
 def main():
     
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
-    # GN = GNet8_Encoder(subject=1, device="cuda:1")
+    GN = GNet8_Encoder(subject=1, device="cuda:3")
     
     # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
     # data = []
@@ -396,17 +384,17 @@ def main():
     
     
     #AN.benchmark(average=False)
-    # GN.benchmark(average=False, ae=False)
-    # GN.benchmark(average=True, ae=False)
+    GN.benchmark(average=False, ae=False)
+    GN.benchmark(average=True, ae=False)
     # GN.benchmark(average=False, ae=True)
     # GN.benchmark(average=True, ae=True)
-    subjects = [5,7]
-    for subject in subjects:
-        GN = GNet8_Encoder(subject=subject, device="cuda:1")
-        process_x_encoded(Encoder=GN)
-        GN.score_voxels(average=False)
-        GN.benchmark(average=False, ae=False)
-        GN.benchmark(average=True, ae=False)
+    # subjects = [5,7]
+    # for subject in subjects:
+    #     GN = GNet8_Encoder(subject=subject, device="cuda:1")
+    #     process_x_encoded(Encoder=GN)
+    #     GN.score_voxels(average=False)
+    #     GN.benchmark(average=False, ae=False)
+    #     GN.benchmark(average=True, ae=False)
         # GN.benchmark(average=False, ae=True)
         # GN.benchmark(average=True, ae=True)
     # GN = GNet8_Encoder(subject=2, device="cuda:2")
