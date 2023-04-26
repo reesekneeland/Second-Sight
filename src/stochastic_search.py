@@ -185,8 +185,9 @@ class StochasticSearch():
     #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
     #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
     # n: number of images to generate in distribution
+    # max_iter: maximum number of iterations in search, used for calculating strength ratio
     # vdvae_override: if True, will generate distribution not using VDVAE for iteration -1, clip only
-    def generate_image_distribution(self, experiment_title, sample, iteration, n, vdvae_override=False):
+    def generate_image_distribution(self, experiment_title, sample, iteration, n, max_iter=6, vdvae_override=False):
         exp_path = "reconstructions/subject{}/{}/{}/".format(self.subject, experiment_title, sample)
         dist_path = exp_path + "distribution_{}/".format(iteration)
         os.makedirs(dist_path, exist_ok=True)
@@ -208,7 +209,7 @@ class StochasticSearch():
         else:
             image = Image.open(exp_path+"iter_{}.png".format(iteration))
             c_i = torch.load(exp_path+"iter_clip_{}.pt".format(iteration))
-            strength = 0.9-0.4*(math.pow(iteration/10, 3))
+            strength = 0.9-0.4*(math.pow(iteration/max_iter, 3))
         images = []
         for i in tqdm(range(n), desc="generating distribution around iteration {}".format(iteration)):
             im = self.R.reconstruct(image=image,
