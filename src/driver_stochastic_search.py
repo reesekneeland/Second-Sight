@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 from utils import *
 from tqdm import tqdm
 from library_decoder import LibraryDecoder
@@ -65,10 +65,10 @@ def main():
     # process_x_encoded(SCS)
     # SCS.benchmark_config()
 
-    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 51", 
+    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 49", 
                         idx=[i for i in range(0, 20)], 
                         modelParams=["gnetEncoder", "clipEncoder"],
-                        subject=5,
+                        subject=1,
                         n_samples=100,
                         n_iter=6,
                         n_branches=4,

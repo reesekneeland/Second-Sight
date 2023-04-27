@@ -230,7 +230,7 @@ class StochasticSearch():
     # beta is a 3*x_size tensor of brain data to use as guidance targets
     # n is the number of samples to generate at each iteration
     # max_iter caps the number of iterations it will perform
-    def search(self, sample_path, beta, c_i, init_img=None, refine_z=True, refine_clip=True, n=10, max_iter=10, n_branches=1):
+    def search(self, sample_path, beta, c_i, init_img=None, refine_z=True, refine_clip=True, n=10, max_iter=10, n_branches=4):
         with torch.no_grad():
             best_image, best_clip, cur_clip = init_img, c_i, c_i
             iter_clips = [c_i] * n_branches
@@ -274,7 +274,7 @@ class StochasticSearch():
                 samples = []
                 sample_clips = []
                 for i in range(n_branches):
-                    batch_path = "{}/batch_{}/".format(iter_path, cur_iter, i)
+                    batch_path = "{}/batch_{}/".format(iter_path, i)
                     os.makedirs(batch_path, exist_ok=True)
                     branch_clip = slerp(cur_clip, iter_clips[i], momentum)
                     torch.save(branch_clip, batch_path+"batch_clip.pt")
@@ -287,7 +287,7 @@ class StochasticSearch():
                 if cur_iter > 0:
                     if not best_image not in iter_images:
                         batch_count +=1
-                        batch_path = "{}/iter_{}/batch_{}/".format(sample_path, cur_iter, n_branches+1)
+                        batch_path = "{}/batch_{}/".format(iter_path, n_branches+1)
                         os.makedirs(batch_path, exist_ok=True)
                         tqdm.write("Adding best image and clip to branches!")
                         branch_clip = cur_clip
