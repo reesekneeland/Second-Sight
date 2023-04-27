@@ -250,6 +250,29 @@ class Stochastic_Search_Statistics():
         model = torch.hub.load('pytorch/vision:v0.10.0', 'inception_v3', pretrained=True)
         model.eval()
     
+    # Method to grab existing image distributions from a given spot in a search (when it crosses threshold)
+    # experiment_title: title of experiment to use
+    # sample: sample number to use, individual value of idx list generated in experiment
+    # iteration: iteration number to generate a distribution at: 
+    #   - provide the iteration number for the iteration AFTER the threshold is crossed
+    #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
+    #   - provide -2 to generate distribution before search is initiated (decoded clip only)
+    #   - provide -3 to generate distribution before search is initiated (decoded VDVAE only)
+    #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
+    # n: number of images to generate in distribution (there will always be at least 10)
+    #   - leave it empty to return all available images
+    def grab_image_distribution(self, experiment_title, sample, iteration, n=-1):
+        iter_path = "reconstructions/subject{}/{}/{}/iter_{}/".format(self.subject, experiment_title, sample, iteration)
+        batch = int(torch.load(iter_path+"best_im_batch_index.pt"))
+        batch_path = iter_path+"batch_{}/".format(batch)
+        png_files = [f for f in os.listdir(batch_path) if f.endswith('.png')]
+        images = []
+        if n == -1:
+            n = len(png_files)
+        while n>0:
+            images.append(Image.open(batch_path+png_files[n-1]))
+            n -=1
+        return images
     
     def image_indices(self, folder, subject = 1):
         

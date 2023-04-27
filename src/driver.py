@@ -24,13 +24,14 @@ def main():
     # train_autoencoder(subject=1, encHash="788")
     # train_encoder_uc(subject=2)
     # train_autoencoder(subject=5, encHash="802", config="clipAutoEncoder", vector="c_img_uc")
-    train_autoencoder(subject=5, encHash=None, config="gnetAutoEncoder", vector="images")
-    subjects = [7]
-    for subject in subjects:
-        # train_decoder_uc(subject=subject)
-        encHash = train_encoder_uc(subject=subject)
-        train_autoencoder(subject=subject, encHash=encHash, config="clipAutoEncoder", vector="c_img_uc")
-        train_autoencoder(subject=subject, encHash=None, config="gnetAutoEncoder", vector="images")
+    # train_autoencoder(subject=1, encHash=None, config="dualAutoEncoder", vector="images")
+    train_autoencoder(subject=5, encHash=None, config="dualAutoEncoder", vector="images")
+    # subjects = [7]
+    # for subject in subjects:
+    #     # train_decoder_uc(subject=subject)
+    #     encHash = train_encoder_uc(subject=subject)
+    #     train_autoencoder(subject=subject, encHash=encHash, config="clipAutoEncoder", vector="c_img_uc")
+    #     train_autoencoder(subject=subject, encHash=None, config="gnetAutoEncoder", vector="images")
     # train_decoder_uc(subject=1)
     # train_decoder_uc(subject=7)
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 

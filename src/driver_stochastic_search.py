@@ -25,15 +25,11 @@ def main():
     #                     refine_z = True,
     #                     custom_weighting=False,
     #                     library=False)
-    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
-    #                       device="cuda:0",
-    #                       n_iter=6,
-    #                       n_samples=100,
-    #                       n_branches=4,
-    #                       ae=True)
-    # for index in [240, 246]:
-    #     for iteration in range(-1, 10):
-    #         SCS.generate_image_distribution(experiment_title="SCS Plan B Samples", sample=index, iteration=iteration, n=10, vdvae_override=True)
+    
+    # # for index in [240, 246]:
+    # #     for iteration in range(-1, 10):
+    # SCS.generate_image_distribution(experiment_title="SCS Plan B Samples", sample=240, iteration=9, n=10, max_iter=10, vdvae_override=True)
+    # SCS.generate_image_distribution(experiment_title="SCS Plan B Samples", sample=240, iteration=3, n=10, max_iter=10, vdvae_override=True)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=-1, n=10)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=0, n=10)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=1, n=10)
@@ -42,22 +38,74 @@ def main():
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=4, n=10)
     # SCS.generate_image_distribution(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 39", sample=0, iteration=5, n=10)
     # # SCS.generate_accuracy_weights()
+
+    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+    #                        subject=2,
+    #                       device="cuda:0",
+    #                       n_iter=6,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
+    # process_x_encoded(SCS)
+    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+    #                        subject=5,
+    #                       device="cuda:0",
+    #                       n_iter=6,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
+    # process_x_encoded(SCS)
+    # SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+    #                        subject=7,
+    #                       device="cuda:0",
+    #                       n_iter=6,
+    #                       n_samples=100,
+    #                       n_branches=4,
+    #                       ae=True)
     # process_x_encoded(SCS)
     # SCS.benchmark_config()
-    
-    
-    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 45", 
+
+    generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter 51", 
                         idx=[i for i in range(0, 20)], 
                         modelParams=["gnetEncoder", "clipEncoder"],
-                        subject=1,
+                        subject=5,
                         n_samples=100,
                         n_iter=6,
                         n_branches=4,
                         ae=True,  
                         refine_clip = True,
-                        refine_z = True,
-                        custom_weighting=False,
-                        library=True)
+                        refine_z = True)
+
+    # generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter S2 1", 
+    #                     idx=[0, 1], 
+    #                     modelParams=["gnetEncoder", "clipEncoder"],
+    #                     subject=2,
+    #                     n_samples=100,
+    #                     n_iter=6,
+    #                     n_branches=4,
+    #                     ae=True,  
+    #                     refine_clip = True,
+    #                     refine_z = True)
+    # generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter S5 1", 
+    #                     idx=[0, 1], 
+    #                     modelParams=["gnetEncoder", "clipEncoder"],
+    #                     subject=5,
+    #                     n_samples=100,
+    #                     n_iter=6,
+    #                     n_branches=4,
+    #                     ae=True,  
+    #                     refine_clip = True,
+    #                     refine_z = True)
+    # generateTestSamples(experiment_title="SCS UC LD 6:100:4 Dual Guided clip_iter S7 1", 
+    #                     idx=[0, 1], 
+    #                     modelParams=["gnetEncoder", "clipEncoder"],
+    #                     subject=7,
+    #                     n_samples=100,
+    #                     n_iter=6,
+    #                     n_branches=4,
+    #                     ae=True,  
+    #                     refine_clip = True,
+    #                     refine_z = True)
     
 def generateTestSamples(experiment_title, 
                         idx, 
@@ -69,7 +117,6 @@ def generateTestSamples(experiment_title,
                         ae=True, 
                         refine_clip = True,
                         refine_z = True,
-                        custom_weighting=False,
                         library=True):    
     with torch.no_grad():
         os.makedirs("reconstructions/subject{}/{}/".format(subject, experiment_title), exist_ok=True)
@@ -90,7 +137,7 @@ def generateTestSamples(experiment_title,
                             device="cuda")
         output_images  = LD.predict(x_test, vector="images", topn=1)
         if library:
-            output_clips = LD.predict(x_test, vector="c_img_uc").reshape((len(idx), 1, 1024))
+            output_clips = LD.predict(x_test, vector="c_img_uc", topn=100).reshape((len(idx), 1, 1024))
             del LD
             LD_v = LibraryDecoder(configList=["gnetEncoder"],
                                 subject=subject,
@@ -117,11 +164,12 @@ def generateTestSamples(experiment_title,
         # Initialize Models
         V = VDVAE()
         SCS = StochasticSearch(modelParams=modelParams,
-                            device="cuda:0",
-                            n_iter=n_iter,
-                            n_samples=n_samples,
-                            n_branches=n_branches,
-                            ae=ae)
+                               subject=subject,
+                                device="cuda:0",
+                                n_iter=n_iter,
+                                n_samples=n_samples,
+                                n_branches=n_branches,
+                                ae=ae)
                 
         PeC = PearsonCorrCoef(num_outputs=len(idx)).to("cpu")
         PeC1 = PearsonCorrCoef(num_outputs=1).to("cpu")
@@ -130,17 +178,27 @@ def generateTestSamples(experiment_title,
         clip_scores = np.array(PeC(output_clips[:,0,:].moveaxis(0,1).to("cpu"), targets_clips[:,0,:].moveaxis(0,1).to("cpu")).detach())
         np.save("logs/subject{}/{}/decoded_c_img_PeC.npy".format(subject, experiment_title), clip_scores)
         for i, val in enumerate(tqdm(idx, desc="Reconstructing samples")):
-            os.makedirs("reconstructions/subject{}/{}/{}/".format(subject, experiment_title, val), exist_ok=True)
+            sample_path = "reconstructions/subject{}/{}/{}/".format(subject, experiment_title, val)
+            os.makedirs(sample_path, exist_ok=True)
+            os.makedirs("{}/clip_distribution/".format(sample_path), exist_ok=True)
+            os.makedirs("{}/clip+vdvae_distribution/".format(sample_path), exist_ok=True)
+            os.makedirs("{}/vdvae_distribution/".format(sample_path), exist_ok=True)
             os.makedirs("logs/subject{}/{}/{}/".format(subject, experiment_title, val), exist_ok=True)
-            torch.save(output_clips[i], "reconstructions/subject{}/{}/{}/decoded_clip.pt".format(subject, experiment_title, val))
-            # Generate reconstructions
-            output_v = V.reconstruct(output_vdvae[i])
+            torch.save(output_clips[i], sample_path + "decoded_clip.pt")
+            # Generate target reconstructions
             target_v = V.reconstruct(targets_vdvae[i])
-            output_c = SCS.R.reconstruct(image_embeds=output_clips[i], negative_prompt="text, caption", strength=1.0)
             target_c = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
-            output_cv = SCS.R.reconstruct(image=output_v, image_embeds=output_clips[i], negative_prompt="text, caption", strength=0.9)
             target_cv = SCS.R.reconstruct(image=target_v, image_embeds=targets_clips[i], negative_prompt="text, caption", strength=0.9)
-            scs_reconstruction, image_list, clip_list, score_list, var_list = SCS.search(beta=x_test[i], c_i=output_clips[i], init_img=output_v, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches, custom_weighting=custom_weighting)
+            # Generate and save output reconstructions in a distribution
+            for j in range(10):
+                output_v = V.reconstruct(output_vdvae[i])
+                output_v.save("{}/vdvae_distribution/{}.png".format(sample_path, j))
+                output_c = SCS.R.reconstruct(image_embeds=output_clips[i], negative_prompt="text, caption", strength=1.0)
+                output_c.save("{}/clip_distribution/{}.png".format(sample_path, j))
+                output_cv = SCS.R.reconstruct(image=output_v, image_embeds=output_clips[i], negative_prompt="text, caption", strength=0.9)
+                output_cv.save("{}/clip+vdvae_distribution/{}.png".format(sample_path, j))
+            
+            scs_reconstruction, image_list, score_list, var_list = SCS.search(sample_path=sample_path, beta=x_test[i], c_i=output_clips[i], init_img=output_v, refine_z=refine_z, refine_clip=refine_clip, n=n_samples, max_iter=n_iter, n_branches=n_branches)
             
             # Log the data to a file
             np.save("logs/subject{}/{}/{}/score_list.npy".format(subject, experiment_title, val), np.array(score_list))
@@ -178,10 +236,9 @@ def generateTestSamples(experiment_title,
             captions.append("Library Reconstruction")
             for j in range(len(images)):
                 if("BC" in captions[j]):
-                    images[j].save("reconstructions/subject{}/{}/{}/iter_{}.png".format(subject, experiment_title, val, count))
-                    torch.save(clip_list[count], "reconstructions/subject{}/{}/{}/iter_clip_{}.pt".format(subject, experiment_title, val, count))
+                    images[j].save("{}/iter_{}.png".format(sample_path, count))
                     count +=1
                 else:
-                    images[j].save("reconstructions/subject{}/{}/{}/{}.png".format(subject, experiment_title, val, captions[j]))
+                    images[j].save("{}/{}.png".format(sample_path, captions[j]))
 if __name__ == "__main__":
     main()

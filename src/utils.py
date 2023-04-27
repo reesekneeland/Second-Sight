@@ -351,10 +351,11 @@ def process_x_encoded(Encoder):
         _, y = load_nsd(vector = Encoder.vector, subject=Encoder.subject, loader = False, split = False)
         outputs = Encoder.predict(y)
         torch.save(outputs, prep_path + "subject{}/x_encoded/{}".format(Encoder.subject, modelId))
-    
+
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title
+#rewrite this function to be better designed and more general
 def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True):
     imW, imH = images[0].size
     bigW = imW * w
@@ -539,3 +540,4 @@ def normalize_vdvae(v):
     outputs_vdvae_norm = (outputs_vdvae_norm * latent_std) + latent_mean
     outputs_vdvae_norm = outputs_vdvae_norm.reshape((v.shape[0], 1, 91168))
     return outputs_vdvae_norm
+
