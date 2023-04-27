@@ -242,7 +242,7 @@
         },
         "dualAutoEncoder":
         {
-          "hashNum": "",
+          "hashNum": "812",
           "vector": "images",
           "x_size": 12682,
           "encoderHash": "SCS_gnetEncoder_clipEncoder"

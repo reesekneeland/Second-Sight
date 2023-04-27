@@ -48,7 +48,6 @@ class StochasticSearch():
             
             if len(modelParams)>1:
                 print("DUAL AUTOENCODER")
-                #replace with dual autoencoder
                 self.AEModel = AutoEncoder(config="dualAutoEncoder",
                                                     inference=True,
                                                     subject=self.subject,
@@ -168,6 +167,7 @@ class StochasticSearch():
             plt.savefig("charts/subject{}/{}_combined_encoders_voxel_PeC.png".format(self.subject, "_".join(self.modelParams)))
 
     def generateNSamples(self, save_path, image, c_i, n, strength=1, noise_level=1):
+        print(image, c_i, strength)
         images = []
         for i in range(n):
             im = self.R.reconstruct(image=image,
@@ -256,11 +256,11 @@ class StochasticSearch():
                     if init_img is None:
                         strength = 1-0.5*(math.pow(cur_iter/max_iter, 3))
                     else:
-                        strength = 0.9-0.4*(math.pow(cur_iter/max_iter, 3))
+                        strength = 0.9-0.4*(math.pow((cur_iter+1)/max_iter, 3))
                 else:
                     strength = 1
                 if refine_clip:
-                    momentum = 0.3*(math.pow(cur_iter/max_iter, 2))
+                    momentum = 0.2*(math.pow((cur_iter+1/max_iter, 2))
                     # noise = int(50-50*(cur_iter/max_iter))
                     # noise = 25
                     noise = 0

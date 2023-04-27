@@ -261,7 +261,7 @@ class Stochastic_Search_Statistics():
     #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
     # n: number of images to generate in distribution (there will always be at least 10)
     #   - leave it empty to return all available images
-    def grab_image_distribution(self, experiment_title, sample, iteration, n=-1):
+    def grab_image_distribution(self, experiment_title, sample, iteration, n=12):
         iter_path = "reconstructions/subject{}/{}/{}/iter_{}/".format(self.subject, experiment_title, sample, iteration)
         batch = int(torch.load(iter_path+"best_im_batch_index.pt"))
         batch_path = iter_path+"batch_{}/".format(batch)
