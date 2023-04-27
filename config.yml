@@ -50,7 +50,7 @@
         },
         "dualAutoEncoder":
         {
-          "hashNum": "",
+          "hashNum": "809",
           "vector": "images",
           "x_size": 15724,
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
@@ -105,6 +105,20 @@
           "x_size": 14278,
           "encoderHash": "789"
         },
+        "dualEncoder":
+        {
+          "hashNum": "SCS_gnetEncoder_clipEncoder",
+          "vector": "images",
+          "x_size": 14278,
+          "modelId": "SCS_gnetEncoder_clipEncoder_model_images.pt"
+        },
+        "dualAutoEncoder":
+        {
+          "hashNum": "810",
+          "vector": "images",
+          "x_size": 14278,
+          "encoderHash": "SCS_gnetEncoder_clipEncoder"
+        },
         #storing the topN parameter for each config
         "libraryDecoder": 
         {
@@ -155,6 +169,20 @@
           "x_size": 13039,
           "encoderHash": "790"
         },
+        "dualEncoder":
+        {
+          "hashNum": "SCS_gnetEncoder_clipEncoder",
+          "vector": "images",
+          "x_size": 13039,
+          "modelId": "SCS_gnetEncoder_clipEncoder_model_images.pt"
+        },
+        "dualAutoEncoder":
+        {
+          "hashNum": "811",
+          "vector": "images",
+          "x_size": 13039,
+          "encoderHash": "SCS_gnetEncoder_clipEncoder"
+        },
         #storing the topN parameter for each config
         "libraryDecoder": 
         {
@@ -204,6 +232,20 @@
           "vector": "images",
           "x_size": 12682,
           "encoderHash": "791"
+        },
+        "dualEncoder":
+        {
+          "hashNum": "SCS_gnetEncoder_clipEncoder",
+          "vector": "images",
+          "x_size": 12682,
+          "modelId": "SCS_gnetEncoder_clipEncoder_model_images.pt"
+        },
+        "dualAutoEncoder":
+        {
+          "hashNum": "",
+          "vector": "images",
+          "x_size": 12682,
+          "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
         #storing the topN parameter for each config
         "libraryDecoder": 
