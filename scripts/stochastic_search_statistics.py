@@ -28,7 +28,7 @@ class Stochastic_Search_Statistics():
         self.PeC = PearsonCorrCoef().to(self.device)
         self.mask_path = "/export/raid1/home/ojeda040/Second-Sight/masks/subject1/"
         if big:
-            self.masks = {0:torch.full((11838,), False),
+            self.masks = {0:torch.full((15724,), False),
                         1:torch.load(self.mask_path + "V1_big.pt"),
                         2:torch.load(self.mask_path + "V2_big.pt"),
                         3:torch.load(self.mask_path + "V3_big.pt"),
@@ -46,7 +46,7 @@ class Stochastic_Search_Statistics():
 
     def autoencoded_brain_samples(self):
         
-        AE = AutoEncoder(config="alexnetAutoEncoder",
+        AE = AutoEncoder(config="dualAutoEncoder",
                         inference=True,
                         subject=1,
                         device="cuda:3")
@@ -396,8 +396,11 @@ class Stochastic_Search_Statistics():
             encoder_prediction_higher_visual    = encoder.predict(folder_image_set, brain_mask_higher_visual)
             encoder_prediction_unmasked         = encoder.predict(folder_image_set)
             
+            test_mask =  encoder_prediction_unmasked[self.masks[1]]
+            
             # Pearson correlations for each reconstruction region
             pearson_correlation_V1              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
+            pearson_correlation_V1_test              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
             pearson_correlation_V2              = self.generate_pearson_correlation(encoder_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
             pearson_correlation_V3              = self.generate_pearson_correlation(encoder_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
             pearson_correlation_V4              = self.generate_pearson_correlation(encoder_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
@@ -405,6 +408,9 @@ class Stochastic_Search_Statistics():
             pearson_correlation_higher_visual   = self.generate_pearson_correlation(encoder_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False)
             pearson_correlation_unmasked        = self.generate_pearson_correlation(encoder_prediction_unmasked, beta_samples[i], brain_mask_higher_visual, unmasked=True)
                         
+            print(pearson_correlation_V1)  
+            print(pearson_correlation_V1_test)
+            print(pearson_correlation_V1 == pearson_correlation_V1_test)
                         
             # Make data frame row for library resonstruction
             pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
@@ -459,14 +465,14 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    SCS = Stochastic_Search_Statistics(device="cuda:3")
+    SCS = Stochastic_Search_Statistics(big = True, device="cuda:3")
     
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    # GN = GNet8_Encoder(subject=1, device= "cuda:3")
-    # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 17", GN, subject=1)
+    GN = GNet8_Encoder(subject=1, device= "cuda:3")
+    SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
     
@@ -478,9 +484,9 @@ def main():
     # garbo = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA 10:100:4 HS nsd_general AE/0/Search Reconstruction.png")
     # reconstruct = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/SCS VD PCA LR 10:100:4 0.4 Exponential Strength AE/1/Search Reconstruction.png")
     # surfer = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/tester_scripts/surfer.png")
-    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 2, sampleType=14, subject = 1))
-    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 4, sampleType=14, subject = 1))
-    print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 10, sampleType=14, subject = 1))
+    # print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 2, sampleType=14, subject = 1))
+    # print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 4, sampleType=14, subject = 1))
+    # print(SCS.calculate_clip_similarity("SCS UC LD 6:100:4 Dual Guided clip_iter 28", 10, sampleType=14, subject = 1))
         
 if __name__ == "__main__":
     main()
