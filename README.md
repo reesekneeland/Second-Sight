@@ -1,16 +1,14 @@
 # Second-Sight
 
+# THIS REPOSITORY IS A WORK IN PROGRESS, THIS FLAG WILL BE REMOVED WHEN THE FINAL CODE IS RELEASED (eta June 2023)
+
 ## Installation Commands (Execute in order)
 
 ```
 git clone https://github.com/reesekneeland/Second-Sight.git
 cd Second-Sight
-git submodule init
-git submodule update
-conda env create SS -f environment.yml`
-conda activate SS
-cd stable-diffusion
-pip install .
+conda env create -f environment.yml`
+conda activate SS_UC
 
 ```
 ## Running instructions

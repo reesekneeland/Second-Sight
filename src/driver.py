@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 import torch
 from PIL import Image
 from nsd_access import NSDAccess
@@ -25,7 +25,7 @@ def main():
     # train_encoder_uc(subject=2)
     # train_autoencoder(subject=5, encHash="802", config="clipAutoEncoder", vector="c_img_uc")
     # train_autoencoder(subject=1, encHash=None, config="dualAutoEncoder", vector="images")
-    train_autoencoder(subject=5, encHash=None, config="dualAutoEncoder", vector="images")
+    train_autoencoder(subject=7, encHash=None, config="dualAutoEncoder", vector="images")
     # subjects = [7]
     # for subject in subjects:
     #     # train_decoder_uc(subject=subject)
@@ -59,8 +59,8 @@ def main():
 
 def train_autoencoder(subject, encHash, config="gnetAutoEncoder", vector="images"):
     
-    hashNum = update_hash()
-    # hashNum = "803"
+    # hashNum = update_hash()
+    hashNum = "812"
      
     AE = AutoEncoder(config=config,
                     inference=False,
@@ -74,7 +74,7 @@ def train_autoencoder(subject, encHash, config="gnetAutoEncoder", vector="images
                     num_workers=4,
                     epochs=500)
     
-    AE.train()
+    # AE.train()
     AE.benchmark(encodedPass=False, average=False)
     AE.benchmark(encodedPass=False, average=True)
     AE.benchmark(encodedPass=True, average=False)
