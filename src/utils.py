@@ -541,3 +541,44 @@ def normalize_vdvae(v):
     outputs_vdvae_norm = outputs_vdvae_norm.reshape((v.shape[0], 1, 91168))
     return outputs_vdvae_norm
 
+# Convert indicides between nsdID sorted and scanID sorted, goes the other way with the reverse flag
+
+def convert_indices(idx, reverse=False, held_out=False):
+    df = nsda.stim_descriptions[(nsda.stim_descriptions['subject1']) & (nsda.stim_descriptions['shared1000'] == True)]
+    if reverse:
+        sorted_df = df.copy()
+        df = df.sort_values(by='subject1_rep0')
+    else:
+        sorted_df = df.sort_values(by='subject1_rep0')
+    nsdIds = sorted_df["nsdId"].tolist()
+    # print(len(sorted_df))
+    output_idx = []
+    for i in idx:
+        nsd = df.iloc[i].nsdId
+        output_idx.append(nsdIds.index(nsd))
+    return output_idx
+
+#Remove indices not in heldout 3 scan sessions
+def remove_heldout_indices(idx, scanId_sorted=True):
+    
+    subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+    if(scanId_sorted):
+        subj_test = subj_test.sort_values(by='subject1_rep0')
+    sample_count = 0
+    index_list = []
+    for i in range(subj_test.shape[0]):
+        heldout = True
+        for j in range(3):
+            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(1, j)]
+            if scanId < 27750:
+                heldout = False
+        if heldout == False:
+            index_list.append(sample_count)
+            sample_count += 1
+        else:
+            index_list.append(-1)
+    converted_indices = []
+    for i in idx:
+        if index_list[i] != -1:
+            converted_indices.append(index_list[i])
+    return converted_indices
