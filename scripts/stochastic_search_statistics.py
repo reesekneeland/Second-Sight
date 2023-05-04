@@ -15,6 +15,11 @@ import random
 from transformers import AutoProcessor, CLIPVisionModelWithProjection
 import math
 import re
+import numpy as np
+from skimage import io
+from skimage.color import rgb2gray
+from skimage.metrics import structural_similarity as ssim
+
 
 class Stochastic_Search_Statistics():
     
@@ -59,7 +64,7 @@ class Stochastic_Search_Statistics():
         
         
         #x_test_ae = torch.zeros((x_test.shape[0], 11838))
-        x_test_ae = torch.zeros((100, 11838))
+        x_test_ae = torch.zeros((100, x_test.shape[2]))
         
         # 
         # for i in tqdm(range(x_test.shape[0]), desc="Autoencoding samples and averaging"):
@@ -173,23 +178,59 @@ class Stochastic_Search_Statistics():
         
     def calculate_ssim(self, ground_truth_path, reconstruction_path):
 
-        ground_truth   = cv2.imread(ground_truth_path)
-        reconstruction = cv2.imread(reconstruction_path)
+        ground_truth   = Image.open(ground_truth_path)#.resize((425, 425))
+        reconstruction = Image.open(reconstruction_path).resize((425, 425))
         
-        ground_truth = cv2.resize(ground_truth, (425, 425))
-        reconstruction = cv2.resize(reconstruction, (425, 425))
+        ground_truth = np.array(ground_truth) / 255.0
+        reconstruction = np.array(reconstruction) / 255.0
 
-        ground_truth = cv2.cvtColor(ground_truth, cv2.COLOR_BGR2GRAY)
-        reconstruction = cv2.cvtColor(reconstruction, cv2.COLOR_BGR2GRAY)
+        ground_truth = rgb2gray(ground_truth)
+        reconstruction = rgb2gray(reconstruction)
 
-        return ssim_scs(ground_truth, reconstruction)
+        return ssim(reconstruction, ground_truth, multichannel=True, gaussian_weights=True, sigma=1.5, use_sample_covariance=False, data_range=1.0)
             
         
     def calculate_pixel_correlation(self, ground_truth, reconstruction):
         
         return pixel_correlation(ground_truth, reconstruction)
         
-        
+    
+    #two_way_prob is the two way identification experiment between the given image and a random search reconstruction of a different sample with respect to the ground truth
+    #clip_pearson is the pearson correlation score between the clips of the two given images
+    #Sample type controls which of the types of image to pick a random sample between
+        #   0 --> 0.png
+        #   1 --> 1.png
+        #   2 --> 2.png
+        #   3 --> 3.png
+        #   4 --> 4.png
+        #   5 --> Ground Truth
+    def calculate_clip_similarity_papaer(self, experiment_name, sample, sampleType=1, subject = 1):
+        with torch.no_grad():
+            exp_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(subject, experiment_name)
+            
+            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
+            rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
+            rand_index = random.choice(rand_list)
+            sampleTypes = {0: "0.png", 1: "1.png", 2: "2.png", 3: "3.png", 4: "4.png", 5: "Ground Truth.png"}
+            random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
+            image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
+            ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
+            
+            inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
+            outputs = self.visionmodel(**inputs)
+            
+            gt_feature = outputs.image_embeds[0].reshape((768))
+            reconstruct_feature = outputs.image_embeds[1].reshape((768))
+            clip_cosine_sim = torch.nn.functional.cosine_similarity(gt_feature, reconstruct_feature, dim=0)
+            rand_image_feature = outputs.image_embeds[2].reshape((768))
+            rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
+            gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
+            reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
+            
+            loss = (torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) *100)
+            two_way_prob = loss.softmax(dim=0)[0]
+            clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
+        return float(two_way_prob), float(clip_pearson), float(clip_cosine_sim)
         
     #two_way_prob is the two way identification experiment between the given image and a random search reconstruction of a different sample with respect to the ground truth
     #clip_pearson is the pearson correlation score between the clips of the two given images
@@ -274,6 +315,25 @@ class Stochastic_Search_Statistics():
             n -=1
         return images
     
+    def image_indices_paper(self, folder, subject = 1):
+        
+        # Directory path
+        dir_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + folder + "/"
+        
+        # Grab the list of files
+        files = []
+        for path in os.listdir(dir_path):
+            files.append(path)
+                
+        # Get just the image number and then sort the list. 
+        indicies = []
+        for i in range(len(files)):
+            indicies.append(int(re.search(r'\d+', files[i]).group()))
+       
+        indicies.sort()
+        
+        return indicies
+    
     def image_indices(self, folder, subject = 1):
         
         # Directory path
@@ -296,7 +356,88 @@ class Stochastic_Search_Statistics():
         
         return indicies
         
+    
+    def create_papers_dataframe(self, folder, subject = 1):
         
+        # Path to the folder
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + folder + "/"
+        
+        
+        # List of image numbers created. 
+        idx = self.image_indices_paper(folder, subject = subject)
+        
+        # create an Empty DataFrame
+        # object With column names only
+        # Sample Indicator: 
+            #   0 --> Ground Truth
+            #   1 --> Reconstructed Image
+        df = pd.DataFrame(columns = ['ID', 'Regen Number', 'Sample Indicator', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
+        
+        # regen count. 
+        regen_count = 0
+        
+        # Dataframe index count. 
+        df_row_num = 0
+        
+        # Append rows to an empty DataFrame
+        for i in tqdm(idx, desc="creating dataframe rows"):
+            
+            # Create the path
+            path = directory_path + str(i)
+            
+            for filename in os.listdir(path): 
+                
+                # Ground Truth Image
+                ground_truth_path = path + '/' + 'Ground Truth.png'
+                ground_truth = Image.open(ground_truth_path)
+                
+                if("Ground Truth.png" not in filename):
+                  
+                    # Reconstruction path
+                    reconstruction_path = path + '/' + filename
+                
+                    # Reconstruction image
+                    reconstruction = Image.open(reconstruction_path)
+                
+                    # Pix Corr metrics calculation
+                    pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
+                
+                    # SSIM metrics calculation
+                    ssim_ground_truth          = self.calculate_ssim(ground_truth_path, reconstruction_path)
+                    print(ground_truth_path)
+                    print(reconstruction_path)
+                    print(ssim_ground_truth)
+                
+                    # CLIP metrics calculation
+                    two_way_prob, clip_pearson, _ = self.calculate_clip_similarity_papaer(folder, i, regen_count, subject = subject)
+        
+                    # Make data frame row
+                    row = pd.DataFrame({'ID' : str(i), 'Regen Number' : str(regen_count), 'Sample Indicator' : "1",
+                                        'SSIM' : str(round(ssim_ground_truth, 10)), 'Pixel Correlation' : str(round(pix_corr, 10)),
+                                        'CLIP Pearson' : str(round(clip_pearson, 10)), 'CLIP Two-way' : str(round(two_way_prob, 10))}, index=[df_row_num])
+                    
+                    # Add the row to the dataframe
+                    df = pd.concat([df, row])
+                    
+                    # Iterate the counts
+                    regen_count += 1
+                    df_row_num += 1
+            
+            # Make data frame row for ground truth Image
+            two_way_prob_ground_truth, clip_pearson_ground_truth, _ = self.calculate_clip_similarity_papaer(folder, i, 5, subject = subject)
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'CLIP Pearson' : str(round(clip_pearson_ground_truth, 10)),
+                                             'CLIP Two-way' : str(round(two_way_prob_ground_truth, 10))}, index=[df_row_num])
+            df_row_num += 1
+            df = pd.concat([df, row_ground_truth])
+            
+                
+            # Reset the iter_count and folder_image for the next folder. 
+            regen_count = 0 
+                                           
+                        
+        print(df.shape)
+        print(df)
+        df.to_csv(directory_path + "statistics_df_" + str(len(idx)) +  ".csv")
         
     def create_dataframe(self, folder, encoder, subject = 1):
         
@@ -419,11 +560,11 @@ class Stochastic_Search_Statistics():
             encoder_prediction_higher_visual    = encoder.predict(folder_image_set, brain_mask_higher_visual)
             encoder_prediction_unmasked         = encoder.predict(folder_image_set)
             
-            test_mask =  encoder_prediction_unmasked[self.masks[1]]
+            test_mask =  encoder_prediction_unmasked[:, self.masks[1]]
             
             # Pearson correlations for each reconstruction region
             pearson_correlation_V1              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
-            pearson_correlation_V1_test              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
+            pearson_correlation_V1_test              = self.generate_pearson_correlation(test_mask, beta_samples[i], brain_mask_V1, unmasked=False)
             pearson_correlation_V2              = self.generate_pearson_correlation(encoder_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
             pearson_correlation_V3              = self.generate_pearson_correlation(encoder_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
             pearson_correlation_V4              = self.generate_pearson_correlation(encoder_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
@@ -433,7 +574,7 @@ class Stochastic_Search_Statistics():
                         
             print(pearson_correlation_V1)  
             print(pearson_correlation_V1_test)
-            print(pearson_correlation_V1 == pearson_correlation_V1_test)
+            print(pearson_correlation_V1 - pearson_correlation_V1_test)
                         
             # Make data frame row for library resonstruction
             pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
@@ -494,10 +635,11 @@ def main():
     #SCS.calculate_ssim()    
     #SCS.calculate_pixel_correlation()
     
-    GN = GNet8_Encoder(subject=1, device= "cuda:3")
-    SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
+    # GN = GNet8_Encoder(subject=1, device= "cuda:3")
+    # SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
+    SCS.create_papers_dataframe("Brain Diffuser", subject = 1)
     
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")

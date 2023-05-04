@@ -471,12 +471,9 @@ def mse_scs(imageA, imageB):
 	# the two images are
 	return err
 
-def ssim_scs(imageA, imageB):
-    return ssim(imageA, imageB)
-
 def pixel_correlation(imageA, imageB):
-    a = np.array(imageA).flatten()
-    b = np.array(imageB).flatten()
+    a = np.array(imageA.resize((425, 425), resample=Image.Resampling.LANCZOS)).flatten()
+    b = np.array(imageB.resize((425, 425), resample=Image.Resampling.LANCZOS)).flatten()
     return (np.corrcoef(a,b))[0][1]
 
 #converts a torch tensor of an 425z425vimage into a PIL image and resizes it
