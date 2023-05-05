@@ -25,7 +25,8 @@ class StochasticSearch():
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
-                ae=True):
+                ae=True,
+                disable_SD=False):
         with torch.no_grad():
             self.subject = subject
             with open("config.yml", "r") as yamlfile:
@@ -40,14 +41,14 @@ class StochasticSearch():
             self.ae = ae
             self.hashNum = "SCS_" + "_".join(self.modelParams)
             self.vector = "images"
-            self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
+            if not disable_SD:
+                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
             self.EncModels = []
             self.EncType = []
             
             
             
             if len(modelParams)>1:
-                print("DUAL AUTOENCODER")
                 self.AEModel = AutoEncoder(config="dualAutoEncoder",
                                                     inference=True,
                                                     subject=self.subject,
@@ -60,10 +61,7 @@ class StochasticSearch():
                                                     device=self.device)
             for param in modelParams:
                 self.EncType.append(self.config[param]["vector"])
-                #AlexNet only works for subject1
-                if param == "alexnetEncoder":
-                    self.EncModels.append(AlexNetEncoder(device=self.device))
-                elif param == "gnetEncoder":
+                if param == "gnetEncoder":
                     self.EncModels.append(GNet8_Encoder(device=self.device,
                                                     subject=self.subject))
                 elif param == "clipEncoder":
@@ -71,47 +69,34 @@ class StochasticSearch():
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device))
-            self.masks = {0:torch.full((self.x_size,), False),
-                        1:torch.load("masks/subject{}/V1_big.pt".format(self.subject)),
-                        2:torch.load("masks/subject{}/V2_big.pt".format(self.subject)),
-                        3:torch.load("masks/subject{}/V3_big.pt".format(self.subject)),
-                        4:torch.load("masks/subject{}/V4_big.pt".format(self.subject)),
-                        5:torch.load("masks/subject{}/early_vis_big.pt".format(self.subject)),
-                        6:torch.load("masks/subject{}/higher_vis_big.pt".format(self.subject))}  
 
-    def generate_accuracy_weights(self):
-        _, _, x_test_avg, _, _, y_test_c, _ = load_nsd(vector="c_img_uc", 
-                                                loader=False,
-                                                average=True,
-                                                subject=self.subject)
-        # Load and compute the prediction weights
-        SM = torch.nn.Softmax(dim=0)
-        prediction_accuracies = torch.zeros((len(self.modelParams), x_test_avg.shape[1]))
-        for m, model in enumerate(self.modelParams):
-            prediction_accuracies[m] = torch.load("masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.config[model]["hashNum"], self.EncType[m]))
-        total_accuracies = torch.sum(prediction_accuracies, dim=0)
-        accuracy_ratios = torch.zeros((len(self.modelParams), x_test_avg.shape[1]))
-        for i in range(prediction_accuracies.shape[0]):
-            accuracy_ratios[i] = (prediction_accuracies[i] / total_accuracies)
-        accuracy_probabilities = (SM(accuracy_ratios)).to(self.device)
-        torch.save(accuracy_probabilities, "masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams)))
 
     # Predict using the ensemble of encoding models in the SCS config
-    def predict(self, x, mask=None):
+    def predict(self, x, mask=None, return_clips=False):
         combined_preds = torch.zeros((len(self.EncType), len(x), self.config[self.modelParams[0]]["x_size"]))
+        if(isinstance(x, torch.Tensor)):
+            img_list = []
+            for i, sample in enumerate(x):
+                imagePil = process_image(x[i], 425, 425)
+                img_list.append(imagePil)
+            x = img_list
+
         if "clipEncoder" in self.modelParams:
             sample_clips = []
-            for sample in tqdm(x):
-                sample_clips.append(self.R.encode_image_raw(Image.fromarray(sample.numpy().reshape((425, 425, 3)).astype(np.uint8)).convert("RGB")))
+            for sample in x:
+                sample_clips.append(self.R.encode_image_raw(sample))
         
         for c, mType in enumerate(self.EncType):
             if mType == "images" or mType == "alexnet_encoder_sub1":
                 combined_preds[c] = self.EncModels[c].predict(x, mask).to(self.device)
             elif mType == "c_img_uc":
                 combined_preds[c] = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask).to(self.device)
-        return torch.mean(combined_preds, dim=0).cpu()
+        if return_clips:
+            return torch.mean(combined_preds, dim=0).cpu(), sample_clips
+        else:
+            return torch.mean(combined_preds, dim=0).cpu()
 
-
+    # NEEDS TO UPDATED WITH PREDICT() METHOD REFACTOR
     def benchmark_config(self):
         
         with torch.no_grad():
@@ -167,7 +152,6 @@ class StochasticSearch():
             plt.savefig("charts/subject{}/{}_combined_encoders_voxel_PeC.png".format(self.subject, "_".join(self.modelParams)))
 
     def generateNSamples(self, save_path, image, c_i, n, strength=1, noise_level=1):
-        print(image, c_i, strength)
         images = []
         for i in range(n):
             im = self.R.reconstruct(image=image,
@@ -181,49 +165,19 @@ class StochasticSearch():
         return images
 
 
-    # Method to generate image distributions from a given spot in a search (when it crosses threshold)
-    # experiment_title: title of experiment to use
-    # sample: sample number to use, individual value of idx list generated in experiment
-    # iteration: iteration number to generate a distribution at: 
-    #   - provide the iteration number for the iteration BEFORE the threshold is crossed
-    #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
-    #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
-    # n: number of images to generate in distribution
-    # max_iter: maximum number of iterations in search, used for calculating strength ratio
-    # vdvae_override: if True, will generate distribution not using VDVAE for iteration -1, clip only
-    def generate_image_distribution(self, experiment_title, sample, iteration, n, max_iter=6, vdvae_override=False):
-        exp_path = "reconstructions/subject{}/{}/{}/".format(self.subject, experiment_title, sample)
-        dist_path = exp_path + "distribution_{}/".format(iteration)
-        os.makedirs(dist_path, exist_ok=True)
-        contents = os.listdir(dist_path)
-        images = []
-        if(len(contents)> 0):
-            for file in contents:
-                images.append(Image.open(os.path.join(dist_path,file)))
-            return images
-        if iteration == -1:
-            if vdvae_override:
-                image = None
-                strength=1
-            else:
-                image = Image.open(exp_path+"Decoded VDVAE.png")
-                strength=0.9
-            c_i = torch.load(exp_path+"decoded_clip.pt")
-            
-        else:
-            image = Image.open(exp_path+"iter_{}.png".format(iteration))
-            c_i = torch.load(exp_path+"iter_clip_{}.pt".format(iteration))
-            strength = 0.9-0.4*(math.pow(iteration/max_iter, 3))
-        images = []
-        for i in tqdm(range(n), desc="generating distribution around iteration {}".format(iteration)):
-            im = self.R.reconstruct(image=image,
-                                    image_embeds=c_i, 
-                                    strength=strength,
-                                    noise_level=25,
-                                    negative_prompt="text, caption")
-            images.append(im)
-            im.save(dist_path+"/{}.png".format(i))
-        return images
+    def score_samples(self, beta, images, save_path):
+        beta_primes, sample_clips = self.predict(images, return_clips=True)
+        for i in range(beta_primes.shape[0]):
+            torch.save(beta_primes[i], "{}/{}_beta_prime.pt".format(save_path, i))
+        beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
+        scores = []
+        PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+        for i in range(beta.shape[0]):
+            xDup = beta[i].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
+            score = PeC(xDup, beta_primes)
+            scores.append(score)
+        scores = torch.mean(torch.stack(scores), dim=0)
+        return scores, sample_clips
 
     # Main search method
     # c_i is a 1024 clip vector
@@ -233,10 +187,10 @@ class StochasticSearch():
     def search(self, sample_path, beta, c_i, init_img=None, refine_z=True, refine_clip=True, n=10, max_iter=10, n_branches=4):
         with torch.no_grad():
             best_image, best_clip, cur_clip = init_img, c_i, c_i
-            iter_clips = [c_i] * n_branches
-            iter_images = [init_img] * n_branches
-            images, iter_scores, var_scores = [], [], []
-            best_vector_corrrelation = -1
+            init_clip = [c_i] * n_branches
+            init_images = [init_img] * n_branches
+            iter_images, iter_scores, var_scores = [], [], []
+            best_search_corrrelation = -1
             # Preprocess beta, remove empty trials, and autoencode if necessary
             beta_list = []
             for i in range(beta.shape[0]):
@@ -256,11 +210,11 @@ class StochasticSearch():
                     if init_img is None:
                         strength = 1-0.5*(math.pow(cur_iter/max_iter, 3))
                     else:
-                        strength = 0.9-0.4*(math.pow((cur_iter+1)/max_iter, 3))
+                        strength = 0.92-0.30*(math.pow((cur_iter+1)/max_iter, 3))
                 else:
                     strength = 1
                 if refine_clip:
-                    momentum = 0.2*(math.pow((cur_iter+1/max_iter, 2))
+                    momentum = 0.2*(math.pow((cur_iter+1)/max_iter, 2))
                     # noise = int(50-50*(cur_iter/max_iter))
                     # noise = 25
                     noise = 0
@@ -273,82 +227,88 @@ class StochasticSearch():
                 
                 samples = []
                 sample_clips = []
+                scores = []
+
+                best_batch_scores = []
+                best_batch_images = []
+                average_batch_scores = []
+                branch_clips = []
                 for i in range(n_branches):
+                    #Create batch directory
                     batch_path = "{}/batch_{}/".format(iter_path, i)
                     os.makedirs(batch_path, exist_ok=True)
-                    branch_clip = slerp(cur_clip, iter_clips[i], momentum)
+                    #Generate and save batch clip
+                    branch_clip = slerp(cur_clip, init_clip[i], momentum)
+                    branch_clips.append(branch_clip)
                     torch.save(branch_clip, batch_path+"batch_clip.pt")
-                    samples += self.generateNSamples(save_path=batch_path,
-                                                    image=iter_images[i], 
+                    #Generate batch samples
+                    batch_samples = self.generateNSamples(save_path=batch_path,
+                                                    image=init_images[i], 
                                                     c_i=branch_clip,  
                                                     n=n_i,  
                                                     strength=strength,
                                                     noise_level=noise)
+                    #Score batch samples
+                    batch_scores, batch_clips = self.score_samples(beta, batch_samples, batch_path)
+                    best_batch_images.append(batch_samples[int(torch.argmax(batch_scores))])
+                    average_batch_scores.append(float(torch.mean(batch_scores)))
+                    best_batch_scores.append(float(torch.max(batch_scores)))
+                    #Append scores, samples, and clips to iteration lists
+                    scores.append(batch_scores)
+                    samples += batch_samples
+                    sample_clips += batch_clips
                 if cur_iter > 0:
-                    if not best_image not in iter_images:
+                    if not best_image not in init_images:
+                        #Create batch directory
                         batch_count +=1
                         batch_path = "{}/batch_{}/".format(iter_path, n_branches+1)
                         os.makedirs(batch_path, exist_ok=True)
                         tqdm.write("Adding best image and clip to branches!")
-                        branch_clip = cur_clip
-                        torch.save(branch_clip, batch_path+"batch_clip.pt")
+                        #Save branch clip
+                        torch.save(cur_clip, batch_path+"batch_clip.pt")
+                        branch_clips.append(cur_clip)
                         samples += self.generateNSamples(save_path=batch_path,
                                                         image=best_image, 
-                                                        c_i=branch_clip,
+                                                        c_i=cur_clip,
                                                         n=n_i,  
                                                         strength=strength,
                                                         noise_level=noise)
-                for image in samples:
-                    sample_clips.append(self.R.encode_image_raw(image))
+                        #Score batch samples
+                        batch_scores, batch_clips = self.score_samples(beta, batch_samples, batch_path)
+                        best_batch_images.append(batch_samples[int(torch.argmax(batch_scores))])
+                        best_batch_scores.append(float(torch.max(batch_scores)))
+                        average_batch_scores.append(float(torch.mean(batch_scores)))
+                        #Append scores, samples, and clips to iteration lists
+                        scores.append(batch_scores)
+                        samples += batch_samples
+                        sample_clips += batch_clips
                         
-                combined_preds = torch.zeros((len(self.EncType), len(samples), beta.shape[1])).to(self.device)
-                # if(self.ae):
-                #     autoencoded_betas = torch.zeros((len(self.EncType), beta.shape[1]))
-                for c, mType in enumerate(self.EncType):
-                    if mType == "images" or mType == "alexnet_encoder_sub1":
-                        combined_preds[c] = self.EncModels[c].predict(samples).to(self.device)
-                    elif mType == "c_img_uc":
-                        combined_preds[c] = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:]).to(self.device)
-                # combined_preds = combined_preds.to(self.device)
-                # if custom_weighting:
-                #     repeated_weights = self.encoderWeights.view(self.encoderWeights.shape[0], 1, self.encoderWeights.shape[1]).repeat(1, combined_preds.shape[1], 1)
-                #     beta_primes = torch.sum(repeated_weights * combined_preds, dim=0)
-                #     # print("REPEATED WEIGHTS SHAPE: {}".format(repeated_weights.shape))
-                #     # beta_primes = torch.where(repeated_weights[0]>0.5, combined_preds[0], combined_preds[1])
-                # else:
-                beta_primes = torch.mean(combined_preds, dim=0)
-                beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
-                scores = []
-                PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
-                for i in range(beta.shape[0]):
-                    xDup = beta[i].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
-                    score = PeC(xDup, beta_primes)
-                    scores.append(score)
-                scores = torch.mean(torch.stack(scores), dim=0)
-                cur_var = float(torch.var(scores))
+                scores = torch.concat(scores, dim=0)
+                # print("SCORES SHAPE: ", scores.shape)
+                #Set branches for next iteration based on top scores from this iteration, ignoring batches
                 topn_pearson = torch.topk(scores, n_branches)
-                cur_vector_corrrelation = float(torch.max(scores))
-                if(self.log):
-                    wandb.log({'Brain encoding pearson correlation_{}'.format(mType): cur_vector_corrrelation, 'score variance_{}'.format(mType): cur_var})
-                tqdm.write("Type: {}, VC: {}, Var: {}".format(mType, cur_vector_corrrelation, cur_var))
-                best_im_index = int(torch.argmax(scores))
-                torch.save(torch.tensor(int(best_im_index/n_i)), "{}/best_im_batch_index.pt".format(iter_path))
-                images.append(samples[best_im_index])
-                iter_scores.append(cur_vector_corrrelation)
-                var_scores.append(float(torch.var(scores)))
                 for i in range(n_branches):
                     if refine_z:
-                        iter_images[i] = samples[int(topn_pearson.indices[i])]
+                        init_images[i] = samples[int(topn_pearson.indices[i])]
                     if refine_clip:
-                        iter_clips[i] = sample_clips[int(topn_pearson.indices[i])]
-                if cur_vector_corrrelation > best_vector_corrrelation or best_vector_corrrelation == -1:
-                    best_vector_corrrelation = cur_vector_corrrelation
-                    best_image = samples[best_im_index]
+                        init_clip[i] = sample_clips[int(topn_pearson.indices[i])]
+                best_batch_index = int(np.argmax(average_batch_scores))
+                best_batch_corrrelation = float(best_batch_scores[best_batch_index])
+                torch.save(torch.tensor(best_batch_index), "{}/best_batch_index.pt".format(iter_path))
+                tqdm.write("BC: {}".format(best_batch_corrrelation))
+                
+                iter_images.append(best_batch_images[int(best_batch_index)])
+                iter_scores.append(best_batch_corrrelation)
+                var_scores.append(float(torch.var(scores)))
+                
+                if best_batch_corrrelation > best_search_corrrelation or best_search_corrrelation == -1:
+                    best_search_corrrelation = best_batch_corrrelation
+                    best_image = best_batch_images[best_batch_index]
                     if refine_clip:
-                        best_clip = sample_clips[best_im_index]
+                        best_clip = branch_clips[best_batch_index]
                         cur_clip = slerp(cur_clip, best_clip, momentum)
             
-        return best_image, images, iter_scores, var_scores
+        return best_image, iter_images, iter_scores, var_scores
 
 
     

@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import torch.nn as nn
+from PIL import Image
 from pycocotools.coco import COCO
 sys.path.append('src')
 from utils import *
@@ -19,10 +20,10 @@ import copy
 from tqdm import tqdm
 import nibabel as nib
 
-_, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=1, loader=False, average=False)
-_, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=2, loader=False, average=False)
-_, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=5, loader=False, average=False)
-_, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=7, loader=False, average=False)
+# _, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=1, loader=False, average=False)
+# _, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=2, loader=False, average=False)
+# _, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=5, loader=False, average=False)
+# _, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=7, loader=False, average=False)
 # vdvae_73k = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/nsd_local/preprocessed_data/z_vdvae_73k.pt")
 # torch.save(torch.mean(vdvae_73k, dim=0), "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/vdvae/train_mean.pt")
 # torch.save(torch.std(vdvae_73k, dim=0), "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/vdvae/train_std.pt")
@@ -65,3 +66,88 @@ _, _, _, _, _, _, _ = load_nsd(vector="c_img_uc", subject=7, loader=False, avera
 # print(torch.mean(encoderWeights[0, higher_vis], dim=0), torch.mean(encoderWeights[1, higher_vis], dim=0))
 # thresh = encoderWeights[0] > 0.5
 # print(torch.sum(thresh))
+nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
+# subj1 = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+# subj1 = subj1.sort_values(by='subject1_rep0')
+
+# idx = convert_indices(idx=[2, 7, 8, 10, 22, 28, 44, 61, 77, 90, 104, 110, 114, 121, 122, 159, 169, 185, 209, 210, 215, 225, 233, 255, 265, 325, 342, 351, 394, 401, 412, 414, 427, 439, 442, 451, 466, 467, 479, 487, 488, 500, 503, 504, 517, 519, 523, 531, 547, 579, 607, 609, 612, 616, 689, 735, 740, 776, 777, 779, 838, 874, 882, 887, 891, 916, 922, 928, 946, 960, 964, 970])
+# print(idx)
+# subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+# sample_count = 0
+# index_list = []
+# for i in range(subj_test.shape[0]):
+#     heldout = True
+#     for j in range(3):
+#         scanId = subj_test.iloc[i]['subject{}_rep{}'.format(1, j)]
+#         if scanId < 27750:
+#             heldout = False
+#     if heldout == False:
+#         nsdId = subj1.iloc[i]['nsdId']
+#         img = nsda.read_images([nsdId], show=True)
+#         Image.fromarray(img[0]).save("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/" + str(sample_count) + ".png")
+#         index_list.append(sample_count)
+#         sample_count += 1
+#     else:
+#         index_list.append(-1)
+# for i, index in enumerate(idx):
+#     print(i)
+#     nsdId = subj1.iloc[i]['nsdId']
+
+#     img = nsda.read_images([nsdId], show=True)
+#     Image.fromarray(img[0]).save("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/" + str(i) + ".png")
+gt_images = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/"
+rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Brain Diffuser raw/"
+new_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Brain Diffuser/"
+converted_indicies = convert_indices(idx=[i for i in range(1000)], reverse=True)
+converted_indicies = remove_heldout_indices(converted_indicies, scanId_sorted=False)
+for i in tqdm(range(982)):
+    index = converted_indicies[i]
+    tqdm.write(str(index))
+    os.makedirs(new_folder + str(index) + "/", exist_ok=True)
+    gt = Image.open(gt_images + "{}.png".format(str(index)))
+    gt.save(new_folder + str(index) + "/Ground Truth.png")
+    
+    image = Image.open(rec_folder + "{}.png".format(str(i)))
+    image.save(new_folder + str(index) + "/0.png")
+        
+        
+# subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+# # subj_test = subj_test.sort_values(by='subject1_rep0')
+# sample_count = 0
+# index_list = []
+# for i in range(subj_test.shape[0]):
+#     heldout = True
+#     for j in range(3):
+#         scanId = subj_test.iloc[i]['subject{}_rep{}'.format(1, j)]
+#         if scanId < 27750:
+#             heldout = False
+#     if heldout == False:
+#         index_list.append(sample_count)
+#         sample_count += 1
+#     else:
+#         index_list.append(-1)
+# gt_images = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/"
+# rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject7/Cortical Convolutions/"
+# image_block = np.load(rec_folder + "meshpool_adamw_lr1e-04_dc1e-01_dp5e-01_fd32_ind32_layer3_rw1e-06_ifw0e+00_ofw1e+00_kldw1e-08_ae10_kldse0_vsf1e+00_fixb2f_mupred_imgs.npy")
+# print(image_block.shape)
+# for index in tqdm(range(1000)):
+#     if index_list[index] != -1:
+#         i = index_list[index]
+#         os.makedirs(rec_folder + str(i) + "/", exist_ok=True)
+#         gt = Image.open(gt_images +"{}.png".format(str(i)))
+#         gt.save(rec_folder + str(i) + "/Ground Truth.png")
+#         # for j in range(5):
+#         # print(image_block[index])
+#         image = Image.fromarray((image_block[index] * 255).astype(np.uint8))
+#         image.save(rec_folder + str(i) + "/" + str(i) + ".png")
+
+# rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Mind Diffuser raw/"
+# out_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Mind Diffuser/"
+# for i in range(982):
+#     os.makedirs(out_folder + str(i) + "/", exist_ok=True)
+#     gt = Image.open(gt_images +"{}.png".format(str(i)))
+#     gt.save(out_folder + str(i) + "/Ground Truth.png")
+#     # for j in range(5):
+#     # print(image_block[index])
+#     image = Image.open(rec_folder + "{}.png".format(str(i)))
+#     image.save(out_folder + str(i) + "/" + str(i) + ".png")

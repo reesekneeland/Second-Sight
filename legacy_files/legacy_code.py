@@ -696,3 +696,64 @@ def load_cc3m(vector, modelId, batch_size=1500, num_workers=16):
     valLoader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
     testLoader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
     return trainLoader, valLoader, testLoader
+
+def generate_accuracy_weights(self):
+        _, _, x_test_avg, _, _, y_test_c, _ = load_nsd(vector="c_img_uc", 
+                                                loader=False,
+                                                average=True,
+                                                subject=self.subject)
+        # Load and compute the prediction weights
+        SM = torch.nn.Softmax(dim=0)
+        prediction_accuracies = torch.zeros((len(self.modelParams), x_test_avg.shape[1]))
+        for m, model in enumerate(self.modelParams):
+            prediction_accuracies[m] = torch.load("masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.config[model]["hashNum"], self.EncType[m]))
+        total_accuracies = torch.sum(prediction_accuracies, dim=0)
+        accuracy_ratios = torch.zeros((len(self.modelParams), x_test_avg.shape[1]))
+        for i in range(prediction_accuracies.shape[0]):
+            accuracy_ratios[i] = (prediction_accuracies[i] / total_accuracies)
+        accuracy_probabilities = (SM(accuracy_ratios)).to(self.device)
+        torch.save(accuracy_probabilities, "masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams)))
+
+# Method to generate image distributions from a given spot in a search (when it crosses threshold)
+    # experiment_title: title of experiment to use
+    # sample: sample number to use, individual value of idx list generated in experiment
+    # iteration: iteration number to generate a distribution at: 
+    #   - provide the iteration number for the iteration BEFORE the threshold is crossed
+    #   - provide -1 to generate distribution before search is initiated (decoded clip + VDVAE)
+    #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
+    # n: number of images to generate in distribution
+    # max_iter: maximum number of iterations in search, used for calculating strength ratio
+    # vdvae_override: if True, will generate distribution not using VDVAE for iteration -1, clip only
+    def generate_image_distribution(self, experiment_title, sample, iteration, n, max_iter=6, vdvae_override=False):
+        exp_path = "reconstructions/subject{}/{}/{}/".format(self.subject, experiment_title, sample)
+        dist_path = exp_path + "distribution_{}/".format(iteration)
+        os.makedirs(dist_path, exist_ok=True)
+        contents = os.listdir(dist_path)
+        images = []
+        if(len(contents)> 0):
+            for file in contents:
+                images.append(Image.open(os.path.join(dist_path,file)))
+            return images
+        if iteration == -1:
+            if vdvae_override:
+                image = None
+                strength=1
+            else:
+                image = Image.open(exp_path+"Decoded VDVAE.png")
+                strength=0.9
+            c_i = torch.load(exp_path+"decoded_clip.pt")
+            
+        else:
+            image = Image.open(exp_path+"iter_{}.png".format(iteration))
+            c_i = torch.load(exp_path+"iter_clip_{}.pt".format(iteration))
+            strength = 0.9-0.4*(math.pow(iteration/max_iter, 3))
+        images = []
+        for i in tqdm(range(n), desc="generating distribution around iteration {}".format(iteration)):
+            im = self.R.reconstruct(image=image,
+                                    image_embeds=c_i, 
+                                    strength=strength,
+                                    noise_level=25,
+                                    negative_prompt="text, caption")
+            images.append(im)
+            im.save(dist_path+"/{}.png".format(i))
+        return images
