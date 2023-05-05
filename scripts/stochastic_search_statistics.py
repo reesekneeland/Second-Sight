@@ -441,7 +441,7 @@ class Stochastic_Search_Statistics():
         print(df)
         df.to_csv(directory_path + "statistics_df_" + str(len(idx)) +  ".csv")
         
-    def create_beta_primes(self, folder, subject = 7):
+    def create_beta_primes(self, folder, subject = 1):
         
         folder_image_set = []
         
@@ -449,7 +449,7 @@ class Stochastic_Search_Statistics():
         
         directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(str(subject), folder)
         
-        existing_path = directory_path + "clip_distribution/0_beta_prime.pt"
+        existing_path = directory_path + "/0/clip_distribution/0_beta_prime.pt"
         
         if(not os.path.exists(existing_path)):
         
@@ -484,6 +484,8 @@ class Stochastic_Search_Statistics():
         log_path       = "/export/raid1/home/ojeda040/Second-Sight/logs/subject" + str(subject) + "/" + folder + "/"
         directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + folder + "/"
         
+        # Create betas if needed
+        self.create_beta_primes(folder, subject = subject)
         
         # List of image numbers created. 
         idx = self.image_indices(folder, subject = subject)
