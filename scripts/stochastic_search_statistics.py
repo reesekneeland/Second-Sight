@@ -439,6 +439,8 @@ class Stochastic_Search_Statistics():
         print(df)
         df.to_csv(directory_path + "statistics_df_" + str(len(idx)) +  ".csv")
         
+    def create_beta_primes(self, ):
+        
     def create_dataframe(self, folder, encoder, subject = 1):
         
         # Path to the folder
@@ -459,13 +461,19 @@ class Stochastic_Search_Statistics():
         # object With column names only
         # Sample Indicator: 
             #   0 --> Ground Truth
-            #   1 --> Ground Truth CLIP
-            #   2 --> Decoded CLIP Only
-            #   3 --> Library Reconstruction
-            #   4 --> Search Reconstruction
-        df = pd.DataFrame(columns = ['ID', 'Iter', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+            #   1 --> VDVAE Distribution        (Decoded Distribution)
+            #   2 --> Clip Distrubituon         (Decoded CLIP Only)
+            #   3 --> Clip Distrubituon + VDVAE (Decoded CLIP + VDVAE)
+            #   4 --> iter_0
+            #   5 --> iter_1
+            #   6 --> iter_2
+            #   7 --> iter_3
+            #   8 --> iter_4
+            #   9 --> iter_5
+        df = pd.DataFrame(columns = ['ID', 'Iter', 'Batch Number', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
-                                     'Brain Correlation Unmasked', 'SSIM', 'Pixel Correlation', 'CLIP Pearson', 'CLIP Two-way'])
+                                     'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'Alexnet 2', 
+                                     'Alexnet 5', 'Alexnet 7', 'Inception V3', 'EffNet-B', 'SwAV' ])
         
         # Seach iteration count. 
         iter_count = 0
@@ -488,21 +496,6 @@ class Stochastic_Search_Statistics():
                 ground_truth_path = path + '/' + 'Ground Truth.png'
                 ground_truth = Image.open(ground_truth_path)
                 
-                # Ground Truth CLIP Image
-                ground_truth_CLIP_path = path + '/' + 'Ground Truth CLIP.png'
-                ground_truth_CLIP = Image.open(ground_truth_CLIP_path)
-                
-                # Decoded CLIP Only Image
-                decoded_CLIP_only_path = path + '/' + 'Decoded CLIP Only.png'
-                decoded_CLIP_only = Image.open(decoded_CLIP_only_path)
-                
-                # Library Reconstructions
-                library_reconstruction_path = path + '/' + 'Library Reconstruction.png'
-                library_reconstruction = Image.open(library_reconstruction_path)
-                
-                # Search Reconstruction Image
-                search_reconstruction_path = path + '/' + 'Search Reconstruction.png'
-                
                 with open(os.path.join(path, filename), 'r') as f:
                     if('iter' in filename):
                         
@@ -524,7 +517,7 @@ class Stochastic_Search_Statistics():
                         two_way_prob, clip_pearson, _ = self.calculate_clip_similarity(folder, i, iter_count, subject = subject)
                         
                         # Calculate the strength at that reconstruction iter image. 
-                        strength = 1.0-0.6*(math.pow(iter_count/10, 3))
+                        strength = 0.92-0.3*(math.pow((iter_count + 1)/ 6, 3))
                 
                         # Make data frame row
                         if(ssim_search_reconstruction == 1.00):
@@ -564,7 +557,7 @@ class Stochastic_Search_Statistics():
             
             # Pearson correlations for each reconstruction region
             pearson_correlation_V1              = self.generate_pearson_correlation(encoder_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False)
-            pearson_correlation_V1_test              = self.generate_pearson_correlation(test_mask, beta_samples[i], brain_mask_V1, unmasked=False)
+            pearson_correlation_V1_test         = self.generate_pearson_correlation(test_mask, beta_samples[i], brain_mask_V1, unmasked=False)
             pearson_correlation_V2              = self.generate_pearson_correlation(encoder_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False)
             pearson_correlation_V3              = self.generate_pearson_correlation(encoder_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False)
             pearson_correlation_V4              = self.generate_pearson_correlation(encoder_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False)
