@@ -25,7 +25,8 @@ class StochasticSearch():
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
-                ae=True):
+                ae=True,
+                disable_SD=False):
         with torch.no_grad():
             self.subject = subject
             with open("config.yml", "r") as yamlfile:
@@ -40,7 +41,8 @@ class StochasticSearch():
             self.ae = ae
             self.hashNum = "SCS_" + "_".join(self.modelParams)
             self.vector = "images"
-            self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
+            if not disable_SD:
+                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
             self.EncModels = []
             self.EncType = []
             
