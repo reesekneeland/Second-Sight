@@ -10,6 +10,7 @@ from alexnet_encoder import AlexNetEncoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from torchmetrics import PearsonCorrCoef
+from stochastic_search import StochasticSearch
 import cv2
 import random
 from transformers import AutoProcessor, CLIPVisionModelWithProjection
@@ -19,6 +20,7 @@ import numpy as np
 from skimage import io
 from skimage.color import rgb2gray
 from skimage.metrics import structural_similarity as ssim
+import os.path
 
 
 class Stochastic_Search_Statistics():
@@ -300,29 +302,20 @@ class Stochastic_Search_Statistics():
     #   - provide -2 to generate distribution before search is initiated (decoded clip only)
     #   - provide -3 to generate distribution before search is initiated (decoded VDVAE only)
     #   - provide last iteration number (5 for searches of 6 iterations) to generate distribution from final state
-    # n: number of images to generate in distribution (there will always be at least 12)
-    #   - leave it empty to return 12 every time
-    #
-    # returns: list of images in the distribution and list of encoded beta primes for those images
-    def grab_image_distribution(self, subject, experiment_title, sample, iteration, n=12):
-        iter_path = "reconstructions/subject{}/{}/{}/iter_{}/".format(subject, experiment_title, sample, iteration)
-        batch = int(torch.load("{}/best_batch_index.pt".format(iter_path)))
-        # print("BATCH: ", batch)
+    # n: number of images to generate in distribution (there will always be at least 10)
+    #   - leave it empty to return all available images
+    def grab_image_distribution(self, experiment_title, sample, iteration, n=12):
+        iter_path = "reconstructions/subject{}/{}/{}/iter_{}/".format(self.subject, experiment_title, sample, iteration)
+        batch = int(torch.load(iter_path+"best_im_batch_index.pt"))
         batch_path = iter_path+"batch_{}/".format(batch)
         png_files = [f for f in os.listdir(batch_path) if f.endswith('.png')]
         images = []
-        beta_primes = []
         if n == -1:
             n = len(png_files)
         while n>0:
+            images.append(Image.open(batch_path+png_files[n-1]))
             n -=1
-            images.append(Image.open(batch_path+png_files[n]))
-            beta_prime = torch.load("{}/{}_beta_prime.pt".format(batch_path, n))
-            # print(beta_prime.shape)
-            beta_primes.append(beta_prime)
-            
-        beta_primes = torch.stack(beta_primes, dim=0)
-        return images, beta_primes
+        return images
     
     def image_indices_paper(self, folder, subject = 1):
         
@@ -448,8 +441,43 @@ class Stochastic_Search_Statistics():
         print(df)
         df.to_csv(directory_path + "statistics_df_" + str(len(idx)) +  ".csv")
         
-    def create_beta_primes(self, ):
+    def create_beta_primes(self, folder, subject = 7):
         
+        folder_image_set = []
+        
+        folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution"]
+        
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(str(subject), folder)
+        
+        existing_path = directory_path + "clip_distribution/0_beta_prime.pt"
+        
+        if(not os.path.exists(existing_path)):
+        
+            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=subject, device="cuda:0")
+            
+            # List of image numbers created. 
+            idx = self.image_indices(folder, subject = subject)
+            
+            # Append rows to an empty DataFrame
+            for i in tqdm(idx, desc="creating dataframe rows"):
+                
+                for folder in folders:
+                    
+                    # Create the path
+                    path = directory_path + str(i) + "/" + folder
+                        
+                    for filename in os.listdir(path): 
+                        
+                        reconstruction_image = Image.open(path + "/" + filename)
+                        folder_image_set.append(reconstruction_image)
+                        
+                    beta_primes = SCS.predict(folder_image_set)
+                    
+                    for j in range(beta_primes.shape[0]):
+                        torch.save(beta_primes[j], "{}/{}_beta_prime.pt".format(path, j))
+                        
+                    folder_image_set = []
+                    
     def create_dataframe(self, folder, encoder, subject = 1):
         
         # Path to the folder
@@ -641,7 +669,8 @@ def main():
     # SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 1:250:1 Dual Guided clip_iter 27", GN, subject=1)
-    SCS.create_papers_dataframe("Brain Diffuser", subject = 1)
+    #SCS.create_papers_dataframe("Brain Diffuser", subject = 1)
+    SCS.create_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject = 7)
     
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.4 Exp AE")
     #SCS.create_dataframe("SCS VD PCA LR 10:250:5 0.3 Exp2 AE")
