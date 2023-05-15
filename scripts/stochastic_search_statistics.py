@@ -1423,7 +1423,7 @@ def main():
     
     #SCS.create_dataframe_test("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=1)
     
-    SCS.create_dataframe_paper("Cortical Convolutions", subject=2)
+    SCS.create_dataframe_paper("Brain Diffuser regen copy", subject=2)
     
     #SCS.create_papers_dataframe("Brain Diffuser", subject = 1)
     
