@@ -10,7 +10,7 @@ hash
 /models
 /masks
 /latent_vectors
-/legacy_files/scalar_experiments/wandb
+/legacy_files
 /scripts/wandb
 /src/wandb
 /src/clip
