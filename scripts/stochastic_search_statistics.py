@@ -187,7 +187,7 @@ class Stochastic_Search_Statistics():
         ground_truth = rgb2gray(ground_truth)
         reconstruction = rgb2gray(reconstruction)
 
-        return ssim(reconstruction, ground_truth, multichannel=True, gaussian_weights=True, sigma=1.5, use_sample_covariance=False, data_range=1.0)
+        return ssim(reconstruction, ground_truth, gaussian_weights=True, sigma=1.5, use_sample_covariance=True, data_range=ground_truth.max()-ground_truth.min())
             
         
     def calculate_pixel_correlation(self, ground_truth, reconstruction):
