@@ -356,24 +356,32 @@ def process_x_encoded(Encoder):
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title
 #rewrite this function to be better designed and more general
-def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True):
+def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True, background_color='white', buffer=0, redCol=False):
     imW, imH = images[0].size
-    bigW = imW * w
+    bigW = (imW + buffer) * w
     if(rowCaptions):
-        bigH = (imH + 64) * h 
-        rStep = imH + 64
+        bigH = (imH + 64 + buffer) * h 
+        rStep = imH + 64 + buffer
     else:
-        bigH = imH * h
-        rStep = imH
+        bigH = (imH + buffer) * h
+        rStep = imH + buffer
     if useTitle:
         hStart = 128
-        height = bigH + 128
+        height = bigH + 128 + buffer
     else:
         hStart = 0
-        height = bigH
-
-    canvas = Image.new('RGB', (bigW, height), color='white')
-    font = ImageFont.truetype("arial.ttf", 36)
+        height = bigH + buffer
+    if redCol:
+        bigW += buffer
+    cStep = imW + buffer
+    hStart += buffer
+    bigW += buffer
+    bigH += buffer
+    canvas = Image.new('RGB', (bigW, height), color=background_color)
+    if redCol:
+        red = Image.new('RGB', (imW + 2*buffer, bigH+buffer), color='red')
+        canvas.paste(red, (0,hStart-buffer))
+    font = ImageFont.truetype("arial.ttf", 42)
     titleFont = ImageFont.truetype("arial.ttf", 75)
     textLabeler = ImageDraw.Draw(canvas)
     if useTitle == 1:
@@ -382,17 +390,22 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
     elif useTitle == 2:
         for i in range(w):
             _, _, w, h = textLabeler.textbbox((0, 0), captions[i], font=titleFont)
-            textLabeler.text((i*imH + (imW-w)/2, 16), captions[i], font=titleFont, fill='black')
+            textLabeler.text((i*cStep + (imW+buffer-w)/2, 38), captions[i], font=titleFont, fill='black')
     label = Image.new(mode="RGBA", size=(imW,64), color="white")
     count = 0
-    for j in range(hStart, bigH, rStep):
-        for i in range(0, bigW, imW):
+    for j in range(hStart, bigH-buffer, rStep):
+        for i in range(buffer, bigW-buffer, cStep):
             if(count < len(images)):
                 canvas.paste(images[count].resize((imH, imW), resample=Image.Resampling.LANCZOS), (i,j))
                 if(rowCaptions):
                     canvas.paste(label, (i, j+imH))
-                    textLabeler.text((i+32, j+imH+8), captions[count], font=font, fill='black')
+                    textLabeler.text((i+16, j+imH+8), captions[count], font=font, fill='black')
                 count+=1
+    if redCol:
+        sub_col = canvas.crop((cStep + buffer, 0, bigW, height))
+        buf = Image.new('RGB', (buffer, height), color='white')
+        canvas.paste(sub_col, (cStep + buffer + buffer, 0))
+        canvas.paste(buf, (cStep + buffer, 0))
     return canvas
 
 #  Numpy Utility 

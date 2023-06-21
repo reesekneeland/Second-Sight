@@ -67,8 +67,8 @@ import nibabel as nib
 # thresh = encoderWeights[0] > 0.5
 # print(torch.sum(thresh))
 nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/nsd', '/home/naxos2-raid25/kneel027/home/kneel027/nsd_local')
-# subj1 = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
-# subj1 = subj1.sort_values(by='subject1_rep0')
+subj1 = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+subj1 = subj1.sort_values(by='subject1_rep0')
 
 # idx = convert_indices(idx=[2, 7, 8, 10, 22, 28, 44, 61, 77, 90, 104, 110, 114, 121, 122, 159, 169, 185, 209, 210, 215, 225, 233, 255, 265, 325, 342, 351, 394, 401, 412, 414, 427, 439, 442, 451, 466, 467, 479, 487, 488, 500, 503, 504, 517, 519, 523, 531, 547, 579, 607, 609, 612, 616, 689, 735, 740, 776, 777, 779, 838, 874, 882, 887, 891, 916, 922, 928, 946, 960, 964, 970])
 # print(idx)
@@ -96,8 +96,9 @@ nsda = NSDAccess('/home/naxos2-raid25/kneel027/home/surly/raid4/kendrick-data/ns
 #     img = nsda.read_images([nsdId], show=True)
 #     Image.fromarray(img[0]).save("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/" + str(i) + ".png")
 gt_images = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/"
-rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Brain Diffuser raw/"
-new_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Brain Diffuser/"
+rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject7/Tagaki raw/"
+new_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject7/Tagaki/"
+os.makedirs(new_folder, exist_ok=True)
 converted_indicies = convert_indices(idx=[i for i in range(1000)], reverse=True)
 converted_indicies = remove_heldout_indices(converted_indicies, scanId_sorted=False)
 for i in tqdm(range(982)):
@@ -106,11 +107,11 @@ for i in tqdm(range(982)):
     os.makedirs(new_folder + str(index) + "/", exist_ok=True)
     gt = Image.open(gt_images + "{}.png".format(str(index)))
     gt.save(new_folder + str(index) + "/Ground Truth.png")
-    
-    image = Image.open(rec_folder + "{}.png".format(str(i)))
-    image.save(new_folder + str(index) + "/0.png")
+    for j in range(5):
+        image = Image.open(rec_folder + "{:05d}_00{}_zc.png".format(i, j))
+        image.save(new_folder + str(index) + "/{}.png".format(j))
         
-        
+# SAVE CORTICAL CONVOLUTION IMAGES   
 # subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
 # # subj_test = subj_test.sort_values(by='subject1_rep0')
 # sample_count = 0
@@ -127,8 +128,8 @@ for i in tqdm(range(982)):
 #     else:
 #         index_list.append(-1)
 # gt_images = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/shared1000_images_nsdId/"
-# rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject7/Cortical Convolutions/"
-# image_block = np.load(rec_folder + "meshpool_adamw_lr1e-04_dc1e-01_dp5e-01_fd32_ind32_layer3_rw1e-06_ifw0e+00_ofw1e+00_kldw1e-08_ae10_kldse0_vsf1e+00_fixb2f_mupred_imgs.npy")
+# rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject2/Cortical Convolutions/"
+# image_block = np.load(rec_folder + "meshpool_adamw_lr1e-04_dc1e-01_dp5e-01_fd32_ind32_layer3_rw1e-07_ifw0e+00_ofw1e+00_kldw1e-08_ae10_kldse0_vsf1e+00_fixb2f_mupred_imgs.npy")
 # print(image_block.shape)
 # for index in tqdm(range(1000)):
 #     if index_list[index] != -1:
@@ -139,15 +140,15 @@ for i in tqdm(range(982)):
 #         # for j in range(5):
 #         # print(image_block[index])
 #         image = Image.fromarray((image_block[index] * 255).astype(np.uint8))
-#         image.save(rec_folder + str(i) + "/" + str(i) + ".png")
+#         image.save(rec_folder + str(i) + "/0.png")
 
 # rec_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Mind Diffuser raw/"
 # out_folder = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/reconstructions/subject1/Mind Diffuser/"
-# for i in range(982):
+# for i in tqdm(range(982)):
 #     os.makedirs(out_folder + str(i) + "/", exist_ok=True)
 #     gt = Image.open(gt_images +"{}.png".format(str(i)))
 #     gt.save(out_folder + str(i) + "/Ground Truth.png")
 #     # for j in range(5):
 #     # print(image_block[index])
-#     image = Image.open(rec_folder + "{}.png".format(str(i)))
-#     image.save(out_folder + str(i) + "/" + str(i) + ".png")
+#     image = Image.open(rec_folder + "{}.png".format(str(i))).convert('RGB')
+#     image.save(out_folder + str(i) + "/0.png")
