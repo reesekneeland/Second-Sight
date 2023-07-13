@@ -168,7 +168,6 @@ for i in tqdm(range(982)):
 #     gt.save(out_folder + str(i) + "/Ground Truth.png")
 #     # for j in range(5):
 #     # print(image_block[index])
-<<<<<<< HEAD
 #     image = Image.open(rec_folder + "{}.png".format(str(i)))
 #     image.save(out_folder + str(i) + "/" + str(i) + ".png")
 
@@ -204,7 +203,3 @@ second_list = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 3
 
 difference_result = [item for item in first_list if item not in second_list]
 print(difference_result)
-=======
-#     image = Image.open(rec_folder + "{}.png".format(str(i))).convert('RGB')
-#     image.save(out_folder + str(i) + "/0.png")
->>>>>>> 8fe4a577cddf6ef3bd5a329212bd12861edb8d9c
