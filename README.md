@@ -12,7 +12,7 @@ conda activate SS_UC
 
 ```
 ## Running instructions
-There are a number of files designed to be starting points for running the code, namely:
+To reproduce our results, you can run the following scripts, which will download all of the preprocessed data for the image library, the brain data, and do the necessary processing
 ```
 driver.py
 driver_library.py
