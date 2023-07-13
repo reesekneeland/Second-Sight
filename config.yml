@@ -56,7 +56,7 @@
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
         #storing the topN parameter for each config
-        "libraryDecoder": 
+        "LibraryAssembler": 
         {
           "clipEncoder": 200,
           "gnetEncoder": 25,
@@ -120,7 +120,7 @@
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
         #storing the topN parameter for each config
-        "libraryDecoder": 
+        "LibraryAssembler": 
         {
           "clipEncoder": 726,
           "gnetEncoder": 69,
@@ -184,7 +184,7 @@
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
         #storing the topN parameter for each config
-        "libraryDecoder": 
+        "LibraryAssembler": 
         {
           "clipEncoder": 271,
           "gnetEncoder": 125,
@@ -248,7 +248,7 @@
           "encoderHash": "SCS_gnetEncoder_clipEncoder"
         },
         #storing the topN parameter for each config
-        "libraryDecoder": 
+        "LibraryAssembler": 
         {
           "clipEncoder": 998,
           "gnetEncoder": 153,

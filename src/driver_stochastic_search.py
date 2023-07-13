@@ -2,7 +2,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 from utils import *
 from tqdm import tqdm
-from library_decoder import LibraryDecoder
+from library_assembler import LibraryAssembler
 from vdvae import VDVAE
 from nsd_access import NSDAccess
 from stochastic_search import StochasticSearch
@@ -94,7 +94,7 @@ def generateTestSamples(experiment_title,
         targets_vdvae = normalize_vdvae(targets_vdvae[idx]).reshape((len(idx), 1, 91168))
         targets_clips = targets_clips[idx].reshape((len(idx), 1, 1024))
         
-        LD = LibraryDecoder(configList=modelParams,
+        LD = LibraryAssembler(configList=modelParams,
                             subject=subject,
                             ae=ae,
                             device="cuda")
@@ -102,7 +102,7 @@ def generateTestSamples(experiment_title,
         if library:
             output_clips = LD.predict(x_test, vector="c_img_uc", topn=100).reshape((len(idx), 1, 1024))
             del LD
-            LD_v = LibraryDecoder(configList=["gnetEncoder"],
+            LD_v = LibraryAssembler(configList=["gnetEncoder"],
                                 subject=subject,
                                 ae=ae,
                                 mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),

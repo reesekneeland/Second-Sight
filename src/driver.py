@@ -6,8 +6,7 @@ from nsd_access import NSDAccess
 from utils import *
 from tqdm import tqdm
 import yaml
-from decoder_uc import Decoder_UC
-from encoder_uc import Encoder_UC
+from clip_encoder import CLIP_Encoder
 from diffusers import StableUnCLIPImg2ImgPipeline
 from autoencoder  import AutoEncoder
 from vdvae import VDVAE
@@ -19,17 +18,17 @@ nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/ra
 
 def main():
     
-    # encHash = train_encoder_uc(subject=1)
+    # encHash = train_CLIP_Encoder(subject=1)
     # train_autoencoder(subject=1, encHash=encHash)
     # train_autoencoder(subject=1, encHash="788")
-    # train_encoder_uc(subject=2)
+    # train_CLIP_Encoder(subject=2)
     # train_autoencoder(subject=5, encHash="802", config="clipAutoEncoder", vector="c_img_uc")
     # train_autoencoder(subject=1, encHash=None, config="dualAutoEncoder", vector="images")
     train_autoencoder(subject=7, encHash=None, config="dualAutoEncoder", vector="images")
     # subjects = [7]
     # for subject in subjects:
     #     # train_decoder_uc(subject=subject)
-    #     encHash = train_encoder_uc(subject=subject)
+    #     encHash = train_CLIP_Encoder(subject=subject)
     #     train_autoencoder(subject=subject, encHash=encHash, config="clipAutoEncoder", vector="c_img_uc")
     #     train_autoencoder(subject=subject, encHash=None, config="gnetAutoEncoder", vector="images")
     # train_decoder_uc(subject=1)
@@ -37,12 +36,12 @@ def main():
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 3", idx=[i for i in range(20)], subject=1) 
     # reconstructVDVAE(experiment_title="CLIP + VDVAE 747 764 Test", idx=[0,1], subject=1) 
     
-    # train_encoder_uc(subject=2)
-    # train_encoder_uc(subject=5)
-    # train_encoder_uc(subject=7)
+    # train_CLIP_Encoder(subject=2)
+    # train_CLIP_Encoder(subject=5)
+    # train_CLIP_Encoder(subject=7)
 
     # train_decoder_uc(subject=1) 
-    # encHash = train_encoder_uc(subject=5)
+    # encHash = train_CLIP_Encoder(subject=5)
     
     # train_autoencoder(subject=2, encHash="772")
     # train_autoencoder(subject=5, encHash="774")
@@ -80,11 +79,11 @@ def train_autoencoder(subject, encHash, config="gnetAutoEncoder", vector="images
     AE.benchmark(encodedPass=True, average=False)
     AE.benchmark(encodedPass=True, average=True)
     
-def train_encoder_uc(subject=1):
+def train_CLIP_Encoder(subject=1):
     
     hashNum = update_hash()
     # hashNum = "798"
-    E = Encoder_UC(config="clipEncoder",
+    E = CLIP_Encoder(config="clipEncoder",
                     inference=False,
                     hashNum = hashNum,
                     lr=0.00001,

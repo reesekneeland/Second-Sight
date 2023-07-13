@@ -12,7 +12,7 @@ from torchmetrics import PearsonCorrCoef
 #   - AlexNet
 #   - c_img_vd
 #   - c_text_vd
-class LibraryDecoder():
+class LibraryAssembler():
     def __init__(self, 
                  subject=1,
                  configList=["gnetEncoder"],
@@ -124,9 +124,9 @@ class LibraryDecoder():
                 # but only for clip vectors
                 if vector == "c_img_uc":
                     if len(self.configList) > 1:
-                        topn = self.config["libraryDecoder"]["dualGuided"]
+                        topn = self.config["LibraryAssembler"]["dualGuided"]
                     else:
-                        topn = self.config["libraryDecoder"][self.configList[0]]
+                        topn = self.config["LibraryAssembler"][self.configList[0]]
                 else:
                     topn = 1
             # Get best match for each sample
@@ -186,6 +186,6 @@ class LibraryDecoder():
         print("Loss Top 500:", float(l2[499]))
         print("Vector Correlation Top 1000: ", float(vc[-1]))
         print("Loss Top 1000:", float(l2[-1]))
-        # os.mkdir("logs/subject{sub}/library_decoder_scores/".format(sub=self.subject), exist_ok=True)
-        # np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_PeC.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), vc)
-        # np.save("logs/subject{sub}/library_decoder_scores/S{sub}_{vec}_{config}_L2.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), l2)
+        # os.mkdir("logs/subject{sub}/library_assembler_scores/".format(sub=self.subject), exist_ok=True)
+        # np.save("logs/subject{sub}/library_assembler_scores/S{sub}_{vec}_{config}_PeC.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), vc)
+        # np.save("logs/subject{sub}/library_assembler_scores/S{sub}_{vec}_{config}_L2.npy".format(sub=self.subject, vec=vector, config="_".join(self.configList)), l2)

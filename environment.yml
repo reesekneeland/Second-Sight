@@ -1,4 +1,4 @@
-name: SS_UC_TEST
+name: SS
 channels:
   - conda-forge
   - nvidia
@@ -12,28 +12,28 @@ dependencies:
   - pytorch-cuda=11.7
   - pip:
       - setuptools==58
-      - huggingface-hub
-      - pyyaml
-      - accelerate
-      - xformers
-      - h5py
-      - easydict
-      - scikit-image
-      - einops
-      - omegaconf
-      - ipython
-      - ipykernel
-      - matplotlib
-      - nibabel>=5.0.0
-      - numpy>=1.23.5
-      - opencv-python
-      - pandas>=1.5.3
-      - pillow>=9.4.0
-      - pycocotools>=2.0.6
-      - torchmetrics
-      - tqdm>=4.64.1
-      - transformers
-      - wandb>=0.12.21
-      - seaborn
-      - webdataset>=0.2.5
+      - huggingface-hub==0.13.3
+      - pyyaml==6.0
+      - accelerate==0.18.0
+      - xformers==0.0.18
+      - h5py==3.8.0
+      - easydict==1.10
+      - scikit-image==0.20.0
+      - einops==0.6.0
+      - omegaconf==2.3.0
+      - ipython==8.12.0
+      - ipykernel==6.22.0
+      - matplotlib==3.7.1
+      - nibabel==5.1.0
+      - numpy==1.24.1
+      - opencv-python==4.7.0.72
+      - pandas==1.5.3
+      - pillow==9.5.0
+      - pycocotools==2.0.6
+      - torchmetrics==0.11.4
+      - tqdm==4.65.0
+      - transformers==4.27.4
+      - wandb==0.14.0
+      - seaborn==0.12.2
+      - webdataset==0.2.48
       - "--editable=git+https://github.com/reesekneeland/diffusers.git@main#egg=diffusers"

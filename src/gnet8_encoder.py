@@ -215,18 +215,8 @@ class GNet8_Encoder():
         # x size
         self.x_size = self.config["x_size"]
         
-        # File locations
-        
-        # 11838
-        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
-        #self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_Jan-25-2023_1316_11838/'
-        
-        # 15724
-        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/' 
-        self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452_15724/'
-        
         # Reload joined GNet model files
-        self.joined_checkpoint = torch.load(self.joined_model_dir + 'model_params_final', map_location=self.device)
+        self.joined_checkpoint = torch.load('models/gnet_multisubject', map_location=self.device)
         
         self.subjects = list(self.joined_checkpoint['voxel_mask'].keys())
         self.gnet8j_voxel_mask = self.joined_checkpoint['voxel_mask']

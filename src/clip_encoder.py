@@ -1,50 +1,38 @@
-import torch
 from torch.optim import Adam
+import numpy as np
+import matplotlib.pyplot as plt
 import torch.nn as nn
-from torchmetrics import PearsonCorrCoef
 from utils import *
 import wandb
 import yaml
 from tqdm import tqdm
+from torchmetrics import PearsonCorrCoef
 
-# Pytorch model class for Linear regression layer Neural Network
 class MLP(torch.nn.Module):
     def __init__(self, vector, x_size):
         super(MLP, self,).__init__()
         self.vector = vector
         if(self.vector == "c_img_uc"):
-            self.linear = nn.Linear(x_size, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.linear3 = nn.Linear(15000, 15000)
-            self.linear4 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 1024)
-        elif(self.vector == "c_text_uc"):
-            self.linear = nn.Linear(x_size, 15000)
-            self.linear2 = nn.Linear(15000, 15000)
-            self.linear3 = nn.Linear(15000, 15000)
-            self.linear4 = nn.Linear(15000, 15000)
-            self.outlayer = nn.Linear(15000, 78848)
-        elif(self.vector == "z_vdvae"):
-            self.linear = nn.Linear(x_size, 12500)
-            self.outlayer = nn.Linear(12500, 91168)
-            # self.outlayer = nn.Linear(x_size, 91168)
+            self.linear = nn.Linear(1024, 15000)
+        if(self.vector == "c_text_uc"):
+            self.linear = nn.Linear(78848, 15000)
+            
+        self.linear2 = nn.Linear(15000, 15000)
+        self.outlayer = nn.Linear(15000, x_size)
         self.relu = nn.ReLU()
         
     def forward(self, x):
-        x = self.relu(self.linear(x))
-        if(self.vector == "c_img_uc" or self.vector == "c_text_uc"):
-            # x = self.relu(self.linear(x))
-            x = self.relu(self.linear2(x))
-            x = self.relu(self.linear3(x))
-            x = self.relu(self.linear4(x))
-        y_pred = self.outlayer(x)
+        y_pred = self.relu(self.linear(x))
+        y_pred = self.relu(self.linear2(y_pred))
+        y_pred = self.outlayer(y_pred)
         return y_pred
+
 
     
 # Main Class    
-class Decoder_UC():
+class CLIP_Encoder():
     def __init__(self, 
-                 config="clipDecoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
+                 config="clipEncoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
                  inference=False, 
                  hashNum=None,
                  vector=None,
@@ -85,12 +73,13 @@ class Decoder_UC():
             if(self.log):
                 wandb.init(
                     # set the wandb project where this run will be logged
-                    project="decoder_uc",
+                    project="CLIP_Encoder",
                     # track hyperparameters and run metadata
                     config={
                     "hash": self.hashNum,
-                    "architecture": "MLP unCLIP",
+                    "architecture": "MLP",
                     "subject": self.subject,
+                    # "architecture": "2 Convolutional Layers",
                     "vector": self.vector,
                     "dataset": "Z scored",
                     "epochs": self.num_epochs,
@@ -99,12 +88,12 @@ class Decoder_UC():
                     "num_workers": self.num_workers
                     }
                 )
-        
+        self.x_size = self.config["x_size"]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, self.config["x_size"])
+        self.model = MLP(self.vector, self.x_size)
         # Send model to Pytorch Device 
         self.model.to(self.device)
-        
+    
 
     def train(self):
         # Set best loss to negative value so it always gets overwritten
@@ -113,38 +102,46 @@ class Decoder_UC():
         
         # Configure the pytorch objects, loss function (criterion)
         criterion = nn.MSELoss(reduction='sum')
+        
         # Set the optimizer to Adam
         optimizer = Adam(self.model.parameters(), lr = self.lr)
+        
         # Begin training, iterates through epochs, and through the whole dataset for every epoch
         for epoch in tqdm(range(self.num_epochs), desc="epochs for subject{}".format(self.subject)):
+            
             # For each epoch, do a training and a validation stage
             # Entering training stage
             self.model.train()
+            
             # Keep track of running loss for this training epoch
             running_loss = 0.0
-            for i, data in enumerate(self.trainLoader):
-                # x_data = Brain Data
-                # y_data = Clip/Z vector Data
-                x_data, y_data = data
-                # Moving the tensors to the GPU
+            for i, data in enumerate(self.trainLoader): 
                 
+                # x_data = Clip vector Data
+                # y_data = Brain Data
+                y_data, x_data = data
+                
+                # Moving the tensors to the GPU
                 x_data = x_data.to(self.device)
                 y_data = y_data.to(self.device)
+                
                 # Forward pass: Compute predicted y by passing x to the model
                 # Train the x data in the model to get the predicted y value. 
                 pred_y = self.model(x_data).to(self.device)
-                # scaled_pred_y /= torch.norm(y_data)
                 
                 # Compute the loss between the predicted y and the y data. 
                 loss = criterion(pred_y, y_data)
                 loss.backward()
                 optimizer.step()
+                
                 # Zero gradients in the optimizer
                 optimizer.zero_grad()
+                
                 # Add up the loss for this training round
                 running_loss += loss.item()
+                
             tqdm.write('[%d] train loss: %.8f' %
-                (epoch + 1, running_loss /len(self.trainLoader.dataset)))
+                (epoch + 1, running_loss /len(self.trainLoader)))
                 #     # wandb.log({'epoch': epoch+1, 'loss': running_loss/(50 * self.batch_size)})
             
                 
@@ -155,18 +152,21 @@ class Decoder_UC():
             for i, data in enumerate(self.valLoader):
                 
                 # Loading in the test data
-                x_data, y_data = data
-                x_data = x_data.to(self.device)
-                y_data = y_data.to(self.device)
-                # Forward pass: Compute predicted y by passing x to the model
-                # Train the x data in the model to get the predicted y value. 
-                pred_y = self.model(x_data).to(self.device)
-                # scaled_pred_y /= torch.norm(y_data)
                 
-                # Compute the loss between the predicted y and the y data. 
+                # x_data = Clip vector Data
+                # y_data = Brain Data
+                y_data, x_data = data
+                x_data = x_data.to(self.device)
+                y_data = y_data.to(self.device, torch.float64)
+                
+                # Generating predictions based on the current model
+                pred_y = self.model(x_data).to(self.device)
+        
+                # Compute the test loss 
                 loss = criterion(pred_y, y_data)
+
                 running_test_loss += loss.item()
-            test_loss = running_test_loss / len(self.valLoader.dataset)
+            test_loss = running_test_loss / len(self.valLoader)
                 
             # Printing and logging loss so we can keep track of progress
             tqdm.write('[%d] test loss: %.8f' %
@@ -182,29 +182,31 @@ class Decoder_UC():
                 loss_counter = 0
             else:
                 loss_counter += 1
-                tqdm.write("loss counter: " + str(loss_counter))
+                tqdm.write("loss counter: {}".format(loss_counter))
                 if(loss_counter >= 5):
                     break
         if(self.log):
                 wandb.finish()
                 
-        
-
-    def predict(self, x):
+    def predict(self, x, mask=None):
         self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
-        out = self.model(x.to(self.device)).to(torch.float16)
-        return out
-    
-    
+        out = self.model(x.to(self.device, torch.float32))
+        if mask:
+            out = out[mask]
+        return out.to(self.device)
+        
+        
     def benchmark(self, average=True):
-        _, _, x_test, _, _, y_test, _ = load_nsd(vector=self.vector, 
+            
+        # y_test = Brain data
+        # x_test = clip data
+        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
                                                 loader=False,
                                                 average=average,
                                                 subject=self.subject,
                                                 big=True)
-        # Load our best model into the class to be used for predictions
         modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
         self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
         self.model.eval()
@@ -216,10 +218,61 @@ class Decoder_UC():
         y_test = y_test.to(self.device)
         
         pred_y = self.model(x_test)
-        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        
         loss = criterion(pred_y, y_test)
-
+              
+        pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
+        
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = np.array(r)
         
         print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
         print("Vector Correlation: ", float(pearson))
+        print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
+        plt.hist(r, bins=50, log=True)
+        plt.savefig("charts/subject{}/{}_{}_encoder_voxel_PeC.png".format(self.subject, self.hashNum, self.vector))
+    
+    def score_voxels(self, average=True):
+            
+        # y_test = Brain data
+        # x_test = clip data
+        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
+                                                loader=False,
+                                                average=average,
+                                                subject=self.subject,
+                                                big=True)
+        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
+        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
+        self.model.eval()
+
+        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
+        print(len(y_test), len(y_test)*0.2)
+        x_test = x_test[0:int((len(y_test)*0.2))].to(self.device)
+        y_test = y_test[0:int((len(y_test)*0.2))]
+        
+        pred_y = self.model(x_test)
+
+        pred_y = pred_y.cpu().detach()
+        y_test = y_test.cpu().detach()
+        PeC = PearsonCorrCoef()
+        r = []
+        for voxel in range(pred_y.shape[1]):
+            # Correlation across voxels for a sample (Taking a column)
+            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
+        r = torch.stack(r)
+        print(r.shape, r)
+        torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
+        
+        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Mean Pearson: ", torch.mean(r))
+    
+    
+    
+    

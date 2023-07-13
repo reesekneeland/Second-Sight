@@ -9,8 +9,7 @@ import wandb
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import yaml
-from encoder_uc import Encoder_UC
-from alexnet_encoder import AlexNetEncoder
+from clip_encoder import CLIP_Encoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
@@ -65,7 +64,7 @@ class StochasticSearch():
                     self.EncModels.append(GNet8_Encoder(device=self.device,
                                                     subject=self.subject))
                 elif param == "clipEncoder":
-                    self.EncModels.append(Encoder_UC(config="clipEncoder",
+                    self.EncModels.append(CLIP_Encoder(config="clipEncoder",
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device))
