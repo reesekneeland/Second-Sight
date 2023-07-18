@@ -173,13 +173,13 @@ def process_data(vector="c_img_uc", subject = 1):
     
     torch.save(vec_target, prep_path + "subject{}/{}.pt".format(subject, vector))
     
+    
 def process_raw_tensors(vector):
+    
+    # Intialize the vector variables 
     if(vector == "c_img_uc"):
         vec_target = torch.zeros((73000, 1024))
         datashape = (1,1024)
-    elif(vector == "c_text_uc"):
-        vec_target = torch.zeros((73000, 78848))
-        datashape = (1,78848)
     elif(vector == "images"):
         vec_target = torch.zeros((73000, 541875))
         datashape = (1, 541875)
@@ -187,7 +187,15 @@ def process_raw_tensors(vector):
         vec_target = torch.zeros((73000, 91168))
         datashape = (1, 91168)
 
-    for i in tqdm(range(73000), desc="vector loader"):
-        full_vec = torch.load("/export/raid1/home/kneel027/nsd_local/nsddata_stimuli/tensors/{}/{}.pt".format(vector, i)).reshape(datashape)
-        vec_target[i] = full_vec
-    torch.save(vec_target, prep_path + vector + "_73k.pt")
+    # Create the 73000 tensor block of vector data
+    for i in tqdm(range(10), desc="vector loader"):
+        full_vec = torch.load("data/preprocessed_data/{}_{}.pt".format(vector, i)).reshape(datashape)
+        vec_target[(i * 7300) : (i * 7300) + 7300] = full_vec
+        
+    # Save the 73000 tensor block
+    torch.save(vec_target, "data/preprocessed_data/{}_73k.pt".format(vector))
+    
+    # Delete duplicate files after the tensor block of all images has been created. 
+    if(os.path.exists("data/preprocessed_data/{}_73k.pt".format(vector))):
+        for i in tqdm(range(10), desc="delete duplicate data"):
+            os.remove("data/preprocessed_data/{}_{}.pt".format(vector, i))
