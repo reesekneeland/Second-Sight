@@ -14,24 +14,17 @@ from torchmetrics import PearsonCorrCoef
 #   - c_text_vd
 class LibraryAssembler():
     def __init__(self, 
-                 subject=1,
                  configList=["gnetEncoder"],
+                 subject=1,
                  ae=True,
                  device="cuda",
                  mask=None,
-                 big=True
                  ):
         
         with torch.no_grad():
             self.subject=subject
-            self.big = big
-            if self.big:
-                with open("config.yml", "r") as yamlfile:
-                    self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
-            else:
-                with open("config_small_nsdgeneral.yml", "r") as yamlfile:
-                    self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]
-            self.x_size = self.config[configList[0]]["x_size"]
+            subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
+            self.x_size = subject_sizes[self.subject]
             self.AEModels = []
             self.EncModels = []
             self.configList = configList
@@ -42,30 +35,29 @@ class LibraryAssembler():
                 self.mask = torch.full((self.x_size,), True)
             self.ae = ae
             self.datasize = {"c_img_uc": 1024, "images": 541875, "z_vdvae": 91168}
-            self.prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-            self.latent_path = "latent_vectors/"
 
             self.y_indices = get_pruned_indices(subject=self.subject)
 
             for param in self.configList:
-                self.EncModels.append(self.config[param]["modelId"])
                 if param == "gnetEncoder":
+                    self.EncModels.append("gnet_encoder")
                     if self.ae:
-                        self.AEModels.append(AutoEncoder(config="gnetAutoEncoder",
+                        self.AEModels.append(AutoEncoder(config="gnet",
                                                         inference=True,
                                                         subject=self.subject,
                                                         device=self.device,
                                                         big=self.big))
                 elif param == "clipEncoder":
+                    self.EncModels.append("clip_encoder")
                     if self.ae:
-                        self.AEModels.append(AutoEncoder(config="clipAutoEncoder",
+                        self.AEModels.append(AutoEncoder(config="clip",
                                                         inference=True,
                                                         subject=self.subject,
                                                         device=self.device,
                                                         big=self.big))
             self.x_preds = []
             for model in self.EncModels:
-                modelPreds = torch.load("{}subject{}/{}/coco_brain_preds.pt".format(self.latent_path, self.subject, model), map_location=self.device)
+                modelPreds = torch.load("data/preprocessed_data/subj0{}_{}_coco_preds.pt".format(self.subject, model), map_location=self.device)
                 self.x_preds.append(modelPreds)
                 
     def rankCoco(self, x, average=True, topn=1000):

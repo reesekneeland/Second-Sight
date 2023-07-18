@@ -7,35 +7,13 @@ import wandb
 import yaml
 from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
-
-class MLP(torch.nn.Module):
-    def __init__(self, vector, x_size):
-        super(MLP, self,).__init__()
-        self.vector = vector
-        if(self.vector == "c_img_uc"):
-            self.linear = nn.Linear(1024, 15000)
-        if(self.vector == "c_text_uc"):
-            self.linear = nn.Linear(78848, 15000)
-            
-        self.linear2 = nn.Linear(15000, 15000)
-        self.outlayer = nn.Linear(15000, x_size)
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        y_pred = self.relu(self.linear(x))
-        y_pred = self.relu(self.linear2(y_pred))
-        y_pred = self.outlayer(y_pred)
-        return y_pred
-
+from model_zoo import c_enc
 
     
 # Main Class    
 class CLIP_Encoder():
-    def __init__(self, 
-                 config="clipEncoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
+    def __init__(self,
                  inference=False, 
-                 hashNum=None,
-                 vector=None,
                  subject=1,
                  lr=0.00001,
                  batch_size=750,
@@ -43,26 +21,19 @@ class CLIP_Encoder():
                  num_workers=4,
                  epochs=200
                  ):
-        
-        assert (vector is not None and hashNum is not None) or inference
+    
         self.subject = subject
         self.device = torch.device(device)
-        with open("config.yml", "r") as yamlfile:
-            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
         if inference:
-            self.hashNum = self.config["hashNum"]
-            self.vector = self.config["vector"]
             self.log = False
         else:
-            self.hashNum = hashNum
-            self.vector = vector
             self.log = True
             self.lr = lr
             self.batch_size = batch_size
             self.num_epochs = epochs
             self.num_workers = num_workers
             # Initialize the data loaders
-            self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
+            self.trainLoader, self.valLoader, _ = load_nsd(vector="c_img_uc", 
                                                             batch_size=self.batch_size, 
                                                             num_workers=self.num_workers, 
                                                             loader=True,
@@ -76,21 +47,17 @@ class CLIP_Encoder():
                     project="CLIP_Encoder",
                     # track hyperparameters and run metadata
                     config={
-                    "hash": self.hashNum,
-                    "architecture": "MLP",
                     "subject": self.subject,
-                    # "architecture": "2 Convolutional Layers",
-                    "vector": self.vector,
-                    "dataset": "Z scored",
+                    "vector": "c_img_uc",
                     "epochs": self.num_epochs,
                     "learning_rate": self.lr,
                     "batch_size:": self.batch_size,
                     "num_workers": self.num_workers
                     }
                 )
-        self.x_size = self.config["x_size"]
+        subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
         # Initialize the Pytorch model class
-        self.model = MLP(self.vector, self.x_size)
+        self.model = C_Enc(subject_sizes[self.subject])
         # Send model to Pytorch Device 
         self.model.to(self.device)
     
@@ -178,7 +145,7 @@ class CLIP_Encoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector))
+                torch.save(self.model.state_dict(), "models/sub0{subject}_clip_encoder.pt".format(subject=self.subject))
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -189,7 +156,7 @@ class CLIP_Encoder():
                 wandb.finish()
                 
     def predict(self, x, mask=None):
-        self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
+        self.model.load_state_dict(torch.load("models/sub0{subject}_clip_encoder.pt".format(subject=self.subject), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device, torch.float32))
@@ -207,8 +174,7 @@ class CLIP_Encoder():
                                                 average=average,
                                                 subject=self.subject,
                                                 big=True)
-        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
-        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
+        self.model.load_state_dict(torch.load("models/sub0{subject}_clip_encoder.pt".format(subject=self.subject)))
         self.model.eval()
 
         criterion = nn.MSELoss()
@@ -232,46 +198,13 @@ class CLIP_Encoder():
             r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
         r = np.array(r)
         
-        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
+        print("Model: CLIP Encoder, Subject: {}, Averaged: {}".format(self.subject, average))
         print("Vector Correlation: ", float(pearson))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=50, log=True)
-        plt.savefig("charts/subject{}/{}_{}_encoder_voxel_PeC.png".format(self.subject, self.hashNum, self.vector))
+        plt.savefig("data/charts/subject{}_clip_encoder_pearson_correlation.png".format(self.subject))
     
-    def score_voxels(self, average=True):
-            
-        # y_test = Brain data
-        # x_test = clip data
-        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
-                                                loader=False,
-                                                average=average,
-                                                subject=self.subject,
-                                                big=True)
-        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
-        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
-        self.model.eval()
-
-        PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
-        print(len(y_test), len(y_test)*0.2)
-        x_test = x_test[0:int((len(y_test)*0.2))].to(self.device)
-        y_test = y_test[0:int((len(y_test)*0.2))]
-        
-        pred_y = self.model(x_test)
-
-        pred_y = pred_y.cpu().detach()
-        y_test = y_test.cpu().detach()
-        PeC = PearsonCorrCoef()
-        r = []
-        for voxel in range(pred_y.shape[1]):
-            # Correlation across voxels for a sample (Taking a column)
-            r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
-        r = torch.stack(r)
-        print(r.shape, r)
-        torch.save(r, "masks/subject{}/{}_{}_encoder_voxel_PeC.pt".format(self.subject, self.hashNum, self.vector))
-        
-        print("Model ID: {}, Subject: {}, Averaged: {}".format(modelId, self.subject, average))
-        print("Mean Pearson: ", torch.mean(r))
     
     
     

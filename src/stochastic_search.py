@@ -86,7 +86,7 @@ class StochasticSearch():
                 sample_clips.append(self.R.encode_image_raw(sample))
         
         for c, mType in enumerate(self.EncType):
-            if mType == "images" or mType == "alexnet_encoder_sub1":
+            if mType == "images":
                 combined_preds[c] = self.EncModels[c].predict(x, mask).to(self.device)
             elif mType == "c_img_uc":
                 combined_preds[c] = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask).to(self.device)
