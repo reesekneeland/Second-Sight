@@ -44,7 +44,7 @@ def read_images(image_index, show=False):
         RGB image data
     """
 
-    sf = h5py.File('data/nsddata_stimuli/nsd_stimuli.hdf5', 'r')
+    sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
     sdataset = sf.get('imgBrick')
     if show:
         f, ss = plt.subplots(1, len(image_index),

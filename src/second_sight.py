@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
                 # Format output diagram
                 nsdId = trials[val]
-                ground_truth_np_array = read_images([nsdId], show=True)
+                ground_truth_np_array = read_images(image_index=[nsdId], show=True)
                 ground_truth = Image.fromarray(ground_truth_np_array[0])
                 ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
                 rows = int(math.ceil(len(image_list)/2 + 4))

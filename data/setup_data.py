@@ -2,14 +2,10 @@ import os
 import sys
 import torch
 import numpy as np
+import argparse
 import torchvision.transforms as T
-sys.path.append('src')
 from data_utils import *
-import nibabel as nib
-from utils import * 
-from transformers import CLIPProcessor, CLIPModel
 from diffusers import StableUnCLIPImg2ImgPipeline
-from vdvae import VDVAE
 sys.path.append('vdvae')
 from image_utils import *
 from model_utils import *
@@ -76,7 +72,7 @@ if __name__ == "__main__":
     for i in tqdm(range(0, 73000), desc="Converting COCO images to VDVAE and CLIP vectors"):
         
         # Array of image data 1 x 425 x 425 x 3 (Stores pixel intensities)
-        image_read = read_images([i], show=False)
+        image_read = read_images(image_index=[i], show=False)
         img_array = torch.from_numpy(image_read).reshape(541875)
         
         # Concetate the new image onto the tensor of images

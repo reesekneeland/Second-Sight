@@ -1,4 +1,3 @@
-import sys
 import requests
 import zipfile
 import os
@@ -45,13 +44,13 @@ if __name__ == "__main__":
     
     parser.add_argument(
         '--gnet', 
-        help="flag to download only the GNet model (1.18GB) but you will be required to train the other models, otherwise all models will be downloaded (13.4GB)",
+        help="flag to download only the GNet model (1.18GB) but you will be required to train the other models, otherwise all models will be downloaded (14GB)",
         action='store_true')
     args = parser.parse_args()
     
     os.makedirs("models", exist_ok=True)
     if not args.gnet:
-        file_id = "TAKE_ID_FROM_SHAREABLE_LINK"
+        file_id = "1g0MsRYwE82yJI-OUlajMIXtsRFPSML01"
         destination = "models/models.zip"
     else:
         file_id = "1pmlLRCMkKdowZp9w14JtT5gK8FAvfSIa"
@@ -62,5 +61,6 @@ if __name__ == "__main__":
     if not args.gnet:
         print("Unzipping model weights...")
         with zipfile.ZipFile(destination, 'r') as zip_ref:
-            zip_ref.extractall(destination)
+            zip_ref.extractall("models")
+        os.remove(destination)
 
