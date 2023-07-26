@@ -125,7 +125,7 @@ if __name__ == "__main__":
                 os.makedirs("logs/{}/subject{}/".format(args.output, subject), exist_ok=True)
             nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
                 # Load data and targets
-            _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c_img_uc", subject=subject, loader=False, average=False, nest=True)
+            _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c_i", subject=subject, loader=False, average=False, nest=True)
             _, _, x_test_avg, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
             x_test = x_test[args.idx]
             x_test_avg = x_test_avg[args.idx]
@@ -138,7 +138,7 @@ if __name__ == "__main__":
                                 ae=True,
                                 device="cuda")
             output_images  = LD.predict(x_test, vector="images", topn=1)
-            output_clips = LD.predict(x_test, vector="c_img_uc", topn=100).reshape((len(args.idx), 1, 1024))
+            output_clips = LD.predict(x_test, vector="c_i", topn=100).reshape((len(args.idx), 1, 1024))
             del LD
             LD_v = LibraryAssembler(configList=["gnetEncoder"],
                                 subject=subject,

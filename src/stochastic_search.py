@@ -9,7 +9,7 @@ import wandb
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import yaml
-from clip_encoder import CLIP_Encoder
+from clip_encoder import CLIPEncoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
@@ -44,7 +44,7 @@ class StochasticSearch():
             
             # Hybrid encoder
             if len(modelParams)>1:
-                self.AEModel = AutoEncoder(config="dual",
+                self.AEModel = AutoEncoder(config="hybrid",
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device)
@@ -60,10 +60,10 @@ class StochasticSearch():
                                                     subject=self.subject))
                     self.EncType.append("images")
                 elif param == "clipEncoder":
-                    self.EncModels.append(CLIP_Encoder(inference=True,
+                    self.EncModels.append(CLIPEncoder(inference=True,
                                                     subject=self.subject,
                                                     device=self.device))
-                    self.EncType.append("c_img_uc")
+                    self.EncType.append("c_i")
 
     # Predict using the ensemble of encoding models in the SCS config
     def predict(self, x, mask=None, return_clips=False):
@@ -83,7 +83,7 @@ class StochasticSearch():
         for c, mType in enumerate(self.EncType):
             if mType == "images":
                 combined_preds[c] = self.EncModels[c].predict(x, mask).to(self.device)
-            elif mType == "c_img_uc":
+            elif mType == "c_i":
                 combined_preds[c] = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask).to(self.device)
         if return_clips:
             return torch.mean(combined_preds, dim=0).cpu(), sample_clips

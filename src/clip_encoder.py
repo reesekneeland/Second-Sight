@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 import torch.nn as nn
 from utils import *
 import wandb
-import yaml
 from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
-from model_zoo import c_enc
+from model_zoo import CLIPEncoderModel
+import argparse
 
     
 # Main Class    
-class CLIP_Encoder():
+class CLIPEncoder():
     def __init__(self,
                  inference=False, 
                  subject=1,
@@ -33,7 +33,7 @@ class CLIP_Encoder():
             self.num_epochs = epochs
             self.num_workers = num_workers
             # Initialize the data loaders
-            self.trainLoader, self.valLoader, _ = load_nsd(vector="c_img_uc", 
+            self.trainLoader, self.valLoader, _ = load_nsd(vector="c_i", 
                                                             batch_size=self.batch_size, 
                                                             num_workers=self.num_workers, 
                                                             loader=True,
@@ -44,11 +44,11 @@ class CLIP_Encoder():
             if(self.log):
                 wandb.init(
                     # set the wandb project where this run will be logged
-                    project="CLIP_Encoder",
+                    project="CLIPEncoder",
                     # track hyperparameters and run metadata
                     config={
                     "subject": self.subject,
-                    "vector": "c_img_uc",
+                    "vector": "c_i",
                     "epochs": self.num_epochs,
                     "learning_rate": self.lr,
                     "batch_size:": self.batch_size,
@@ -57,7 +57,7 @@ class CLIP_Encoder():
                 )
         subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
         # Initialize the Pytorch model class
-        self.model = C_Enc(subject_sizes[self.subject])
+        self.model = CLIPEncoderModel(subject_sizes[self.subject])
         # Send model to Pytorch Device 
         self.model.to(self.device)
     
@@ -205,7 +205,67 @@ class CLIP_Encoder():
         plt.hist(r, bins=50, log=True)
         plt.savefig("data/charts/subject{}_clip_encoder_pearson_correlation.png".format(self.subject))
     
+if __name__ == "__main__":
+     # Create the parser and add arguments
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument(
+        '--subjects', 
+        help="list of subjects to train models for, if not specified, will run on all subjects",
+        type=list,
+        default=[1, 2, 5, 7])
+    
+    parser.add_argument(
+        "--batch_size", type=int, default=64,
+        help="Batch size for training",
+    )
+    parser.add_argument(
+        "--log",
+        help="whether to log to wandb",
+        type=bool,
+        default=True,
+    )
+    parser.add_argument(
+        "--num_epochs",
+        help="number of epochs of training",
+        type=int,
+        default=200,
+    )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-5,
+    )
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=4,
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda:0",
+    )
+    parser.add_argument(
+        "--benchmark",
+        help="run benchmark on each encoder model after it finishes training.",
+        type=bool,
+        default=True,
+    )
+    args = parser.parse_args()
     
     
-    
-    
+    for sub in args.subjects:
+        E = CLIPEncoder(
+                    inference=False,
+                    subject=sub,
+                    lr=args.lr,
+                    batch_size=args.batch_size,
+                    log=args.log,
+                    device=args.device,
+                    num_workers=args.num_workers,
+                    epochs=args.num_epochs)
+        E.train()
+        if(args.benchmark):
+            E.benchmark(average=False)
+            E.benchmark(average=True)

@@ -166,7 +166,7 @@ class GNet8_Encoder():
                                                       average=average,
                                                       big=True)
         if(ae):
-            AE = AutoEncoder(config="gnetAutoEncoder",
+            AE = AutoEncoder(config="gnet",
                              inference=True,
                              subject=self.subject,
                              device=self.device)

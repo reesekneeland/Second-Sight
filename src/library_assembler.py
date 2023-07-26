@@ -7,11 +7,6 @@ from tqdm import tqdm
 from autoencoder  import AutoEncoder
 from torchmetrics import PearsonCorrCoef
 
-
-# Config options:
-#   - AlexNet
-#   - c_img_vd
-#   - c_text_vd
 class LibraryAssembler():
     def __init__(self, 
                  configList=["gnetEncoder"],
@@ -34,7 +29,7 @@ class LibraryAssembler():
             else:
                 self.mask = torch.full((self.x_size,), True)
             self.ae = ae
-            self.datasize = {"c_img_uc": 1024, "images": 541875, "z_vdvae": 91168}
+            self.datasize = {"c_i": 1024, "images": 541875, "z_vdvae": 91168}
 
             self.y_indices = get_pruned_indices(subject=self.subject)
 
@@ -88,10 +83,9 @@ class LibraryAssembler():
                             scores[21000*coco_batch:21000*coco_batch+21000] += modelScore
                 
                     div +=1
-                # print("Best Score: ", torch.max(scores/div))
             scores /= div
                     
-                # Calculating the Average Pearson Across Samples
+            # Calculating the Average Pearson Across Samples
             topn_pearson = torch.topk(scores, topn)
             average_pearson += torch.mean(topn_pearson.values) 
             for rank, index in enumerate(topn_pearson.indices):
@@ -114,7 +108,7 @@ class LibraryAssembler():
             #pull topN parameter from config
             if topn is None:
                 # but only for clip vectors
-                if vector == "c_img_uc":
+                if vector == "c_i":
                     if len(self.configList) > 1:
                         topn = self.config["LibraryAssembler"]["dualGuided"]
                     else:
@@ -138,7 +132,7 @@ class LibraryAssembler():
         return x_preds
 
     
-    def benchmark(self, vector="c_img_uc"):
+    def benchmark(self, vector="c_i"):
 
         # Load data and targets
         _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True, big=self.big)

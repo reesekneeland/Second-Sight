@@ -6,9 +6,9 @@ import torch.nn.init as I
 import torch.nn.functional as F
 
 #CLIP Encoder class
-class C_Enc(torch.nn.Module):
+class CLIPEncoderModel(torch.nn.Module):
     def __init__(self, x_size):
-        super(C_Enc, self,).__init__()
+        super(CLIPEncoderModel, self,).__init__()
         self.linear = nn.Linear(1024, 15000)
         self.linear2 = nn.Linear(15000, 15000)
         self.outlayer = nn.Linear(15000, x_size)
@@ -20,10 +20,10 @@ class C_Enc(torch.nn.Module):
         y_pred = self.outlayer(y_pred)
         return y_pred
 
-#Dual AutoEncoder for hybrid encoder ensemble model
-class AutoEncoder(torch.nn.Module):
+#AutoEncoder model class
+class AutoEncoderModel(torch.nn.Module):
     def __init__(self, x_size):
-        super().__init__()
+        super(AutoEncoderModel).__init__()
         self.encoder = torch.nn.Sequential(
             torch.nn.Linear(x_size, 5000),
             torch.nn.ReLU(),
