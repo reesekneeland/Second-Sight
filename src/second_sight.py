@@ -4,7 +4,6 @@ from utils import *
 from tqdm import tqdm
 from library_assembler import LibraryAssembler
 from vdvae import VDVAE
-from nsd_access import NSDAccess
 from stochastic_search import StochasticSearch
 from diffusers import StableUnCLIPImg2ImgPipeline
 from torchmetrics import PearsonCorrCoef
@@ -123,7 +122,6 @@ if __name__ == "__main__":
             os.makedirs("{}/subject{}/".format(args.output, subject), exist_ok=True)
             if(args.log):
                 os.makedirs("logs/{}/subject{}/".format(args.output, subject), exist_ok=True)
-            nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
                 # Load data and targets
             _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c_i", subject=subject, loader=False, average=False, nest=True)
             _, _, x_test_avg, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
@@ -186,7 +184,7 @@ if __name__ == "__main__":
 
                 # Format output diagram
                 nsdId = trials[val]
-                ground_truth_np_array = nsda.read_images([nsdId], show=True)
+                ground_truth_np_array = read_images([nsdId], show=True)
                 ground_truth = Image.fromarray(ground_truth_np_array[0])
                 ground_truth = ground_truth.resize((768, 768), resample=Image.Resampling.LANCZOS)
                 rows = int(math.ceil(len(image_list)/2 + 4))

@@ -52,7 +52,7 @@ class LibraryAssembler():
                                                         big=self.big))
             self.x_preds = []
             for model in self.EncModels:
-                modelPreds = torch.load("data/preprocessed_data/subj0{}_{}_coco_preds.pt".format(self.subject, model), map_location=self.device)
+                modelPreds = torch.load("data/preprocessed_data/subject{}/{}_beta_primes.pt".format(self.subject, model), map_location=self.device)
                 self.x_preds.append(modelPreds)
                 
     def rankCoco(self, x, average=True, topn=1000):

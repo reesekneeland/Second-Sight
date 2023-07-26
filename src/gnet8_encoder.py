@@ -247,15 +247,6 @@ def main():
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
     GN = GNet8_Encoder(subject=1, device="cuda:3")
     
-    # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
-    # data = []
-    # for i in tqdm(range(120), desc="loading in images"):
-        
-    #     nsdId = subj1_train.iloc[i]['nsdId']
-    #     ground_truth_np_array = nsda.read_images([nsdId], show=False)
-    #     ground_truth = Image.fromarray(ground_truth_np_array[0])
-    #     data.append(ground_truth)
-    
     
     #AN.benchmark(average=False)
     GN.benchmark(average=False, ae=False)
