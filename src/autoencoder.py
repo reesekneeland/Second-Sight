@@ -40,7 +40,7 @@ class AutoEncoder():
                                                                 num_workers=self.num_workers, 
                                                                 ae=True,
                                                                 average=False,
-                                                                encoderModel=self.config
+                                                                encoderModel=self.config,
                                                                 subject=self.subject)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
