@@ -147,13 +147,13 @@ def process_masks(subject=1, big=False):
     print("Higher Vis: ", np.unique(higher_vis, return_counts=True))
 
     
-def process_data(vector="c_img_uc", subject = 1):
+def process_data(vector="c_i", subject = 1):
     vecLength = torch.load(prep_path + "subject{}/nsd_general.pt".format(subject)).shape[0]
     print("VECTOR LENGTH: ", vecLength)
     if(vector == "images"):
         vec_target = torch.zeros((vecLength, 541875))
         datashape = (1, 541875)
-    elif(vector == "c_img_uc"):
+    elif(vector == "c_i"):
         vec_target = torch.zeros((vecLength, 1024))
         datashape = (1,1024)
     elif(vector == "c_text_uc"):
@@ -177,7 +177,7 @@ def process_data(vector="c_img_uc", subject = 1):
 def process_raw_tensors(vector):
     
     # Intialize the vector variables 
-    if(vector == "c_img_uc"):
+    if(vector == "c_i"):
         vec_target = torch.zeros((73000, 1024))
         datashape = (1,1024)
     elif(vector == "images"):

@@ -129,7 +129,7 @@ for i in tqdm(range(0, 73000)):
 
 # Concatenate the ten smaller tensors into one tensor block.       
 if(c_i):
-    process_raw_tensors(vector="c_img_uc")
+    process_raw_tensors(vector="c_i")
 process_raw_tensors(vector="images")
 process_raw_tensors(vector="z_vdvae")
 
@@ -144,7 +144,7 @@ for subject in subjects:
     create_whole_region_unnormalized(subject=subject, big=True)
     create_whole_region_normalized(subject=subject, big=True)
     
-    process_data(subject=subject, vector="c_img_uc")
+    process_data(subject=subject, vector="c_i")
     process_data(subject=subject, vector="images")
     process_data(subject=subject, vector="z_vdvae")
     
