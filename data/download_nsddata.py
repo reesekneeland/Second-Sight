@@ -3,7 +3,7 @@ import os
 
 # Download Experiment Infos
 os.system('aws s3 cp s3://natural-scenes-dataset/nsddata/experiments/nsd/nsd_expdesign.mat data/nsddata/experiments/nsd/')
-os.system('aws s3 cp s3://natural-scenes-dataset/nsddata/experiments/nsd/nsd_stim_info_merged.pkl data/nsddata/experiments/nsd/')
+os.system('aws s3 cp s3://natural-scenes-dataset/nsddata/experiments/nsd/nsd_stim_info_merged.csv data/nsddata/experiments/nsd/')
 
 # Download Stimuli
 os.system('aws s3 cp s3://natural-scenes-dataset/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5 data/nsddata_stimuli/stimuli/nsd/')

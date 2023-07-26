@@ -84,7 +84,7 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
             return x, y
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
@@ -312,7 +312,7 @@ def process_image(imageArray, x=768, y=768):
     return image
 
 def prune_vector(x, subject=1):
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
@@ -325,7 +325,7 @@ def prune_vector(x, subject=1):
     return pruned_x
 
 def get_pruned_indices(subject=1):
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
@@ -371,7 +371,7 @@ def normalize_vdvae(v):
 # Convert indicides between nsdID sorted and scanID sorted, goes the other way with the reverse flag
 
 def convert_indices(idx, reverse=False, held_out=False):
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     df = stim_descriptions[(stim_descriptions['subject1']) & (stim_descriptions['shared1000'] == True)]
     if reverse:
         sorted_df = df.copy()
@@ -388,7 +388,7 @@ def convert_indices(idx, reverse=False, held_out=False):
 
 #Remove indices not in heldout 3 scan sessions
 def remove_heldout_indices(idx, scanId_sorted=True):
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj_test = stim_descriptions[(stim_descriptions['subject1'] != 0) & (stim_descriptions['shared1000'] == True)]
     if(scanId_sorted):
         subj_test = subj_test.sort_values(by='subject1_rep0')

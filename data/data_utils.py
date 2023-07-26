@@ -63,12 +63,12 @@ def read_betas(subject, session_index, trial_index=[], data_type='betas_fithrf_G
         numpy.ndarray, 2D (fsaverage) or 4D (other data formats)
             the requested per-trial beta values
         """
-        data_folder = 'nsddata_betas/ppdata/{}/{}/{}'.format(subject, data_format, data_type)
+        data_folder = 'data/nsddata_betas/ppdata/{}/{}/{}'.format(subject, data_format, data_type)
 
         si_str = str(session_index).zfill(2)
 
         out_data = nb.load(
-            op.join(data_folder, f'betas_session{si_str}.nii.gz')).get_data()
+            op.join(data_folder, f'betas_session{si_str}.nii.gz')).get_fdata()
 
         if len(trial_index) == 0:
             trial_index = slice(0, out_data.shape[-1])
@@ -205,7 +205,7 @@ def process_data(vector="c_i", subject = 1):
     
     # Loading the description object for subejcts
     subj = "subject" + str(subject)
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subjx = stim_descriptions[stim_descriptions[subj] != 0]
     full_vec = torch.load("data/preprocessed_data/{}_73k.pt".format(vector))
     
