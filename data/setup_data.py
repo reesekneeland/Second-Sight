@@ -53,7 +53,6 @@ if __name__ == "__main__":
     )
 
     R = R.to(args.device)
-    R.enable_xformers_memory_efficient_attention()
 
     # Variable for latent vectors
     latent_shapes_created = False
@@ -105,11 +104,11 @@ if __name__ == "__main__":
             latent_shapes_created = True
             
         # Concetate the new latent vector onto the tensor of latents
-        latent_tensor[i - (batch * 7300)] = latents
+        latent_tensor[i - (batch * 7300)] = latents.to("cpu")
         
         # Store the clip image vectors if the users wants them. 
         if(c_i):
-            c_i_tensor[i - (batch * 7300)] = R.encode_image_raw(image=img_pil, device=args.device)
+            c_i_tensor[i - (batch * 7300)] = R.encode_image_raw(image=img_pil, device=args.device).to("cpu")
         
         # Save the tensor of images at every ten percent increment
         if(i % 7300 == 0):
