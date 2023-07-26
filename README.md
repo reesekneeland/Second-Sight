@@ -19,3 +19,10 @@ driver_library.py
 single_trial_search.py
 ```
 These files set the GPU for experiments and call all of the other functional classes. The main method of each file is designed to be modified to run the experiments you want.
+
+
+## Computational Overhead
+
+# setup_data.py runtime:
+  - Vector Processing: Approximately 3 hours 
+  - Brain Data Processing: 

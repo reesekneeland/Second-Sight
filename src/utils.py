@@ -18,6 +18,18 @@ mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
 # Object for the NSDAccess package
 nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
+# self.stimuli_file = op.join(
+#     self.nsd_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'nsd_stimuli.hdf5')
+
+# self.stimuli_description_file = op.join(
+#     self.nsd_folder, 'nsddata', 'experiments', 'nsd', 'nsd_stim_info_merged.csv')
+
+# self.stim_descriptions = pd.read_csv(
+#         self.stimuli_description_file, index_col=0)
+
+# self.coco_annotation_file = op.join(
+#     self.local_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'annotations', '{}_{}.json')
+
 
         
 def get_hash():
@@ -386,3 +398,39 @@ def remove_heldout_indices(idx, scanId_sorted=True):
         if index_list[i] != -1:
             converted_indices.append(index_list[i])
     return converted_indices
+
+
+def read_images(self, image_index, show=False):
+    """read_images reads a list of images, and returns their data
+
+    Parameters
+    ----------
+    image_index : list of integers
+        which images indexed in the 73k format to return
+    show : bool, optional
+        whether to also show the images, by default False
+
+    Returns
+    -------
+    numpy.ndarray, 3D
+        RGB image data
+    """
+
+    if not hasattr(self, 'stim_descriptions'):
+        self.stim_descriptions = pd.read_csv(
+            self.stimuli_description_file, index_col=0)
+
+    sf = h5py.File(self.stimuli_file, 'r')
+    sdataset = sf.get('imgBrick')
+    if show:
+        f, ss = plt.subplots(1, len(image_index),
+                                figsize=(6*len(image_index), 6))
+        if len(image_index) == 1:
+            ss = [ss]
+        for s, d in zip(ss, sdataset[image_index]):
+            s.axis('off')
+            s.imshow(d)
+        ss.close()
+    return sdataset[image_index]
+
+

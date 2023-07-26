@@ -9,9 +9,17 @@ import nibabel as nib
 from utils import * 
 from transformers import CLIPProcessor, CLIPModel
 from diffusers import StableUnCLIPImg2ImgPipeline
+from vdvae import VDVAE
+sys.path.append('vdvae')
+from image_utils import *
+from model_utils import *
+
+# Create the charts directory
+os.makedirs("data/charts", exist_ok=True)
+os.makedirs("data/preprocessed_data", exist_ok=True)
 
 
-
+##################### Vector Processing ###############################
 def sample_from_hier_latents(latents):
   layers_num=len(latents)
   sample_latents = []
@@ -42,10 +50,6 @@ H, preprocess_fn = set_up_data(H)
 
 print('Models is Loading')
 ema_vae = load_vaes(H)
-
-# Create the charts directory
-os.makedirs("data/charts")
-os.makedirs("data/preprocessed_data")
 
 # Initialize the clip models
 init_clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
@@ -79,16 +83,16 @@ for i in tqdm(range(0, 73000)):
     img_array = torch.from_numpy(image_read).reshape(541875)
     
     # Concetate the new image onto the tensor of images
-    image_tensor[i + (batch * 7300)] = img_array
+    image_tensor[i - (batch * 7300)] = img_array
         
     # Process image for VDVAE
     img_pil = Image.fromarray(image_read.reshape((425, 425, 3))).convert("RGB")
-    img_pil = T.functional.resize(img_pil,(64,64))
-    img_pil = torch.tensor(np.array(img_pil)).float()[None,:,:,:]
+    img_tensor = T.functional.resize(img_pil,(64,64))
+    img_tensor = torch.tensor(np.array(img_tensor)).float()[None,:,:,:]
     
     # Create the latent VDVAE Z vector
     latents = []
-    data_input, _ = preprocess_fn(img_pil)
+    data_input, _ = preprocess_fn(img_tensor)
     with torch.no_grad():
         activations = ema_vae.encoder.forward(data_input)
         px_z, stats = ema_vae.decoder.forward(activations, get_latents=True)
@@ -108,11 +112,11 @@ for i in tqdm(range(0, 73000)):
         latent_shapes_created = True
         
     # Concetate the new latent vector onto the tensor of latents
-    latent_tensor[i + (batch * 7300)] = latents
+    latent_tensor[i - (batch * 7300)] = latents
     
     # Store the clip image vectors if the users wants them. 
     if(c_i):
-        c_i_tensor[i + (batch * 7300)] = R.encode_image_raw(image=img_pil, device="cuda:0")
+        c_i_tensor[i - (batch * 7300)] = R.encode_image_raw(image=img_pil, device="cuda:0")
     
     # Save the tensor of images at every ten percent increment
     if(i % 7300 == 0):
@@ -129,7 +133,7 @@ for i in tqdm(range(0, 73000)):
 
 # Concatenate the ten smaller tensors into one tensor block.       
 if(c_i):
-    process_raw_tensors(vector="c_img_uc")
+    process_raw_tensors(vector="c_i")
 process_raw_tensors(vector="images")
 process_raw_tensors(vector="z_vdvae")
 
@@ -138,15 +142,17 @@ vdvae_73k = torch.load("data/preprocessed_data/z_vdvae_73k.pt")
 torch.save(torch.mean(vdvae_73k, dim=0), "vdvae/train_mean.pt")
 torch.save(torch.std(vdvae_73k, dim=0),  "vdvae/train_std.pt")
 
+
+##################### Brain Data Processing ###############################
 # Process the brain data and masks
 subjects = [1, 2, 5, 7]
 for subject in subjects:
-    create_whole_region_unnormalized(subject=subject, big=True)
-    create_whole_region_normalized(subject=subject, big=True)
     
-    process_data(subject=subject, vector="c_img_uc")
+    create_whole_region_unnormalized(subject=subject)
+    create_whole_region_normalized(subject=subject)
+    
+    process_data(subject=subject, vector="c_i")
     process_data(subject=subject, vector="images")
     process_data(subject=subject, vector="z_vdvae")
     
-    process_masks(subject=subject, big=False)
-    process_masks(subject=subject, big=True)
+    process_masks(subject=subject)
