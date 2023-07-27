@@ -3,20 +3,17 @@ import numpy as np
 from scipy.special import erf
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import nibabel as nib
-from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
-
+import pandas as pd
+import h5py
+import matplotlib.pyplot as plt
 
 prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
 latent_path = "/export/raid1/home/kneel027/Second-Sight/latent_vectors/"
 mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
 
-# First URL: This is the original read-only NSD file path (The actual data)
-# Second URL: Local files that we are adding to the dataset and need to access as part of the data
-# Object for the NSDAccess package
-nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
 
 # self.stimuli_file = op.join(
 #     self.nsd_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'nsd_stimuli.hdf5')
@@ -31,22 +28,33 @@ nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/ra
 #     self.local_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'annotations', '{}_{}.json')
 
 
-        
-def get_hash():
-    with open('hash','r') as file:
-        h = file.read()
-    file.close()
-    return str(h)
+def read_images(image_index, show=False):
+    """read_images reads a list of images, and returns their data
 
-def update_hash():
-    with open('hash','r+') as file:
-        h = int(file.read())
-        new_h = f'{h+1:03d}'
-        file.seek(0)
-        file.write(new_h)
-        file.truncate()      
-    file.close()
-    return str(new_h)
+    Parameters
+    ----------
+    image_index : list of integers
+        which images indexed in the 73k format to return
+    show : bool, optional
+        whether to also show the images, by default False
+
+    Returns
+    -------
+    numpy.ndarray, 3D
+        RGB image data
+    """
+
+    sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
+    sdataset = sf.get('imgBrick')
+    if show:
+        f, ss = plt.subplots(1, len(image_index),
+                                figsize=(6*len(image_index), 6))
+        if len(image_index) == 1:
+            ss = [ss]
+        for s, d in zip(ss, sdataset[image_index]):
+            s.axis('off')
+            s.imshow(d)
+    return sdataset[image_index]
 
 # Main data loader, 
 # Loader = True
@@ -76,8 +84,9 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
             return x, y
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
-    subj_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject{}'.format(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == False)]
-    subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject{}'.format(subject)] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
+    subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
     split_point = int(subj_train.shape[0]*0.85)
     for i in tqdm(range(split_point), desc="loading training samples"):
@@ -303,7 +312,8 @@ def process_image(imageArray, x=768, y=768):
     return image
 
 def prune_vector(x, subject=1):
-    subj = nsda.stim_descriptions[nsda.stim_descriptions["subject" + str(subject)] != 0]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
     pruned_x = torch.zeros((73000-len(nsdIds), x.shape[1]))
@@ -315,7 +325,8 @@ def prune_vector(x, subject=1):
     return pruned_x
 
 def get_pruned_indices(subject=1):
-    subj = nsda.stim_descriptions[nsda.stim_descriptions["subject" + str(subject)] != 0]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
     pruned_indices = torch.zeros((73000-len(nsdIds), ))
@@ -360,7 +371,8 @@ def normalize_vdvae(v):
 # Convert indicides between nsdID sorted and scanID sorted, goes the other way with the reverse flag
 
 def convert_indices(idx, reverse=False, held_out=False):
-    df = nsda.stim_descriptions[(nsda.stim_descriptions['subject1']) & (nsda.stim_descriptions['shared1000'] == True)]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    df = stim_descriptions[(stim_descriptions['subject1']) & (stim_descriptions['shared1000'] == True)]
     if reverse:
         sorted_df = df.copy()
         df = df.sort_values(by='subject1_rep0')
@@ -376,8 +388,8 @@ def convert_indices(idx, reverse=False, held_out=False):
 
 #Remove indices not in heldout 3 scan sessions
 def remove_heldout_indices(idx, scanId_sorted=True):
-    
-    subj_test = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0) & (nsda.stim_descriptions['shared1000'] == True)]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj_test = stim_descriptions[(stim_descriptions['subject1'] != 0) & (stim_descriptions['shared1000'] == True)]
     if(scanId_sorted):
         subj_test = subj_test.sort_values(by='subject1_rep0')
     sample_count = 0

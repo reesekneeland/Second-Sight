@@ -2,7 +2,6 @@ import os
 import numpy as np
 from scipy.special import erf
 import nibabel as nib
-from nsd_access import NSDAccess
 import torch
 from tqdm import tqdm
 

@@ -1,16 +1,79 @@
 import os
+import os.path as op
+import nibabel as nb
 import numpy as np
+import pandas as pd
 from scipy.special import erf
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 import nibabel as nib
-from nsd_access import NSDAccess
+import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
+import h5py
 
-nsda = NSDAccess('/export/raid1/home/surly/raid4/kendrick-data/nsd', '/export/raid1/home/kneel027/nsd_local')
+def read_images(image_index, show=False):
+        """read_images reads a list of images, and returns their data
 
+        Parameters
+        ----------
+        image_index : list of integers
+            which images indexed in the 73k format to return
+        show : bool, optional
+            whether to also show the images, by default False
 
+        Returns
+        -------
+        numpy.ndarray, 3D
+            RGB image data
+        """
+
+        sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
+        sdataset = sf.get('imgBrick')
+        if show:
+            f, ss = plt.subplots(1, len(image_index),
+                                 figsize=(6*len(image_index), 6))
+            if len(image_index) == 1:
+                ss = [ss]
+            for s, d in zip(ss, sdataset[image_index]):
+                s.axis('off')
+                s.imshow(d)
+        return sdataset[image_index]
+
+def read_betas(subject, session_index, trial_index=[], data_type='betas_fithrf_GLMdenoise_RR', data_format='fsaverage', mask=None):
+        """read_betas read betas from MRI files
+
+        Parameters
+        ----------
+        subject : str
+            subject identifier, such as 'subj01'
+        session_index : int
+            which session, counting from 1
+        trial_index : list, optional
+            which trials from this session's file to return, by default [], which returns all trials
+        data_type : str, optional
+            which type of beta values to return from ['betas_assumehrf', 'betas_fithrf', 'betas_fithrf_GLMdenoise_RR', 'restingbetas_fithrf'], by default 'betas_fithrf_GLMdenoise_RR'
+        data_format : str, optional
+            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm'], by default 'fsaverage'
+        mask : numpy.ndarray, if defined, selects 'mat' data_format, needs volumetric data_format
+            binary/boolean mask into mat file beta data format.
+
+        Returns
+        -------
+        numpy.ndarray, 2D (fsaverage) or 4D (other data formats)
+            the requested per-trial beta values
+        """
+        data_folder = 'data/nsddata_betas/ppdata/{}/{}/{}'.format(subject, data_format, data_type)
+
+        si_str = str(session_index).zfill(2)
+
+        out_data = nb.load(
+            op.join(data_folder, f'betas_session{si_str}.nii.gz')).get_fdata()
+
+        if len(trial_index) == 0:
+            trial_index = slice(0, out_data.shape[-1])
+
+        return out_data[..., trial_index]
 
 def create_whole_region_unnormalized(subject = 1):
     
@@ -41,7 +104,7 @@ def create_whole_region_unnormalized(subject = 1):
     
     # Loads the full collection of beta sessions for subject 1
     for i in tqdm(range(1,data+1), desc="Loading Voxels"):
-        beta = nsda.read_betas(subject="subj0" + str(subject), 
+        beta = read_betas(subject="subj0" + str(subject), 
                                 session_index=i, 
                                 trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
                                 data_type='betas_fithrf_GLMdenoise_RR',
@@ -142,7 +205,8 @@ def process_data(vector="c_i", subject = 1):
     
     # Loading the description object for subejcts
     subj = "subject" + str(subject)
-    subjx = nsda.stim_descriptions[nsda.stim_descriptions[subj] != 0]
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subjx = stim_descriptions[stim_descriptions[subj] != 0]
     full_vec = torch.load("data/preprocessed_data/{}_73k.pt".format(vector))
     
     for i in tqdm(range(0,vecLength), desc="vector loader subject{}".format(subject)):

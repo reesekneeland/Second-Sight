@@ -29,7 +29,7 @@ class VDVAE():
         layers_num=len(latents)
         sample_latents = []
         for i in range(layers_num):
-            sample_latents.append(latents[i].clone().detach().float().cuda())
+            sample_latents.append(latents[i].clone().detach().float().to(self.device))
         return sample_latents
 
     # Transfor latents from flattened representation to hierarchical
