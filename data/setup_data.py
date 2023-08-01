@@ -138,14 +138,16 @@ if __name__ == "__main__":
 
     ##################### Brain Data Processing ###############################
     # Process the brain data and masks
-    print("Processing brain data...")
     for subject in args.subjects:
         
+        print("Processing brain data for subject {}".format(subject))
         create_whole_region_unnormalized(subject=subject)
         create_whole_region_normalized(subject=subject)
         
+        print("Processing training data for subject {}".format(subject))
         process_data(subject=subject, vector="c_i")
         process_data(subject=subject, vector="images")
         process_data(subject=subject, vector="z_vdvae")
         
+        print("Processing masks for subject {}".format(subject))
         process_masks(subject=subject)

@@ -152,7 +152,7 @@ if __name__ == "__main__":
                                     subject=subject,
                                     device="cuda:0",
                                     n_iter=args.iterations,
-                                    num_samples=args.num_samples,
+                                    n_samples=args.num_samples,
                                     n_branches=args.branches)
                     
             PeC = PearsonCorrCoef(num_outputs=len(args.idx)).to("cpu")
