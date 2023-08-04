@@ -81,7 +81,7 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
             return x, y
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.pkl', index_col=0)
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
