@@ -67,7 +67,7 @@ class StochasticSearch():
 
     # Predict using the ensemble of encoding models in the SCS config
     def predict(self, x, mask=None, return_clips=False):
-        combined_preds = torch.zeros((len(self.EncType), len(x), self.config[self.modelParams[0]]["x_size"]))
+        combined_preds = torch.zeros((len(self.EncType), len(x), self.x_size))
         if(isinstance(x, torch.Tensor)):
             img_list = []
             for i, sample in enumerate(x):

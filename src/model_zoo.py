@@ -23,7 +23,7 @@ class CLIPEncoderModel(torch.nn.Module):
 #AutoEncoder model class
 class AutoEncoderModel(torch.nn.Module):
     def __init__(self, x_size):
-        super(AutoEncoderModel).__init__()
+        super(AutoEncoderModel, self).__init__()
         self.encoder = torch.nn.Sequential(
             torch.nn.Linear(x_size, 5000),
             torch.nn.ReLU(),
