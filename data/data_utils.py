@@ -103,7 +103,7 @@ def create_whole_region_unnormalized(subject = 1):
     nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
     
     # Loads the full collection of beta sessions for subject 1
-    for i in tqdm(range(1,data+1), desc="Loading Voxels"):
+    for i in tqdm(range(1,data+1), desc="Loading raw scanning session data"):
         beta = read_betas(subject="subj0" + str(subject), 
                                 session_index=i, 
                                 trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
@@ -125,7 +125,6 @@ def create_whole_region_unnormalized(subject = 1):
             whole_region[j + (i-1)*beta.shape[1]] = single_scan[nsd_mask]
             
     # Save the tensor into the data directory. 
-    print("SUBJECT {} WHOLE REGION SHAPE: {}".format(subject, whole_region.shape))
     torch.save(whole_region, file)
     
     
@@ -175,19 +174,11 @@ def process_masks(subject=1):
     torch.save(V4, "data/preprocessed_data/subject{}/masks/V4.pt".format(subject))
     torch.save(early_vis, "data/preprocessed_data/subject{}/masks/early_vis.pt".format(subject))
     torch.save(higher_vis,"data/preprocessed_data/subject{}/masks/higher_vis.pt".format(subject))
-    
-    print("V1: ", np.unique(V1, return_counts=True))
-    print("V2: ", np.unique(V2, return_counts=True))
-    print("V3: ", np.unique(V3, return_counts=True))
-    print("V4: ", np.unique(V4, return_counts=True))
-    print("Early Vis: ", np.unique(early_vis, return_counts=True))
-    print("Higher Vis: ", np.unique(higher_vis, return_counts=True))
 
     
 def process_data(vector="c_i", subject = 1):
     
     vecLength = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).shape[0]
-    print("VECTOR LENGTH: ", vecLength)
     
     if(vector == "images"):
         vec_target = torch.zeros((vecLength, 541875))
@@ -200,8 +191,6 @@ def process_data(vector="c_i", subject = 1):
     elif(vector == "z_vdvae"):
         vec_target = torch.zeros((vecLength, 91168))
         datashape = (1, 91168)
-        
-    print(vec_target.shape)
     
     # Loading the description object for subejcts
     subj = "subject" + str(subject)
@@ -209,7 +198,7 @@ def process_data(vector="c_i", subject = 1):
     subjx = stim_descriptions[stim_descriptions[subj] != 0]
     full_vec = torch.load("data/preprocessed_data/{}_73k.pt".format(vector))
     
-    for i in tqdm(range(0,vecLength), desc="vector loader subject{}".format(subject)):
+    for i in tqdm(range(0,vecLength), desc="arranging {} training data for subject{}".format(vector, subject)):
         index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
         vec_target[i] = full_vec[index].reshape(datashape)
     
@@ -230,7 +219,7 @@ def process_raw_tensors(vector):
         datashape = (7300, 91168)
 
     # Create the 73000 tensor block of vector data
-    for i in tqdm(range(10), desc="vector loader"):
+    for i in tqdm(range(10), desc="concatenating tensors"):
         full_vec = torch.load("data/preprocessed_data/{}_{}.pt".format(vector, i)).reshape(datashape)
         vec_target[(i * 7300) : (i * 7300) + 7300] = full_vec
         
@@ -239,5 +228,5 @@ def process_raw_tensors(vector):
     
     # Delete duplicate files after the tensor block of all images has been created. 
     if(os.path.exists("data/preprocessed_data/{}_73k.pt".format(vector))):
-        for i in tqdm(range(10), desc="delete duplicate data"):
+        for i in tqdm(range(10), desc="deleting duplicate data"):
             os.remove("data/preprocessed_data/{}_{}.pt".format(vector, i))

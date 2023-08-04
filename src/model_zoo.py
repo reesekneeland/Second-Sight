@@ -8,7 +8,7 @@ import torch.nn.functional as F
 #CLIP Encoder class
 class CLIPEncoderModel(torch.nn.Module):
     def __init__(self, x_size):
-        super(CLIPEncoderModel, self,).__init__()
+        super(CLIPEncoderModel, self).__init__()
         self.linear = nn.Linear(1024, 15000)
         self.linear2 = nn.Linear(15000, 15000)
         self.outlayer = nn.Linear(15000, x_size)

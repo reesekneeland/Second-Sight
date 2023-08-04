@@ -1,13 +1,10 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 from utils import *
 from tqdm import tqdm
 from library_assembler import LibraryAssembler
 from vdvae import VDVAE
 from stochastic_search import StochasticSearch
-from diffusers import StableUnCLIPImg2ImgPipeline
 from torchmetrics import PearsonCorrCoef
-from decoder_uc import Decoder_UC
 import wandb
 import math
 import argparse
@@ -73,9 +70,10 @@ if __name__ == "__main__":
     # Create the parser and add arguments
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('output', 
+    parser.add_argument('--output', 
                         help="output directory for the generated samples",
-                        type=str)
+                        type=str
+                        default="output/")
     
     parser.add_argument('--idx', 
                         help="list of indicies to be generated for each subject.", 
@@ -111,6 +109,9 @@ if __name__ == "__main__":
                         help="number of additional suboptimal paths to explore during the search.",
                         type=int,
                         default=4)
+    parser.add_argument("--device",
+                        type=str,
+                        default="cuda:0")
     
 
     # Parse and print the results
@@ -134,7 +135,7 @@ if __name__ == "__main__":
             LD = LibraryAssembler(configList=["gnetEncoder", "clipEncoder"],
                                 subject=subject,
                                 ae=True,
-                                device="cuda")
+                                device=args.device)
             output_images  = LD.predict(x_test, vector="images", topn=1)
             output_clips = LD.predict(x_test, vector="c_i", topn=100).reshape((len(args.idx), 1, 1024))
             del LD
@@ -142,7 +143,7 @@ if __name__ == "__main__":
                                 subject=subject,
                                 ae=True,
                                 mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),
-                                device="cuda")
+                                device=args.device)
             output_vdvae = LD_v.predict(x_test, vector="z_vdvae", topn=25)
             output_vdvae = normalize_vdvae(output_vdvae).reshape((len(args.idx), 1, 91168))
             del LD_v
@@ -150,9 +151,9 @@ if __name__ == "__main__":
             V = VDVAE()
             SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
                                     subject=subject,
-                                    device="cuda:0",
+                                    device=args.device,
                                     n_iter=args.iterations,
-                                    num_samples=args.num_samples,
+                                    n_samples=args.num_samples,
                                     n_branches=args.branches)
                     
             PeC = PearsonCorrCoef(num_outputs=len(args.idx)).to("cpu")

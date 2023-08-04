@@ -62,18 +62,15 @@ def read_images(image_index, show=False):
 # Loader = False
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
-def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False, big=True):
-    if(big):
-        nsd_general = "nsd_general_big.pt"
-    else:
-        nsd_general = "nsd_general.pt"
+def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False):
+    nsd_general = "nsd_general.pt"
     if(ae):
         assert encoderModel is not None
-        x = torch.load(prep_path + "subject{}/{}".format(subject, nsd_general)).requires_grad_(False).to("cpu")
-        y = torch.load(prep_path + "subject{}/x_encoded/{}".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+        x = torch.load("data/preprocessed_data/subject{}/{}".format(subject, nsd_general)).requires_grad_(False).to("cpu")
+        y = torch.load("data/preprocessed_data/subject{}/x_encoded/{}".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
-        x = torch.load(prep_path + "subject{}/{}".format(subject, nsd_general)).requires_grad_(False)
-        y = torch.load(prep_path + "subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+        x = torch.load("data/preprocessed_data/subject{}/{}".format(subject, nsd_general)).requires_grad_(False)
+        y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
     
     if(not split): 
         if(loader):
@@ -330,7 +327,7 @@ def get_pruned_indices(subject=1):
     subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
     nsdIds = set(subj['nsdId'].tolist())
     
-    pruned_indices = torch.zeros((73000-len(nsdIds), ))
+    pruned_indices = torch.zeros((73000-len(nsdIds), ), dtype=int)
     count = 0
     for pred in range(73000):
         if pred not in nsdIds:
