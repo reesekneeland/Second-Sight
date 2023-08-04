@@ -35,25 +35,26 @@ class LibraryAssembler():
 
             for param in self.configList:
                 if param == "gnetEncoder":
-                    self.EncModels.append("gnet_encoder")
+                    self.EncModels.append("gnet")
                     if self.ae:
                         self.AEModels.append(AutoEncoder(config="gnet",
                                                         inference=True,
                                                         subject=self.subject,
-                                                        device=self.device,
-                                                        big=self.big))
+                                                        device=self.device))
                 elif param == "clipEncoder":
-                    self.EncModels.append("clip_encoder")
+                    self.EncModels.append("clip")
                     if self.ae:
                         self.AEModels.append(AutoEncoder(config="clip",
                                                         inference=True,
                                                         subject=self.subject,
-                                                        device=self.device,
-                                                        big=self.big))
+                                                        device=self.device))
             self.x_preds = []
             for model in self.EncModels:
-                modelPreds = torch.load("data/preprocessed_data/subject{}/{}_beta_primes.pt".format(self.subject, model), map_location=self.device)
-                self.x_preds.append(modelPreds)
+                modelPreds = torch.load("data/preprocessed_data/{}_coco_beta_primes.pt".format(model), map_location=self.device)
+                print(modelPreds.shape)
+                prunedPreds = modelPreds[self.y_indices]
+                print(prunedPreds.shape)
+                self.x_preds.append(prunedPreds)
                 
     def rankCoco(self, x, average=True, topn=1000):
         with torch.no_grad():
@@ -135,7 +136,7 @@ class LibraryAssembler():
     def benchmark(self, vector="c_i"):
 
         # Load data and targets
-        _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True, big=self.big)
+        _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True)
         library = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(vector), map_location="cpu").reshape((73000, self.datasize[vector]))
         library = prune_vector(library)
         out = torch.zeros((x_test.shape[0], 1000, self.datasize[vector]))
