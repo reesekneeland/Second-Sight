@@ -1040,6 +1040,7 @@ class Stochastic_Search_Statistics():
             #   8 --> iter_4
             #   9 --> iter_5
             #  10 --> Search Reconstruction
+            #  11 --> Library Reconstruction
         df = pd.DataFrame(columns = ['ID', 'Sample Count', 'Batch Number', 'Search Reconstruction', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 2', 
@@ -1299,6 +1300,302 @@ class Stochastic_Search_Statistics():
         print(df.shape)
         print(df)
         df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_all_images_" + str(len(idx)) +  ".csv")
+        
+    ########################################################################################
+    
+    def create_dataframe_only_brain_correlation(self, experiment_name, subject = 1):
+        
+        # Path to the folder
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/" + experiment_name + "/"
+        dataframe_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject" + str(subject) + "/dataframes/"
+        
+        # Create betas if needed
+        self.create_beta_primes(experiment_name, subject = subject)
+        
+        # List of image numbers created. 
+        idx = self.image_indices(experiment_name, subject = subject)
+        
+        # Autoencoded avearged brain samples 
+        #beta_samples = self.autoencoded_brain_samples(subject=subject)
+        _, _, x_test, _, _, _, _ = load_nsd(vector="images", subject=subject, loader=False, average=True, nest=True)
+        beta_samples = x_test
+        
+        # Grab the necessary brain masks
+        brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual, brain_mask_higher_visual = self.return_all_masks()
+        
+        # Create an Empty DataFrame
+        # Object With column names only
+        # Sample Indicator: 
+            #   0 --> Ground Truth
+            #   1 --> VDVAE Distribution        (Decoded Distribution)
+            #   2 --> Clip Distrubituon         (Decoded CLIP Only)
+            #   3 --> Clip Distrubituon + VDVAE (Decoded CLIP + VDVAE)
+            #   4 --> iter_0
+            #   5 --> iter_1
+            #   6 --> iter_2
+            #   7 --> iter_3
+            #   8 --> iter_4
+            #   9 --> iter_5
+            #  10 --> Search Reconstruction
+            #  11 --> Library Reconstruction
+        df = pd.DataFrame(columns = ['ID', 'Sample Count', 'Batch Number', 'Search Reconstruction', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+                                     'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
+                                     'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 2', 
+                                     'AlexNet 5', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV' ])
+        
+        # Sample count. 
+        sample_count = 0
+        
+        # Dataframe index count. 
+        df_row_num = 0
+        
+        # Images per folder for net metrics.
+        folder_images = []
+        
+        # Folders in the directory
+        folders = {"clip_distribution" : 1, "vdvae_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9}
+        
+        # Append rows to an empty DataFrame
+        for i in tqdm(idx, desc="creating dataframe rows"):
+            
+            # Ground Truth Image
+            ground_truth_path = directory_path + str(i) + '/' + 'Ground Truth.png'
+            ground_truth = Image.open(ground_truth_path)
+            
+            # Search Reconstruction 
+            search_reconstruction_path = directory_path + str(i) + '/' + 'Search Reconstruction.png'
+            search_reonstruction = Image.open(search_reconstruction_path)
+            
+            # Library Reconstruction
+            library_reconstruction_path = directory_path + str(i) + '/' + 'Library Reconstruction.png'
+            library_reconstruction = Image.open(library_reconstruction_path)
+            
+            for folder, sample_number in folders.items():
+                
+                print("In folder: ", folder)
+                
+                # Create the path
+                path = directory_path + str(i) + "/" + folder
+            
+                if("iter" in folder):
+                    
+                    batch_number = torch.load(path + "/best_batch_index.pt")
+                    
+                    # Find out if this is the iter that the search reconstruction was taken from. 
+                    iter_path           = directory_path + str(i) + '/' + folder + '.png'
+                    ssim_iter           = self.calculate_ssim(iter_path, search_reconstruction_path)
+                    
+                    for filename in os.listdir(path + "/batch_" + str(int(batch_number))): 
+                        
+                        if(".pt" in filename):
+                            continue
+                        
+                        if(sample_count == 5):
+                            break
+                    
+                        # Reconstruction path
+                        reconstruction_path = path + '/batch_' + str(int(batch_number)) + '/' + filename
+                        
+                        # Reconstruction image
+                        reconstruction = Image.open(reconstruction_path)
+                        folder_images.append(reconstruction)
+                        
+                        # # Pix Corr metrics calculation
+                        # pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
+                        
+                        # # SSIM metrics calculation
+                        # ssim        = self.calculate_ssim(ground_truth_path, reconstruction_path)
+                        
+                        # # CLIP metrics calculation
+                        # _, _, clip_cosine_sim = self.calculate_clip_similarity(experiment_name, i, sample_count, subject = subject)
+                        
+                        # Calculate the strength at that reconstruction iter image. 
+                        strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
+                        
+                        # Calculate brain predictions
+                        brain_prediction_nsd_general        = torch.load(path + '/batch_' + str(int(batch_number)) + "/" + str(sample_count) + "_beta_prime.pt")
+                        brain_prediction_V1                 = brain_prediction_nsd_general[brain_mask_V1]
+                        brain_prediction_V2                 = brain_prediction_nsd_general[brain_mask_V2]
+                        brain_prediction_V3                 = brain_prediction_nsd_general[brain_mask_V3]
+                        brain_prediction_V4                 = brain_prediction_nsd_general[brain_mask_V4]
+                        brain_prediction_early_visual       = brain_prediction_nsd_general[brain_mask_early_visual]
+                        brain_prediction_higher_visual      = brain_prediction_nsd_general[brain_mask_higher_visual]
+                        
+                        # Pearson correlations for each reconstruction region
+                        pearson_correlation_V1              = float(self.generate_pearson_correlation(brain_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False))
+                        pearson_correlation_V2              = float(self.generate_pearson_correlation(brain_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False))
+                        pearson_correlation_V3              = float(self.generate_pearson_correlation(brain_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False))
+                        pearson_correlation_V4              = float(self.generate_pearson_correlation(brain_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False))
+                        pearson_correlation_early_visual    = float(self.generate_pearson_correlation(brain_prediction_early_visual, beta_samples[i], brain_mask_early_visual, unmasked=False))
+                        pearson_correlation_higher_visual   = float(self.generate_pearson_correlation(brain_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False))
+                        pearson_correlation_nsd_general     = float(self.generate_pearson_correlation(brain_prediction_nsd_general, beta_samples[i], brain_mask_higher_visual, unmasked=True))
+                        
+                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Batch Number' : str(int(batch_number)), 'Search Reconstruction' : str(ssim_iter == 1.0), 'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 
+                                            'Brain Correlation V1' : str(round(pearson_correlation_V1, 10)), 'Brain Correlation V2' : str(round(pearson_correlation_V2, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3 , 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual , 10)), 
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general, 10))},  index=[df_row_num])
+                                
+                        # Add the row to the dataframe
+                        df = pd.concat([df, row])
+                        
+                        # Iterate the counts
+                        sample_count += 1
+                        df_row_num += 1
+                    
+                else: 
+                    for filename in os.listdir(path): 
+                        
+                        if("beta" in filename):
+                            continue
+                        
+                        # if(sample_count == 5):
+                        #     break
+                        
+                        # Reconstruction path
+                        reconstruction_path = path + '/' + filename
+                        
+                        # Reconstruction image
+                        reconstruction = Image.open(reconstruction_path)
+                        folder_images.append(reconstruction)
+                        
+                        # Pix Corr metrics calculation
+                        # pix_corr = self.calculate_pixel_correlation(ground_truth, reconstruction)
+                        
+                        # # SSIM metrics calculation
+                        # ssim    = self.calculate_ssim(ground_truth_path, reconstruction_path)
+                        
+                        # # CLIP metrics calculation
+                        # _, _, clip_cosine_sim = self.calculate_clip_similarity(experiment_name, i, sample_count, subject = subject)
+                        
+                        # Calculate the strength at that reconstruction iter image. 
+                        strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
+                        
+                        # Calculate brain predictions
+                        brain_prediction_nsd_general        = torch.load(path + "/" + str(sample_count) + "_beta_prime.pt")
+                        brain_prediction_V1                 = brain_prediction_nsd_general[brain_mask_V1]
+                        brain_prediction_V2                 = brain_prediction_nsd_general[brain_mask_V2]
+                        brain_prediction_V3                 = brain_prediction_nsd_general[brain_mask_V3]
+                        brain_prediction_V4                 = brain_prediction_nsd_general[brain_mask_V4]
+                        brain_prediction_early_visual       = brain_prediction_nsd_general[brain_mask_early_visual]
+                        brain_prediction_higher_visual      = brain_prediction_nsd_general[brain_mask_higher_visual]
+                        
+                        # Pearson correlations for each reconstruction region
+                        pearson_correlation_V1              = float(self.generate_pearson_correlation(brain_prediction_V1, beta_samples[i], brain_mask_V1, unmasked=False))
+                        pearson_correlation_V2              = float(self.generate_pearson_correlation(brain_prediction_V2, beta_samples[i], brain_mask_V2, unmasked=False))
+                        pearson_correlation_V3              = float(self.generate_pearson_correlation(brain_prediction_V3, beta_samples[i], brain_mask_V3, unmasked=False))
+                        pearson_correlation_V4              = float(self.generate_pearson_correlation(brain_prediction_V4, beta_samples[i], brain_mask_V4, unmasked=False))
+                        pearson_correlation_early_visual    = float(self.generate_pearson_correlation(brain_prediction_early_visual, beta_samples[i], brain_mask_early_visual, unmasked=False))
+                        pearson_correlation_higher_visual   = float(self.generate_pearson_correlation(brain_prediction_higher_visual, beta_samples[i], brain_mask_higher_visual, unmasked=False))
+                        pearson_correlation_nsd_general     = float(self.generate_pearson_correlation(brain_prediction_nsd_general, beta_samples[i], brain_mask_higher_visual, unmasked=True))
+                        
+                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general, 10))},  index=[df_row_num])
+                                
+                        # Add the row to the dataframe
+                        df = pd.concat([df, row])
+                        
+                        # Iterate the counts
+                        sample_count += 1
+                        df_row_num += 1
+                    
+                # Reset the sample_count for the next folder. 
+                sample_count = 0 
+                        
+            # Make dataframe row for search reconstruction
+            pix_corr_search = self.calculate_pixel_correlation(ground_truth, search_reonstruction)
+            ssim_search = self.calculate_ssim(ground_truth_path, search_reconstruction_path)
+            _, _, clip_cosine_sim_search = self.calculate_clip_similarity(experiment_name, i, 14, subject = subject)
+            row_search = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "10", 'SSIM' : str(round(ssim_search, 10)), 'Pixel Correlation' : str(round(pix_corr_search, 10)),  'CLIP Cosine' : str(round(clip_cosine_sim_search, 10))}, index=[df_row_num])
+            df_row_num += 1
+            folder_images.append(search_reonstruction)
+            df = pd.concat([df, row_search])
+            
+            # Make data frame row for library reconstruction Image
+            # pix_corr_library = self.calculate_pixel_correlation(ground_truth, library_reconstruction)
+            # ssim_library = self.calculate_ssim(ground_truth_path, library_reconstruction_path)
+            # _, _, clip_cosine_sim_library = self.calculate_clip_similarity(experiment_name, i, 15, subject = subject)
+            
+            # Calculate brain predictions
+            brain_prediction_nsd_general_library        = torch.load(directory_path + str(i) + "/library_reconstruction_beta_prime.pt")
+            brain_prediction_V1_library                 = brain_prediction_nsd_general_library[brain_mask_V1]
+            brain_prediction_V2_library                 = brain_prediction_nsd_general_library[brain_mask_V2]
+            brain_prediction_V3_library                 = brain_prediction_nsd_general_library[brain_mask_V3]
+            brain_prediction_V4_library                 = brain_prediction_nsd_general_library[brain_mask_V4]
+            brain_prediction_early_visual_library       = brain_prediction_nsd_general_library[brain_mask_early_visual]
+            brain_prediction_higher_visual_library      = brain_prediction_nsd_general_library[brain_mask_higher_visual]
+            
+            # Pearson correlations for each reconstruction region
+            pearson_correlation_V1_library              = float(self.generate_pearson_correlation(brain_prediction_V1_library, beta_samples[i], brain_mask_V1, unmasked=False))
+            pearson_correlation_V2_library              = float(self.generate_pearson_correlation(brain_prediction_V2_library, beta_samples[i], brain_mask_V2, unmasked=False))
+            pearson_correlation_V3_library              = float(self.generate_pearson_correlation(brain_prediction_V3_library, beta_samples[i], brain_mask_V3, unmasked=False))
+            pearson_correlation_V4_library              = float(self.generate_pearson_correlation(brain_prediction_V4_library, beta_samples[i], brain_mask_V4, unmasked=False))
+            pearson_correlation_early_visual_library    = float(self.generate_pearson_correlation(brain_prediction_early_visual_library, beta_samples[i], brain_mask_early_visual, unmasked=False))
+            pearson_correlation_higher_visual_library   = float(self.generate_pearson_correlation(brain_prediction_higher_visual_library, beta_samples[i], brain_mask_higher_visual, unmasked=False))
+            pearson_correlation_nsd_general_library     = float(self.generate_pearson_correlation(brain_prediction_nsd_general_library, beta_samples[i], brain_mask_higher_visual, unmasked=True))
+            row_library_reoncstruction = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "11", 'Strength' : str(round(1, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1_library, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2_library, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3_library, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4_library, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual_library, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual_library, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general_library, 10))}, index=[df_row_num])
+            df_row_num += 1
+            folder_images.append(library_reconstruction)
+            df = pd.concat([df, row_library_reoncstruction])
+            
+            # Make data frame row for ground truth Image
+            #_, _, clip_cosine_sim_gt = self.calculate_clip_similarity(experiment_name, i, 10, subject = subject)
+            
+            # Calculate brain predictions
+            brain_prediction_nsd_general_gt        = torch.load(directory_path + str(i) + "/ground_truth_beta_prime.pt")
+            brain_prediction_V1_gt                 = brain_prediction_nsd_general_gt[brain_mask_V1]
+            brain_prediction_V2_gt                 = brain_prediction_nsd_general_gt[brain_mask_V2]
+            brain_prediction_V3_gt                 = brain_prediction_nsd_general_gt[brain_mask_V3]
+            brain_prediction_V4_gt                 = brain_prediction_nsd_general_gt[brain_mask_V4]
+            brain_prediction_early_visual_gt       = brain_prediction_nsd_general_gt[brain_mask_early_visual]
+            brain_prediction_higher_visual_gt      = brain_prediction_nsd_general_gt[brain_mask_higher_visual]
+            
+            # Pearson correlations for each reconstruction region
+            pearson_correlation_V1_gt              = float(self.generate_pearson_correlation(brain_prediction_V1_gt, beta_samples[i], brain_mask_V1, unmasked=False))
+            pearson_correlation_V2_gt              = float(self.generate_pearson_correlation(brain_prediction_V2_gt, beta_samples[i], brain_mask_V2, unmasked=False))
+            pearson_correlation_V3_gt              = float(self.generate_pearson_correlation(brain_prediction_V3_gt, beta_samples[i], brain_mask_V3, unmasked=False))
+            pearson_correlation_V4_gt              = float(self.generate_pearson_correlation(brain_prediction_V4_gt, beta_samples[i], brain_mask_V4, unmasked=False))
+            pearson_correlation_early_visual_gt    = float(self.generate_pearson_correlation(brain_prediction_early_visual_gt, beta_samples[i], brain_mask_early_visual, unmasked=False))
+            pearson_correlation_higher_visual_gt   = float(self.generate_pearson_correlation(brain_prediction_higher_visual_gt, beta_samples[i], brain_mask_higher_visual, unmasked=False))
+            pearson_correlation_nsd_general_gt     = float(self.generate_pearson_correlation(brain_prediction_nsd_general_gt, beta_samples[i], brain_mask_higher_visual, unmasked=True))
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1_gt, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2_gt, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3_gt, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4_gt, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual_gt, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual_gt, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general_gt, 10))}, index=[df_row_num])
+            df_row_num += 1
+            folder_images.append(ground_truth)
+            df = pd.concat([df, row_ground_truth])
+            
+            # Calculate CNN metrics
+            # net_predictions:
+            #   Key:     Net Name
+            #   Value:   Array of predicted values 
+            # net_predictions = self.net_metrics(folder_images)
+            
+            # # Grab the key value pair in the dictionary. 
+            # for net_name, feature_list in net_predictions.items(): 
+
+            #     # Iterate over the list of predictions
+            #     for sample in range(feature_list.shape[0]):
+                    
+            #         # Add the prediction at it's respected index to the dataframe. 
+            #         df.at[((df_row_num - (feature_list.shape[0])) + sample), net_name]  =  feature_list[sample].flatten().tolist()
+                
+            # Reset the sample_count for the next folder. 
+            sample_count = 0 
+            folder_images = []
+                                           
+                        
+        print(df.shape)
+        print(df)
+        df.to_csv(dataframe_path + "statistics_df_" + folder + "_only_brain_correlation_897.csv")
+    
+    
+    ########################################################################################
                     
     def create_dataframe(self, experiment_name, subject = 1):
         
@@ -1595,7 +1892,7 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:0")
+    #SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:0")
     
     #SCS.generate_brain_predictions() 
     #SCS.calculate_ssim()    
@@ -1605,9 +1902,28 @@ def main():
     # SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
     
-    #SCS.create_dataframe_test("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=1)
+    print("SCS Final Run 1")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:0")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=1)
     
-    SCS.create_dataframe_paper_only_beta_primes("Brain Diffuser regen", subject=1)
+    print("SCS Final Run 2")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 2, device="cuda:0")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=2)
+    
+    print("SCS Final Run 5")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 5, device="cuda:0")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=5)
+    
+    print("SCS Final Run 7")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 7, device="cuda:0")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=7)
+    
+    # print("Brain Diffuser Subject 7")
+    # SCS.create_dataframe_paper_only_beta_primes("Brain Diffuser regen", subject=7)
+    # print("Cortical Convolutions Subject 7")
+    # SCS.create_dataframe_paper_only_beta_primes("Cortical Convolutions", subject=7)
+    # print("Tagaki Subject 7")
+    # SCS.create_dataframe_paper_only_beta_primes("Tagaki", subject=7)
     
     #SCS.create_papers_dataframe("Brain Diffuser", subject = 1)
     
