@@ -3,7 +3,7 @@
 
 ![](data/charts/Pipeline_Diagram.png)<br>
 
-Project page: 
+Project page: https://www.reesekneeland.com/second-sight
 
 arXiv preprint: https://arxiv.org/abs/2306.00927
 
@@ -49,7 +49,7 @@ Options:
   --subj [1,2,5,7]      list of subjects to download models for, if not specified, will run on all subjects
 ```
 
-
+<!-- 
 ## Training MindEye (high-level pipeline)
 
 Train MindEye via ``Train_MindEye.py``.
@@ -253,7 +253,7 @@ options:
 
 ## Training MindEye (low-level pipeline)
 
-Under construction (see train_autoencoder.py)
+Under construction (see train_autoencoder.py) -->
 
 # Citation
 
