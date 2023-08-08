@@ -66,12 +66,11 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     nsd_general = "nsd_general.pt"
     if(ae):
         assert encoderModel is not None
-        x = torch.load("data/preprocessed_data/subject{}/{}".format(subject, nsd_general)).requires_grad_(False).to("cpu")
-        y = torch.load("data/preprocessed_data/subject{}/x_encoded/{}".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
+        y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
-        x = torch.load("data/preprocessed_data/subject{}/{}".format(subject, nsd_general)).requires_grad_(False)
+        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
         y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
-    
     if(not split): 
         if(loader):
             dataset = torch.utils.data.TensorDataset(x, y)
@@ -83,6 +82,7 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     y_train, y_val, y_test = [], [], []
     stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
+    print("SUBJ TRAIN: ", len(subj_train))
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
     # 
@@ -149,22 +149,6 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
         return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
     
-def process_x_encoded(Encoder):
-    with torch.no_grad():
-        modelId = Encoder.hashNum + "_model_" + Encoder.vector + ".pt"
-        os.makedirs("latent_vectors/subject{}/{}".format(Encoder.subject, modelId), exist_ok=True)
-        coco_full = torch.load("/export/raid1/home/kneel027/nsd_local/preprocessed_data/{}_73k.pt".format(Encoder.vector))
-        coco_preds_full = torch.zeros((73000, Encoder.x_size))
-        for i in tqdm(range(4), desc="predicting images"):
-            coco_preds_full[18250*i:18250*i + 18250] = Encoder.predict(coco_full[18250*i:18250*i + 18250]).cpu()
-        pruned_encodings = prune_vector(coco_preds_full)
-        torch.save(pruned_encodings, "latent_vectors/subject{}/{}/coco_brain_preds.pt".format(Encoder.subject, modelId))
-        
-        os.makedirs(prep_path + "subject{}/x_encoded/".format(Encoder.subject), exist_ok=True)
-        _, y = load_nsd(vector = Encoder.vector, subject=Encoder.subject, loader = False, split = False)
-        outputs = Encoder.predict(y)
-        torch.save(outputs, prep_path + "subject{}/x_encoded/{}".format(Encoder.subject, modelId))
-
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title

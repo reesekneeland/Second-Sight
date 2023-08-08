@@ -56,6 +56,7 @@ class Stochastic_Search_Statistics():
     def __init__(self, big=False, subject = 1, device="cuda"):
 
         self.device=device
+        self.subject = subject
         # model_id = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
         model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
@@ -85,7 +86,7 @@ class Stochastic_Search_Statistics():
         AE = AutoEncoder(config="dualAutoEncoder",
                         inference=True,
                         subject=subject,
-                        device="cuda:0")
+                        device=self.device)
         
         # Load the test samples
         _, _, x_test, _, _, y_test, test_trials = load_nsd(vector="images", subject=subject, loader=False, average=False, nest=True)
@@ -116,7 +117,7 @@ class Stochastic_Search_Statistics():
         alexnet_predictions = {}
         image_counter = 0
         images = []
-        device = "cuda:0"
+        device = self.device
 
         AN =  AlexNetEncoder()
 
@@ -390,7 +391,7 @@ class Stochastic_Search_Statistics():
                     net.classifier[5].register_forward_hook(fn)
                     
             elif net_name == 'CLIP Two-way':
-                model, _ = clip.load("ViT-L/14", device='cuda:{}'.format(device))
+                model, _ = clip.load("ViT-L/14", device=self.device)
                 net = model.visual
                 net = net.to(torch.float32)
                 if layer==7:
@@ -408,11 +409,11 @@ class Stochastic_Search_Statistics():
                 net = torch.hub.load('facebookresearch/swav:main', 'resnet50')
                 net.avgpool.register_forward_hook(fn) 
             net.eval()
-            net.cuda(device)    
+            net.to(self.device)    
             
             with torch.no_grad():
                 for i,x in enumerate(loader):
-                    x = x.cuda(device)
+                    x = x.to(self.device)
                     _ = net(x)
                     
               
@@ -890,7 +891,7 @@ class Stochastic_Search_Statistics():
         
         if(not os.path.exists(existing_path)):
         
-            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=subject, device="cuda:0")
+            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=subject, device=self.device)
             
             # List of image numbers created. 
             idx = self.image_indices(folder, subject = subject)
@@ -964,7 +965,7 @@ class Stochastic_Search_Statistics():
         
         if(not os.path.exists(existing_path)):
         
-            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=subject, device="cuda:0")
+            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=subject, device=self.device)
             
             # List of image numbers created. 
             idx = self.image_indices(folder, subject = subject)
@@ -1007,6 +1008,38 @@ class Stochastic_Search_Statistics():
                 library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
                 torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(i)))
                 library_reconstruction = []
+                
+    def create_library_beta_primes(self, experiment_name):
+        folder_image_set = []
+        ground_truth = []
+        library_reconstruction = []
+        
+        folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution"]
+        
+        directory_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(str(self.subject), experiment_name)
+        
+        SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"], subject=self.subject, device=self.device)
+        
+        # List of image numbers created. 
+        idx = self.image_indices(experiment_name, subject = self.subject)
+        
+        # Append rows to an empty DataFrame
+        for i in tqdm(idx, desc="creating beta primes"):
+            
+            # ground_truth_path = directory_path + str(i) + "/Ground Truth.png"
+            # ground_truth_image = Image.open(ground_truth_path)
+            # ground_truth.append(ground_truth_image)
+            
+            library_reconstruction_path = directory_path + str(i) + "/Library Reconstruction.png"
+            library_reconstruction_image = Image.open(library_reconstruction_path)
+            library_reconstruction.append(library_reconstruction_image)
+        
+        # ground_truth_beta_prime = SCS.predict(ground_truth)
+        library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
+        for i in tqdm(range(len(idx)), desc="saving beta primes"):
+            # torch.save(ground_truth_beta_prime[i], "{}/ground_truth_beta_prime_regen.pt".format(directory_path + str(idx[i])))
+            torch.save(library_reconstruction_beta_prime[i], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(idx[i])))
+
                 
     def create_dataframe_test(self, experiment_name, subject = 1):
         
@@ -1372,7 +1405,7 @@ class Stochastic_Search_Statistics():
             
             for folder, sample_number in folders.items():
                 
-                print("In folder: ", folder)
+                # print("In folder: ", folder)
                 
                 # Create the path
                 path = directory_path + str(i) + "/" + folder
@@ -1592,7 +1625,7 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
-        df.to_csv(dataframe_path + "statistics_df_" + folder + "_only_brain_correlation_897.csv")
+        df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_only_brain_correlation_897.csv")
     
     
     ########################################################################################
@@ -1902,21 +1935,26 @@ def main():
     # SCS.create_dataframe("SCS UC LD 6:100:4 Dual Guided clip_iter 30", GN, subject=1)
     # SCS.create_dataframe("SCS UC LD topn 6:100:4 Dual Guided clip_iter 18", GN, subject=1)
     
-    print("SCS Final Run 1")
-    SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:0")
-    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=1)
-    
-    print("SCS Final Run 2")
-    SCS = Stochastic_Search_Statistics(big = True, subject = 2, device="cuda:0")
-    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=2)
     
     print("SCS Final Run 5")
-    SCS = Stochastic_Search_Statistics(big = True, subject = 5, device="cuda:0")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 5, device="cuda:1")
+    # SCS.create_library_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter")
     SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=5)
     
     print("SCS Final Run 7")
-    SCS = Stochastic_Search_Statistics(big = True, subject = 7, device="cuda:0")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 7, device="cuda:1")
+    # SCS.create_library_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter")
     SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=7)
+    
+    print("SCS Final Run 1")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:1")
+    # SCS.create_library_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=1)
+    
+    print("SCS Final Run 2")
+    SCS = Stochastic_Search_Statistics(big = True, subject = 2, device="cuda:1")
+    # SCS.create_library_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter")
+    SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=2)
     
     # print("Brain Diffuser Subject 7")
     # SCS.create_dataframe_paper_only_beta_primes("Brain Diffuser regen", subject=7)

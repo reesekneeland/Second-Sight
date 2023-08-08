@@ -37,7 +37,7 @@ class StochasticSearch():
             self.n_branches = n_branches
             self.vector = "images"
             if not disable_SD:
-                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to("cuda")
+                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to(self.device)
             self.EncModels = []
             self.EncType = []
             
@@ -78,7 +78,7 @@ class StochasticSearch():
         if "clipEncoder" in self.modelParams:
             sample_clips = []
             for sample in x:
-                sample_clips.append(self.R.encode_image_raw(sample))
+                sample_clips.append(self.R.encode_image_raw(sample, device=self.device))
         
         for c, mType in enumerate(self.EncType):
             if mType == "images":
@@ -97,8 +97,7 @@ class StochasticSearch():
             _, _, y_test, _, _, x_test, _ = load_nsd(vector="images", 
                                                     loader=False,
                                                     average=average,
-                                                    subject=self.subject,
-                                                    big=True)
+                                                    subject=self.subject)
 
             criterion = torch.nn.MSELoss()
             PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)

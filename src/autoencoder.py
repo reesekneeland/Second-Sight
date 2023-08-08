@@ -18,7 +18,7 @@ class AutoEncoder():
                  inference=False,
                  subject=1,
                  lr=0.00001,
-                 log=True,
+                 log=False,
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         "--log",
         help="whether to log to wandb",
         type=bool,
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--num_epochs",

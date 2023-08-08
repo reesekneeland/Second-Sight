@@ -16,6 +16,7 @@ class CLIPEncoder():
                  inference=False, 
                  subject=1,
                  lr=0.00001,
+                 log=False,
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
@@ -27,19 +28,18 @@ class CLIPEncoder():
         if inference:
             self.log = False
         else:
-            self.log = True
+            self.log = log
             self.lr = lr
             self.batch_size = batch_size
             self.num_epochs = epochs
             self.num_workers = num_workers
             # Initialize the data loaders
-            self.trainLoader, self.valLoader, _ = load_nsd(vector="c_i", 
+            self.trainLoader, self.valLoader, _ = load_nsd(vector="c", 
                                                             batch_size=self.batch_size, 
                                                             num_workers=self.num_workers, 
                                                             loader=True,
                                                             average=False,
-                                                            subject=self.subject,
-                                                            big=True)
+                                                            subject=self.subject)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -48,7 +48,7 @@ class CLIPEncoder():
                     # track hyperparameters and run metadata
                     config={
                     "subject": self.subject,
-                    "vector": "c_i",
+                    "vector": "c",
                     "epochs": self.num_epochs,
                     "learning_rate": self.lr,
                     "batch_size:": self.batch_size,
@@ -169,11 +169,10 @@ class CLIPEncoder():
             
         # y_test = Brain data
         # x_test = clip data
-        _, _, y_test, _, _, x_test, _ = load_nsd(vector=self.vector, 
+        _, _, y_test, _, _, x_test, _ = load_nsd(vector="c", 
                                                 loader=False,
                                                 average=average,
-                                                subject=self.subject,
-                                                big=True)
+                                                subject=self.subject)
         self.model.load_state_dict(torch.load("models/sub0{subject}_clip_encoder.pt".format(subject=self.subject)))
         self.model.eval()
 
@@ -212,18 +211,18 @@ if __name__ == "__main__":
     parser.add_argument(
         '--subjects', 
         help="list of subjects to train models for, if not specified, will run on all subjects",
-        type=list,
-        default=[1, 2, 5, 7])
+        type=str,
+        default="1,2,5,7")
     
     parser.add_argument(
-        "--batch_size", type=int, default=64,
+        "--batch_size", type=int, default=750,
         help="Batch size for training",
     )
     parser.add_argument(
         "--log",
         help="whether to log to wandb",
         type=bool,
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--num_epochs",
@@ -234,12 +233,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lr",
         type=float,
-        default=1e-5,
+        default=0.00001,
     )
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=4,
+        default=16,
     )
     parser.add_argument(
         "--device",
@@ -253,9 +252,9 @@ if __name__ == "__main__":
         default=True,
     )
     args = parser.parse_args()
+    subject_list = [int(sub) for sub in args.subjects.split(",")]
     
-    
-    for sub in args.subjects:
+    for sub in subject_list:
         E = CLIPEncoder(
                     inference=False,
                     subject=sub,

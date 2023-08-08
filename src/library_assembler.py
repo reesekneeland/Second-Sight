@@ -29,7 +29,7 @@ class LibraryAssembler():
             else:
                 self.mask = torch.full((self.x_size,), True)
             self.ae = ae
-            self.datasize = {"c_i": 1024, "images": 541875, "z_vdvae": 91168}
+            self.datasize = {"c": 1024, "images": 541875, "z_vdvae": 91168}
 
             self.y_indices = get_pruned_indices(subject=self.subject)
 
@@ -109,7 +109,7 @@ class LibraryAssembler():
             #pull topN parameter from config
             if topn is None:
                 # but only for clip vectors
-                if vector == "c_i":
+                if vector == "c":
                     if len(self.configList) > 1:
                         topn = self.config["LibraryAssembler"]["dualGuided"]
                     else:
@@ -133,7 +133,7 @@ class LibraryAssembler():
         return x_preds
 
     
-    def benchmark(self, vector="c_i"):
+    def benchmark(self, vector="c"):
 
         # Load data and targets
         _, _, x_test, _, _, target, _ = load_nsd(vector=vector, subject=self.subject, loader=False, average=False, nest=True)

@@ -9,23 +9,28 @@ from diffusers import StableUnCLIPImg2ImgPipeline
 sys.path.append('vdvae')
 from image_utils import *
 from model_utils import *
+from torch.utils.data import DataLoader, Dataset
 
-if __name__ == "__main__":
-    
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument(
-        '--subjects', 
-        help="list of subjects to prepare data for, if not specified, will run on all subjects",
-        type=list,
-        default=[1, 2, 5, 7])
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda:0",
-    )
-    args = parser.parse_args()
+class batch_generator(Dataset):
 
+        def __init__(self, data_path):
+            self.data_path = data_path
+            self.im = torch.load(data_path)
+
+
+        def __getitem__(self,idx):
+            img_array = self.im[idx]
+            imgPil = Image.fromarray(img_array.reshape((425, 425, 3)).numpy().astype(np.uint8))
+            img = T.functional.resize(imgPil,(64,64))
+            img = torch.tensor(np.array(img)).float()
+            #img = img/255
+            #img = img*2 - 1
+            return img, img_array
+
+        def __len__(self):
+            return  len(self.im)
+
+def process_images(device):
     # Create the charts directory
     print("Making directories...")
     os.makedirs("data/charts", exist_ok=True)
@@ -40,51 +45,36 @@ if __name__ == "__main__":
         __setattr__ = dict.__setitem__
         __delattr__ = dict.__delitem__
     H = dotdict(H)
-
-    H, preprocess_fn = set_up_data(H, device=args.device)
-
-    ema_vae = load_vaes(H, device=args.device)
+    H, preprocess_fn = set_up_data(H, device=device)
+    ema_vae = load_vaes(H, device=device)
 
     # Initialize the clip models
-    print('Preparing Stable Diffusion model...')
-
+    print('Preparing CLIP model...')
     R = StableUnCLIPImg2ImgPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16"
-    )
-
-    R = R.to(args.device)
+        "stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16)
+    R = R.to(device)
 
     # Variable for latent vectors
     latent_shapes_created = False
-    latent_tensor = torch.zeros((7300, 91168), dtype=torch.float32)
+    latent_tensor = torch.zeros((73000, 91168), dtype=torch.float32)
 
-    # Variable for tensor of images 
-    image_tensor = torch.zeros((7300, 541875), dtype=torch.float32)
-    batch  = 0 
+    # Can be reduced to fit on smaller GPUs
+    minibatch = 50
 
     # Variables for clip image vectos
-    c_i = True
-    c_i_tensor = torch.zeros((7300, 1024), dtype=torch.float32)
+    c_tensor = torch.zeros((73000, 1024), dtype=torch.float32)
 
+    image_read = read_images(image_index=[j for j in range(73000)], show=False)
+    img_array = torch.from_numpy(image_read).reshape((73000, 541875))
+    torch.save(img_array,  "data/preprocessed_data/images_73k.pt")
 
-    # Iterate through all images and captions in nsd sampled from COCO
-    for i in tqdm(range(0, 73000), desc="Converting COCO images to VDVAE and CLIP vectors"):
-        
-        # Array of image data 1 x 425 x 425 x 3 (Stores pixel intensities)
-        image_read = read_images(image_index=[i], show=False)
-        img_array = torch.from_numpy(image_read).reshape(541875)
-        
-        # Concetate the new image onto the tensor of images
-        image_tensor[i - (batch * 7300)] = img_array
-            
-        # Process image for VDVAE
-        img_pil = Image.fromarray(image_read.reshape((425, 425, 3))).convert("RGB")
-        img_tensor = T.functional.resize(img_pil,(64,64))
-        img_tensor = torch.tensor(np.array(img_tensor)).float()[None,:,:,:]
-        
+    # Iterate through all images in nsd sampled from COCO
+    image_batcher = batch_generator(data_path = "data/preprocessed_data/images_73k.pt")
+    imageloader = DataLoader(image_batcher,minibatch,shuffle=False)
+    for i, (batch, batch_tensor) in tqdm(enumerate(imageloader), desc="Converting COCO images to VDVAE and CLIP vectors", total=len(imageloader)):
         # Create the latent VDVAE Z vector
         latents = []
-        data_input, _ = preprocess_fn(img_tensor)
+        data_input, _ = preprocess_fn(batch)
         with torch.no_grad():
             activations = ema_vae.encoder.forward(data_input)
             px_z, stats = ema_vae.decoder.forward(activations, get_latents=True)
@@ -96,7 +86,7 @@ if __name__ == "__main__":
             latents.append(np.hstack(batch_latent))
         latents = np.concatenate(latents)
         latents = torch.from_numpy(latents)
-        
+        # print("Latents shape", latents.shape)
         # Save the c and z vectors into there corresponding files. 
         latent_shapes = torch.stack(latent_shapes)
         if(not latent_shapes_created): 
@@ -104,50 +94,51 @@ if __name__ == "__main__":
             latent_shapes_created = True
             
         # Concetate the new latent vector onto the tensor of latents
-        latent_tensor[i - (batch * 7300)] = latents.to("cpu")
-        
-        # Store the clip image vectors if the users wants them. 
-        if(c_i):
-            c_i_tensor[i - (batch * 7300)] = R.encode_image_raw(image=img_pil, device=args.device).to("cpu")
-        
-        # Save the tensor of images at every ten percent increment
-        if(i % 7300 == 0):
-            if(c_i):
-                torch.save(c_i_tensor,  "data/preprocessed_data/c_i_{}.pt".format(batch))
-                c_i_tensor = torch.zeros((7300, 1024), dtype=torch.float32)
-            
-            torch.save(image_tensor,  "data/preprocessed_data/images_{}.pt".format(batch))
-            torch.save(latent_tensor, "data/preprocessed_data/z_vdvae_{}.pt".format(batch))
-            image_tensor  = torch.zeros((7300, 541875), dtype=torch.float32)
-            latent_tensor = torch.zeros((7300, 91168), dtype=torch.float32)
-            batch += 1
-            
-
-    # Concatenate the ten smaller tensors into one tensor block.  
-    print("Concatenating tensors...")     
-    if(c_i):
-        process_raw_tensors(vector="c_i")
-    process_raw_tensors(vector="images")
-    process_raw_tensors(vector="z_vdvae")
+        latent_tensor[i*minibatch : i*minibatch + minibatch] = latents.to("cpu")
+        c_tensor[i*minibatch : i*minibatch + minibatch]  = R.encode_image_raw(images=batch_tensor.reshape((minibatch, 425, 425, 3)), device=device).to("cpu")
+    torch.save(c_tensor,  "data/preprocessed_data/c_73k.pt")  
+    torch.save(latent_tensor, "data/preprocessed_data/z_vdvae_73k.pt")
 
     # Store the mean and standard deviation of the vdvae vectors for normalization purposes. 
     vdvae_73k = torch.load("data/preprocessed_data/z_vdvae_73k.pt")
     torch.save(torch.mean(vdvae_73k, dim=0), "vdvae/train_mean.pt")
     torch.save(torch.std(vdvae_73k, dim=0),  "vdvae/train_std.pt")
 
-
+def process_trial_data(subjects):
     ##################### Brain Data Processing ###############################
     # Process the brain data and masks
-    for subject in args.subjects:
+    for subject in subjects:
         
         print("Processing brain data for subject {}".format(subject))
         create_whole_region_unnormalized(subject=subject)
         create_whole_region_normalized(subject=subject)
         
         print("Processing training data for subject {}".format(subject))
-        process_data(subject=subject, vector="c_i")
+        process_data(subject=subject, vector="c")
         process_data(subject=subject, vector="images")
         process_data(subject=subject, vector="z_vdvae")
         
         print("Processing masks for subject {}".format(subject))
         process_masks(subject=subject)
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument('-s',
+                        '--subjects', 
+                        help="list of subjects to run the algorithm on, if not specified, will run on all subjects",
+                        type=str,
+                        default="1,2,5,7")
+
+    parser.add_argument('-d',
+                        '--device', 
+                        help="cuda device to run predicts on.",
+                        type=str,
+                        default="cuda:0")
+    
+
+    args = parser.parse_args()
+    subject_list = [int(sub) for sub in args.subjects.split(",")]
+    process_images(args.device)
+    process_trial_data(subject_list)
