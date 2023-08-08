@@ -9,7 +9,7 @@ def download_weights(subjects, only_gnet=False):
     destinations = []
     
     file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/gnet_multisubject")
-    destinations.append("models_old/gnet_multisubject")
+    destinations.append("models/gnet_multisubject")
     
     #VDVAE Models
     file_ids.append("https://openaipublic.blob.core.windows.net/very-deep-vaes-assets/vdvae-assets-2/imagenet64-iter-1600000-log.jsonl")
@@ -29,55 +29,55 @@ def download_weights(subjects, only_gnet=False):
     if not only_gnet:
         if(1 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_dual_autoencoder.pt")
-            destinations.append("models_old/sub01_dual_autoencoder.pt")
+            destinations.append("models/sub01_dual_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_clip_encoder.pt")
-            destinations.append("models_old/sub01_clip_encoder.pt")
+            destinations.append("models/sub01_clip_encoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_clip_autoencoder.pt")
-            destinations.append("models_old/sub01_clip_autoencoder.pt")
+            destinations.append("models/sub01_clip_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_gnet_autoencoder.pt")
-            destinations.append("models_old/sub01_gnet_autoencoder.pt")
+            destinations.append("models/sub01_gnet_autoencoder.pt")
             
         if(2 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_dual_autoencoder.pt")
-            destinations.append("models_old/sub02_dual_autoencoder.pt")
+            destinations.append("models/sub02_dual_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_clip_encoder.pt")
-            destinations.append("models_old/sub02_clip_encoder.pt")
+            destinations.append("models/sub02_clip_encoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_clip_autoencoder.pt")
-            destinations.append("models_old/sub02_clip_autoencoder.pt")
+            destinations.append("models/sub02_clip_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_gnet_autoencoder.pt")
-            destinations.append("models_old/sub02_gnet_autoencoder.pt")
+            destinations.append("models/sub02_gnet_autoencoder.pt")
             
         if(5 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_dual_autoencoder.pt")
-            destinations.append("models_old/sub05_dual_autoencoder.pt")
+            destinations.append("models/sub05_dual_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_clip_encoder.pt")
-            destinations.append("models_old/sub05_clip_encoder.pt")
+            destinations.append("models/sub05_clip_encoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_clip_autoencoder.pt")
-            destinations.append("models_old/sub05_clip_autoencoder.pt")
+            destinations.append("models/sub05_clip_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_gnet_autoencoder.pt")
-            destinations.append("models_old/sub05_gnet_autoencoder.pt")
+            destinations.append("models/sub05_gnet_autoencoder.pt")
                 
         if(7 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_dual_autoencoder.pt")
-            destinations.append("models_old/sub07_dual_autoencoder.pt")
+            destinations.append("models/sub07_dual_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_clip_encoder.pt")
-            destinations.append("models_old/sub07_clip_encoder.pt")
+            destinations.append("models/sub07_clip_encoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_clip_autoencoder.pt")
-            destinations.append("models_old/sub07_clip_autoencoder.pt")
+            destinations.append("models/sub07_clip_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_gnet_autoencoder.pt")
-            destinations.append("models_old/sub07_gnet_autoencoder.pt")
+            destinations.append("models/sub07_gnet_autoencoder.pt")
             
     for file_id, dest in zip(file_ids, destinations):
         print("\nDownloading {}".format(file_id))
