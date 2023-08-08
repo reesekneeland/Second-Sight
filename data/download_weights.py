@@ -11,6 +11,21 @@ def download_weights(subjects, only_gnet=False):
     file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/gnet_multisubject")
     destinations.append("models_old/gnet_multisubject")
     
+    #VDVAE Models
+    file_ids.append("https://openaipublic.blob.core.windows.net/very-deep-vaes-assets/vdvae-assets-2/imagenet64-iter-1600000-log.jsonl")
+    destinations.append("vdvae/model/imagenet64-iter-1600000-log.jsonl")
+    
+    file_ids.append("https://openaipublic.blob.core.windows.net/very-deep-vaes-assets/vdvae-assets-2/imagenet64-iter-1600000-model.th")
+    destinations.append("vdvae/model/imagenet64-iter-1600000-model.th")
+    
+    file_ids.append("https://openaipublic.blob.core.windows.net/very-deep-vaes-assets/vdvae-assets-2/imagenet64-iter-1600000-model-ema.th")
+    destinations.append("vdvae/model/imagenet64-iter-1600000-model-ema.th")
+    
+    file_ids.append("https://openaipublic.blob.core.windows.net/very-deep-vaes-assets/vdvae-assets-2/imagenet64-iter-1600000-opt.th")
+    destinations.append("vdvae/model/imagenet64-iter-1600000-opt.th")
+    
+    
+    
     if not only_gnet:
         if(1 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_dual_autoencoder.pt")

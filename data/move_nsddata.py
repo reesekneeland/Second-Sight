@@ -2,8 +2,8 @@ import os
 #os.system('ls -l')
 
 # Download Experiment Infos
-os.makedirs("nsddata/experiments/nsd/", exist_ok=True)
-os.system('rsync --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/experiments/nsd/nsd_stim_info_merged.csv data/nsddata/experiments/nsd/')
+os.makedirs("data/nsddata/experiments/nsd/", exist_ok=True)
+os.system('rsync --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/experiments/nsd/nsd_stim_info_merged.csv data/nsddata/experiments/nsd/nsd_stim_info_merged.csv')
 
 # Download Stimuli
 os.makedirs("data/nsddata_stimuli/stimuli/nsd/", exist_ok=True)
