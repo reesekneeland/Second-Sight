@@ -54,7 +54,7 @@ def generate_beta_primes(subjects, device):
                 torch.save(coco_preds, "data/preprocessed_data/subject{}/{}_coco_beta_primes.pt".format(subject, modelType))
                 
                 # Create the tensor of beta primes for that subject. 
-                for index in tqdm(range(0, 27000), desc="vector loader subject{}".format(subject)):
+                for index in tqdm(range(0, 27750), desc="vector loader subject{}".format(subject)):
                     scanId = int(subjx.loc[(subjx['subject{}_rep0'.format(subject)] == i+1) | (subjx['subject{}_rep1'.format(subject)] == i+1) | (subjx['subject{}_rep2'.format(subject)] == i+1)].nsdId)
                     coco_ae_preds[index] = coco_preds[scanId]
                     coco_ae_preds[index] = coco_preds[scanId]

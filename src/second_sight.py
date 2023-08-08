@@ -142,7 +142,7 @@ if __name__ == "__main__":
             LD_v = LibraryAssembler(configList=["gnet"],
                                 subject=subject,
                                 ae=True,
-                                mask=torch.load("data/subject{}/masks/early_vis.pt".format(subject)),
+                                mask=torch.load("data/preprocessed_data/subject{}/masks/early_vis.pt".format(subject)),
                                 device=args.device)
             output_vdvae = LD_v.predict(x_test, vector="z_vdvae", topn=25)
             output_vdvae = normalize_vdvae(output_vdvae).reshape((len(args.idx), 1, 91168))

@@ -67,7 +67,7 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     if(ae):
         assert encoderModel is not None
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
-        y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+        y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     else:
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
         y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
