@@ -42,7 +42,7 @@ def generate_beta_primes(subjects, device):
             
                 # Create the empty tensor for that vector. 
                 coco_preds = torch.zeros((73000, subject_sizes[subject]))
-                coco_ae_preds = torch.zeros((27000, subject_sizes[subject]))
+                coco_ae_preds = torch.zeros((27750, subject_sizes[subject]))
                 subjx = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0)]
                 
                 # Calculate predictions for all the images with the encoders predict function. 
