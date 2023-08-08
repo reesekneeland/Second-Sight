@@ -13,14 +13,15 @@ from clip_encoder import CLIPEncoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
 from diffusers import StableUnCLIPImg2ImgPipeline
+from torchvision.transforms.functional import pil_to_tensor
 
 
 class StochasticSearch():
     def __init__(self, 
-                modelParams=["gnetEncoder"],
+                modelParams=["gnet"],
                 device="cuda:0",
                 subject=1,
-                log=False,
+                log=False, # flag to save all the intermediate images, beta_primes, clip vectors, and strength values. Used for ablation studies.
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
@@ -38,8 +39,6 @@ class StochasticSearch():
             self.vector = "images"
             if not disable_SD:
                 self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to(self.device)
-            self.EncModels = []
-            self.EncType = []
             
             
             # Hybrid encoder
@@ -48,43 +47,38 @@ class StochasticSearch():
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device)
-                #self.encoderWeights = torch.load("masks/subject{}/{}_encoder_prediction_weights.pt".format(self.subject, "_".join(self.modelParams))).to(self.device)
             else:
-                self.AEModel = AutoEncoder(config="gnet",
+                self.AEModel = AutoEncoder(config=modelParams[0],
                                                     inference=True,
                                                     subject=self.subject,
                                                     device=self.device)
             for param in modelParams:
-                if param == "gnetEncoder":
+                if param == "gnet":
                     self.EncModels.append(GNet8_Encoder(device=self.device,
                                                     subject=self.subject))
-                    self.EncType.append("images")
-                elif param == "clipEncoder":
+                elif param == "clip":
                     self.EncModels.append(CLIPEncoder(inference=True,
                                                     subject=self.subject,
                                                     device=self.device))
-                    self.EncType.append("c_i")
 
-    # Predict using the ensemble of encoding models in the SCS config
+    # Hybrid encoder implementation, predict beta primes using the ensemble of encoding models in the SCS config
     def predict(self, x, mask=None, return_clips=False):
-        combined_preds = torch.zeros((len(self.EncType), len(x), self.x_size))
-        if(isinstance(x, torch.Tensor)):
-            img_list = []
+        combined_preds = torch.zeros((len(self.modelParams), len(x), self.x_size))
+        if(isinstance(x, list)):
+            img_tensor = torch.zeros((len(x), 425, 425, 3))
             for i, sample in enumerate(x):
-                imagePil = process_image(x[i], 425, 425)
-                img_list.append(imagePil)
-            x = img_list
+                image = sample.resize((425, 425))
+                img_tensor[i] = pil_to_tensor(image)
+            x = img_tensor
+        x = x.reshape((x.shape[0], 425, 425, 3))
 
-        if "clipEncoder" in self.modelParams:
-            sample_clips = []
-            for sample in x:
-                sample_clips.append(self.R.encode_image_raw(sample, device=self.device))
+        sample_clips = self.R.encode_image_raw(x, device=self.device)
         
-        for c, mType in enumerate(self.EncType):
-            if mType == "images":
+        for c, mType in enumerate(self.modelParams):
+            if mType == "gnet":
                 combined_preds[c] = self.EncModels[c].predict(x, mask).to(self.device)
-            elif mType == "c_i":
-                combined_preds[c] = self.EncModels[c].predict(torch.stack(sample_clips)[:,0,:], mask).to(self.device)
+            elif mType == "clip":
+                combined_preds[c] = self.EncModels[c].predict(sample_clips, mask).to(self.device)
         if return_clips:
             return torch.mean(combined_preds, dim=0).cpu(), sample_clips
         else:

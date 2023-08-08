@@ -72,7 +72,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--output', 
                         help="output directory for the generated samples",
-                        type=str
+                        type=str,
                         default="output/")
     
     parser.add_argument('--idx', 
@@ -139,17 +139,17 @@ if __name__ == "__main__":
             output_images  = LD.predict(x_test, vector="images", topn=1)
             output_clips = LD.predict(x_test, vector="c_i", topn=100).reshape((len(args.idx), 1, 1024))
             del LD
-            LD_v = LibraryAssembler(configList=["gnetEncoder"],
+            LD_v = LibraryAssembler(configList=["gnet"],
                                 subject=subject,
                                 ae=True,
-                                mask=torch.load("masks/subject{}/early_vis_big.pt".format(subject)),
+                                mask=torch.load("data/subject{}/masks/early_vis.pt".format(subject)),
                                 device=args.device)
             output_vdvae = LD_v.predict(x_test, vector="z_vdvae", topn=25)
             output_vdvae = normalize_vdvae(output_vdvae).reshape((len(args.idx), 1, 91168))
             del LD_v
             # Initialize Models
             V = VDVAE()
-            SCS = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+            SCS = StochasticSearch(modelParams=["gnet", "clip"],
                                     subject=subject,
                                     device=args.device,
                                     n_iter=args.iterations,
