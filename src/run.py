@@ -39,12 +39,12 @@ if __name__ == "__main__":
     subject_list = [int(sub) for sub in args.subjects.split(",")]
     if args.downloadnsd:
         download_nsd(subjects = subject_list)
+    
+    download_weights(subjects = subject_list, only_gnet=args.train)
 
     process_images(device = args.device)
 
     process_trial_data(subjects = subject_list)
-
-    download_weights(subjects = subject_list, only_gnet=args.train)
 
     if args.train:
         for sub in subject_list:
