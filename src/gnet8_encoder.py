@@ -2,9 +2,6 @@ import os, sys
 #os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import torch as T
-import torch.nn as L
-import torch.nn.init as I
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch import nn
 from PIL import Image
@@ -13,120 +10,7 @@ from autoencoder import AutoEncoder
 import time
 import yaml
 from torchmetrics import PearsonCorrCoef
-
-class TrunkBlock(L.Module):
-    def __init__(self, feat_in, feat_out):
-        super(TrunkBlock, self).__init__()
-        self.conv1 = L.Conv2d(feat_in, int(feat_out*1.), kernel_size=3, stride=1, padding=1, dilation=1)
-        self.drop1 = L.Dropout2d(p=0.5, inplace=False)
-        self.bn1 = L.BatchNorm2d(feat_in, eps=1e-05, momentum=0.25, affine=True, track_running_stats=True)
-
-        I.xavier_normal_(self.conv1.weight, gain=I.calculate_gain('relu'))
-        I.constant_(self.conv1.bias, 0.0) # current
-        
-    def forward(self, x):
-        return F.relu(self.conv1(self.drop1(self.bn1(x))))
-
-class PreFilter(L.Module):
-    def __init__(self):
-        super(PreFilter, self).__init__()
-        self.conv1 = L.Sequential(
-            L.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
-            L.ReLU(inplace=True),
-            L.MaxPool2d(kernel_size=3, stride=2)
-        )
-        self.conv2 = L.Sequential(
-            L.Conv2d(64, 192, kernel_size=5, padding=2),
-            L.ReLU(inplace=True)
-        )        
-        
-    def forward(self, x):
-        c1 = self.conv1(x)
-        y = self.conv2(c1)
-        return y 
-
-
-class EncStage(L.Module):
-    def __init__(self, trunk_width=64, pass_through=64):
-        super(EncStage, self).__init__()
-        self.conv3  = L.Conv2d(192, 128, kernel_size=3, stride=1, padding=0)
-        self.drop1  = L.Dropout2d(p=0.5, inplace=False) ##
-        self.bn1    = L.BatchNorm2d(192, eps=1e-05, momentum=0.25, affine=True, track_running_stats=True) ##
-        self.pool1  = L.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        ##
-        self.tw = int(trunk_width)
-        self.pt = int(pass_through)
-        ss = (self.tw + self.pt)
-        self.conv4a  = TrunkBlock(128, ss)
-        self.conv5a  = TrunkBlock(ss, ss)
-        self.conv6a  = TrunkBlock(ss, ss)
-        self.conv4b  = TrunkBlock(ss, ss)
-        self.conv5b  = TrunkBlock(ss, ss)
-        self.conv6b  = TrunkBlock(ss, self.tw)
-        ##
-        I.xavier_normal_(self.conv3.weight, gain=I.calculate_gain('relu'))        
-        I.constant_(self.conv3.bias, 0.0)
-        
-    def forward(self, x):
-        c3 = (F.relu(self.conv3(self.drop1(self.bn1(x))), inplace=False))
-        c4a = self.conv4a(c3)
-        c4b = self.conv4b(c4a)
-        c5a = self.conv5a(self.pool1(c4b))
-        c5b = self.conv5b(c5a)
-        c6a = self.conv6a(c5b)
-        c6b = self.conv6b(c6a)
-
-        return [T.cat([c3, c4a[:,:self.tw], c4b[:,:self.tw]], dim=1), 
-                T.cat([c5a[:,:self.tw], c5b[:,:self.tw], c6a[:,:self.tw], c6b], dim=1)], c6b
-
-class Encoder(L.Module):
-    def __init__(self, mu, trunk_width, pass_through=64 ):
-        super(Encoder, self).__init__()
-        self.mu = L.Parameter(T.from_numpy(mu), requires_grad=False) #.to(device)
-        self.pre = PreFilter()
-        self.enc = EncStage(trunk_width, pass_through) 
-
-    def forward(self, x):
-        fmaps, h = self.enc(self.pre(x - self.mu))
-        return x, fmaps, h
-
-class Torch_LayerwiseFWRF(L.Module):
-    def __init__(self, fmaps, nv=1, pre_nl=None, post_nl=None, dtype=np.float32):
-        super(Torch_LayerwiseFWRF, self).__init__()
-        self.fmaps_shapes = [list(f.size()) for f in fmaps]
-        self.nf = np.sum([s[1] for s in self.fmaps_shapes])
-        self.pre_nl  = pre_nl
-        self.post_nl = post_nl
-        self.nv = nv
-        ##
-        self.rfs = []
-        self.sm = L.Softmax(dim=1)
-        for k,fm_rez in enumerate(self.fmaps_shapes):
-            rf = L.Parameter(T.tensor(np.ones(shape=(self.nv, fm_rez[2], fm_rez[2]), dtype=dtype), requires_grad=True))
-            self.register_parameter('rf%d'%k, rf)
-            self.rfs += [rf,]
-        #self.w  = L.Parameter(T.tensor(np.random.normal(0, 0.001, size=(self.nv, self.nf)).astype(dtype=dtype), requires_grad=True))
-        #self.b  = L.Parameter(T.tensor(np.full(fill_value=0.0, shape=(self.nv,), dtype=dtype), requires_grad=True))
-        self.w  = L.Parameter(T.tensor(np.random.normal(0, 0.01, size=(self.nv, self.nf)).astype(dtype=dtype), requires_grad=True))
-        self.b  = L.Parameter(T.tensor(np.random.normal(0, 0.01, size=(self.nv,)).astype(dtype=dtype), requires_grad=True))
-        
-    def forward(self, fmaps):
-        phi = []
-        for fm,rf in zip(fmaps, self.rfs): #, self.scales):
-            g = self.sm(T.flatten(rf, start_dim=1))
-            f = T.flatten(fm, start_dim=2)  # *s
-            if self.pre_nl is not None:          
-                f = self.pre_nl(f)
-            # fmaps : [batch, features, space]
-            # v     : [nv, space]
-            phi += [T.tensordot(g, f, dims=[[1],[2]]),] # apply pooling field and add to list.
-            # phi : [nv, batch, features] 
-        Phi = T.cat(phi, dim=2)
-        if self.post_nl is not None:
-            Phi = self.post_nl(Phi)
-        vr = T.squeeze(T.bmm(Phi, T.unsqueeze(self.w,2))).t() + T.unsqueeze(self.b,0)
-        return vr
-
+from model_zoo import Encoder, Torch_LayerwiseFWRF
 
 
 def subject_pred_pass(_pred_fn, _ext, _con, x, batch_size):
@@ -215,18 +99,8 @@ class GNet8_Encoder():
         # x size
         self.x_size = self.config["x_size"]
         
-        # File locations
-        
-        # 11838
-        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_Jan-25-2023_1316/'
-        #self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_Jan-25-2023_1316_11838/'
-        
-        # 15724
-        # self.joined_model_dir = '/export/raid1/home/styvesg/code/nsd_gnet8x/output/multisubject/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452/' 
-        self.joined_model_dir = os.getcwd() + '/src/gnet8j64t192_mpf_general_v2_Apr-21-2023_1452_15724/'
-        
         # Reload joined GNet model files
-        self.joined_checkpoint = torch.load(self.joined_model_dir + 'model_params_final', map_location=self.device)
+        self.joined_checkpoint = torch.load('models/gnet_multisubject', map_location=self.device)
         
         self.subjects = list(self.joined_checkpoint['voxel_mask'].keys())
         self.gnet8j_voxel_mask = self.joined_checkpoint['voxel_mask']
@@ -292,7 +166,7 @@ class GNet8_Encoder():
                                                       average=average,
                                                       big=True)
         if(ae):
-            AE = AutoEncoder(config="gnetAutoEncoder",
+            AE = AutoEncoder(config="gnet",
                              inference=True,
                              subject=self.subject,
                              device=self.device)
@@ -372,15 +246,6 @@ def main():
     
     #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
     GN = GNet8_Encoder(subject=1, device="cuda:3")
-    
-    # subj1_train = nsda.stim_descriptions[(nsda.stim_descriptions['subject1'] != 0)]
-    # data = []
-    # for i in tqdm(range(120), desc="loading in images"):
-        
-    #     nsdId = subj1_train.iloc[i]['nsdId']
-    #     ground_truth_np_array = nsda.read_images([nsdId], show=False)
-    #     ground_truth = Image.fromarray(ground_truth_np_array[0])
-    #     data.append(ground_truth)
     
     
     #AN.benchmark(average=False)

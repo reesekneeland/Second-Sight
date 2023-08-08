@@ -120,8 +120,8 @@ import cv2
 # # plt.legend(title='Players', title_fontsize = 13, labels=['L. Messi', 'Cristiano Ronaldo', 'K. De Bruyne', 'V. van Dijk', 'K. Mbappé'])
 # plt.savefig("charts/brain_correlation_plot_twin.png")
 
-Library_L2 = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_decoder_scores/c_img_uc_gnetEncoder_L2.npy")
-Library_PeC = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_decoder_scores/c_img_uc_gnetEncoder_PeC.npy")
+Library_L2 = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_assembler_scores/c_img_uc_gnetEncoder_L2.npy")
+Library_PeC = np.load("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/logs/library_assembler_scores/c_img_uc_gnetEncoder_PeC.npy")
 
 # print(Library_L2)
 # print(Library_PeC)
@@ -129,4 +129,4 @@ print(np.argmin(Library_L2[1:1000]))
 print(np.argmax(Library_PeC[1:1000]))
 
 plt.plot(Library_PeC[30:1000])
-plt.savefig("charts/Library_decoder_gnet_topn_1000_PeC.png")
+plt.savefig("charts/library_assembler_gnet_topn_1000_PeC.png")

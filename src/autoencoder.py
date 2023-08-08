@@ -8,85 +8,46 @@ import wandb
 import yaml
 from tqdm import tqdm
 from torchmetrics import PearsonCorrCoef
-
-    
-class MLP(torch.nn.Module):
-    def __init__(self, x_size):
-        super().__init__()
-        self.encoder = torch.nn.Sequential(
-            torch.nn.Linear(x_size, 5000),
-            torch.nn.ReLU(),
-            torch.nn.Linear(5000, 1000),
-            torch.nn.ReLU(),
-            torch.nn.Linear(1000, 500)
-        )
-         
-        self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(500, 1000),
-            torch.nn.ReLU(),
-            torch.nn.Linear(1000, 5000),
-            torch.nn.ReLU(),
-            torch.nn.Linear(5000, x_size)
-        )
- 
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        return decoded
+from model_zoo import AutoEncoderModel
+import argparse
 
 # Main Class    
 class AutoEncoder():
     def __init__(self, 
-                 config="clipAutoEncoder", # Set to one of the string headers in config.yml, ie: "clipDecoder"
-                 inference=False, 
-                 hashNum=None,
-                 vector=None,
-                 encoderHash=None,
+                 config="hybrid", #hybrid, gnet, or clip
+                 inference=False,
                  subject=1,
                  lr=0.00001,
+                 log=False,
                  batch_size=750,
                  device="cuda",
                  num_workers=4,
                  epochs=200,
-                 big = True
                  ):
         
-        assert (vector is not None and hashNum is not None) or inference
         self.subject = subject
+        self.config = config
         self.device = torch.device(device)
-        self.big = big
-        if self.big:
-            with open("config.yml", "r") as yamlfile:
-                self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
-        else:
-            with open("config_small_nsdgeneral.yml", "r") as yamlfile:
-                self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject][config]
         if inference:
-            self.hashNum = self.config["hashNum"]
-            self.vector = self.config["vector"]
             self.log = False
-            self.encoderModel = "{}_model_{}.pt".format(self.config["encoderHash"], self.vector)
         else:
-            self.hashNum = hashNum
-            self.vector = vector
-            self.log = True
-            if encoderHash is None:
-                self.encoderModel = "{}_model_{}.pt".format(self.config["encoderHash"], self.vector)
-            else:
-                self.encoderModel = "{}_model_{}.pt".format(encoderHash, self.vector)
+            self.log = log
             self.lr = lr
             self.batch_size = batch_size
             self.num_epochs = epochs
             self.num_workers = num_workers
+            if config == "clip":
+                self.vector = "c_i"
+            else:
+                self.vector = "images"
             # Initialize the data loaders
             self.trainLoader, self.valLoader, _ = load_nsd(vector=self.vector, 
                                                                 batch_size=self.batch_size, 
                                                                 num_workers=self.num_workers, 
                                                                 ae=True,
-                                                                encoderModel=self.encoderModel,
                                                                 average=False,
-                                                                subject=self.subject,
-                                                                big=self.big)
+                                                                encoderModel=self.config,
+                                                                subject=self.subject)
              # Initializes Weights and Biases to keep track of experiments and training runs
             if(self.log):
                 wandb.init(
@@ -94,21 +55,18 @@ class AutoEncoder():
                     project="Autoencoder",
                     # track hyperparameters and run metadata
                     config={
-                    "hash": self.hashNum,
-                    "architecture": "Autoencoder",
-                    "encoder Hash": encoderHash,
                     "subject": self.subject,
-                    "vector": self.vector,
-                    "dataset": "Whole region visual cortex",
+                    "config": self.config,
                     "epochs": self.num_epochs,
                     "learning_rate": self.lr,
                     "batch_size:": self.batch_size,
                     "num_workers": self.num_workers
                     }
                 )
-        self.x_size = self.config["x_size"]
+        subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
+        self.x_size = subject_sizes[self.subject]
         # Initialize the Pytorch model class
-        self.model = MLP(self.x_size)
+        self.model = AutoEncoderModel(self.x_size)
         # Send model to Pytorch Device 
         self.model.to(self.device)
     
@@ -205,7 +163,7 @@ class AutoEncoder():
             # Early stopping
             if(best_loss == -1.0 or test_loss < best_loss):
                 best_loss = test_loss
-                torch.save(self.model.state_dict(), "models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector))
+                torch.save(self.model.state_dict(), "models/sub0{subject}_{config}_autoencoder.pt".format(subject=self.subject, config=self.config))
                 loss_counter = 0
             else:
                 loss_counter += 1
@@ -216,7 +174,7 @@ class AutoEncoder():
                 wandb.finish()
             
     def predict(self, x):
-        self.model.load_state_dict(torch.load("models/subject{subject}/{hash}_model_{vec}.pt".format(subject=self.subject, hash=self.hashNum, vec=self.vector), map_location=self.device))
+        self.model.load_state_dict(torch.load("models/sub0{subject}_{config}_autoencoder.pt".format(subject=self.subject, config=self.config), map_location=self.device))
         self.model.eval()
         self.model.to(self.device)
         out = self.model(x.to(self.device)).to(self.device)
@@ -228,15 +186,13 @@ class AutoEncoder():
                                         batch_size=self.batch_size, 
                                         num_workers=self.num_workers, 
                                         ae=True,
-                                        encoderModel=self.encoderModel,
+                                        encoderModel=self.config,
                                         average=average,
-                                        subject=self.subject,
-                                        big=self.big)
+                                        subject=self.subject)
         datasize = len(self.testLoader.dataset)
         out = torch.zeros((datasize,self.x_size))
         target = torch.zeros((datasize, self.x_size))
-        modelId = "{hash}_model_{vec}.pt".format(hash=self.hashNum, vec=self.vector)
-        self.model.load_state_dict(torch.load("models/subject{}/{}".format(self.subject, modelId)))
+        self.model.load_state_dict(torch.load("models/sub0{subject}_{config}_autoencoder.pt".format(subject=self.subject, config=self.config)))
         self.model.eval()
         self.model.to(self.device)
 
@@ -281,12 +237,81 @@ class AutoEncoder():
             r.append(PeC(out[:,p], target[:,p]))
         r = np.array(r)
         
-        print("Model ID: {}, Subject: {}, Averaged: {}, Encoded Pass: {}".format(modelId, self.subject, average, encodedPass))
+        print("Model: {} Autoencoder, Subject: {}, Averaged: {}, Encoded Pass: {}".format(self.config, self.subject, average, encodedPass))
         print("Vector Correlation: ", float(pearson_loss))
         print("Mean Pearson: ", np.mean(r))
         print("Loss: ", float(loss))
         plt.hist(r, bins=40, log=True)
-        plt.savefig("charts/{hash}_{vec}_pearson_histogram_autoencoder.png".format(hash=self.hashNum, vec=self.vector))
+        plt.savefig("data/charts/subject{}_{}_autoencoder_pearson_correlation.png".format(self.subject, self.config))
         
 
+if __name__ == "__main__":
+     # Create the parser and add arguments
+    parser = argparse.ArgumentParser()
     
+    parser.add_argument(
+        '--subjects', 
+        help="list of subjects to train models for, if not specified, will run on all subjects",
+        type=list,
+        default=[1, 2, 5, 7])
+    parser.add_argument(
+        '--configs', 
+        help="list of autoencoder configs to train models for, if not specified, will run on all configs",
+        type=list,
+        default=["gnet", "clip", "hybrid"])
+    
+    parser.add_argument(
+        "--batch_size", type=int, default=64,
+        help="Batch size for training",
+    )
+    parser.add_argument(
+        "--log",
+        help="whether to log to wandb",
+        type=bool,
+        default=False,
+    )
+    parser.add_argument(
+        "--num_epochs",
+        help="number of epochs of training",
+        type=int,
+        default=200,
+    )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-5,
+    )
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=4,
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda:0",
+    )
+    parser.add_argument(
+        "--benchmark",
+        help="run benchmark on each autoencoder model after it finishes training.",
+        type=bool,
+        default=True,
+    )
+    args = parser.parse_args()
+    
+    
+    for sub in args.subjects:
+        for config in args.configs:
+            AE = AutoEncoder(config=config,
+                        inference=False,
+                        subject=sub,
+                        lr=args.lr,
+                        log=args.log,
+                        batch_size=args.batch_size,
+                        device=args.device,
+                        num_workers=args.num_workers,
+                        epochs=args.num_epochs)
+            AE.train()
+            if(args.benchmark):
+                AE.benchmark(encodedPass=False, average=False)
+                AE.benchmark(encodedPass=False, average=True)
