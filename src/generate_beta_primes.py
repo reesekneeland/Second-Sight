@@ -14,11 +14,14 @@ from stochastic_search  import StochasticSearch
 
 
 def generate_beta_primes(subjects, device):
-    models = ["clip", "gnet", "hybrid"]
+    models = ["hybrid", "clip", "gnet"]
     # Load in the training dataframe to select the correct predicted betas for for that subject. 
     stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
-
+    vectors = {"clip": torch.load("data/preprocessed_data/c_73k.pt").cpu(),
+               "gnet": torch.load("data/preprocessed_data/images_73k.pt").cpu(),
+               "hybrid": torch.load("data/preprocessed_data/images_73k.pt").cpu()}
+    
     with torch.no_grad():
         for subject in subjects:
             print("Processing subject {}".format(subject))
@@ -28,17 +31,13 @@ def generate_beta_primes(subjects, device):
                     model = CLIPEncoder(inference=True,
                             subject=subject,
                             device=device)
-                    coco_vector = torch.load("data/preprocessed_data/{}_73k.pt".format("c"))
                 elif modelType == "gnet":
                     model = GNet8_Encoder(device=device,
                                     subject=subject)
-                    coco_vector = torch.load("data/preprocessed_data/{}_73k.pt".format("images"))
                 elif modelType == "hybrid":
-                    model = StochasticSearch(modelParams=["gnetEncoder", "clipEncoder"],
+                    model = StochasticSearch(modelParams=["gnet", "clip"],
                                         subject=subject,
                                         device=device)
-                    coco_vector = torch.load("data/preprocessed_data/{}_73k.pt".format("images"))
-            
             
                 # Create the empty tensor for that vector. 
                 coco_preds = torch.zeros((73000, subject_sizes[subject]))
@@ -46,19 +45,17 @@ def generate_beta_primes(subjects, device):
                 subjx = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0)]
                 
                 # Calculate predictions for all the images with the encoders predict function. 
-                for i in tqdm(range(4), desc="predicting images"):
+                for i in tqdm(range(100), desc="predicting image batches"):
                     
-                    coco_preds[18250*i:18250*i + 18250] = model.predict(coco_vector[18250*i:18250*i + 18250]).cpu()
+                    coco_preds[730*i:730*i + 730] = model.predict(vectors[modelType][730*i:730*i + 730]).cpu()
             
                 # Save the tensor of predictions to the correct subject. 
                 torch.save(coco_preds, "data/preprocessed_data/subject{}/{}_coco_beta_primes.pt".format(subject, modelType))
                 
                 # Create the tensor of beta primes for that subject. 
-                for index in tqdm(range(0, 27750), desc="vector loader subject{}".format(subject)):
+                for i in tqdm(range(0, 27750), desc="vector loader subject{}".format(subject)):
                     scanId = int(subjx.loc[(subjx['subject{}_rep0'.format(subject)] == i+1) | (subjx['subject{}_rep1'.format(subject)] == i+1) | (subjx['subject{}_rep2'.format(subject)] == i+1)].nsdId)
-                    coco_ae_preds[index] = coco_preds[scanId]
-                    coco_ae_preds[index] = coco_preds[scanId]
-                    coco_ae_preds[index]  = coco_preds[scanId]
+                    coco_ae_preds[i] = coco_preds[scanId]
                 
                 # Save the specific beta primes for that subject.      
                 torch.save(coco_ae_preds,  "data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, modelType))

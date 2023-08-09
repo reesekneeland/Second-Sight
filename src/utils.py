@@ -63,7 +63,6 @@ def read_images(image_index, show=False):
 #    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
 
 def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False):
-    nsd_general = "nsd_general.pt"
     if(ae):
         assert encoderModel is not None
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
