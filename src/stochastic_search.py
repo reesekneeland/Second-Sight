@@ -22,6 +22,7 @@ class StochasticSearch():
                 device="cuda:0",
                 subject=1,
                 log=False, # flag to save all the intermediate images, beta_primes, clip vectors, and strength values. Used for ablation studies.
+                ae = True,
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
@@ -33,26 +34,29 @@ class StochasticSearch():
             self.modelParams = modelParams
             self.EncModels = []
             self.log = log
+            self.ae = ae
             self.device = device
             self.n_iter = n_iter
             self.n_samples = n_samples
             self.n_branches = n_branches
             self.vector = "images"
             if not disable_SD:
-                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16, variation="fp16").to(self.device)
+                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16).to(self.device)
             
             
-            # Hybrid encoder
-            if len(modelParams)>1:
-                self.AEModel = AutoEncoder(config="hybrid",
-                                                    inference=True,
-                                                    subject=self.subject,
-                                                    device=self.device)
-            else:
-                self.AEModel = AutoEncoder(config=modelParams[0],
-                                                    inference=True,
-                                                    subject=self.subject,
-                                                    device=self.device)
+            # Configure AutoEncoders
+            if(self.ae):
+                if len(modelParams)>1:
+                    # Hybrid encoder
+                    self.AEModel = AutoEncoder(config="hybrid",
+                                                        inference=True,
+                                                        subject=self.subject,
+                                                        device=self.device)
+                else:
+                    self.AEModel = AutoEncoder(config=modelParams[0],
+                                                        inference=True,
+                                                        subject=self.subject,
+                                                        device=self.device)
             for param in modelParams:
                 if param == "gnet":
                     self.EncModels.append(GNet8_Encoder(device=self.device,
@@ -69,7 +73,7 @@ class StochasticSearch():
             img_tensor = torch.zeros((len(x), 425, 425, 3))
             for i, sample in enumerate(x):
                 image = sample.resize((425, 425))
-                img_tensor[i] = pil_to_tensor(image)
+                img_tensor[i] = pil_to_tensor(image).reshape((425, 425, 3))
             x = img_tensor
         x = x.reshape((x.shape[0], 425, 425, 3))
 
@@ -122,7 +126,7 @@ class StochasticSearch():
             plt.hist(r, bins=50, log=True)
             plt.savefig("data/charts/subject{}_hybrid_encoder_pearson_correlation.png".format(self.subject))
 
-    def generateNSamples(self, image, c_i, n, strength=1):
+    def generateNSamples(self, image, c_i, n, strength=1.0):
         images = []
         for i in range(n):
             im = self.R.reconstruct(image=image,
@@ -170,57 +174,67 @@ class StochasticSearch():
     def search(self, sample_path, beta, c_i, init_img=None):
         with torch.no_grad():
             # Initialize search variables
-            best_image, best_clip, cur_clip = init_img, c_i, c_i
-            init_clip = [c_i] * self.n_branches
+            best_image, c_i, best_distribution_score = init_img, c_i, -1
             iter_images, iter_scores = [], []
-            best_search_score, best_distribution_score = -1, -1
-            
+            pbar = tqdm(total=self.n_iter, desc="Search iterations")
             # Prepare beta as search target
             beta = self.denoise(beta)
             
-            # Iteration 0
+            # Generate iteration 0
             iteration_samples = self.generateNSamples(image=init_img, 
                                                     c_i=c_i,  
                                                     n=self.n_samples,  
-                                                    strength=0.92-0.30*(1/self.n_iter, 3))
-            # Update best image
+                                                    strength=0.92-0.30*math.pow(1/self.n_iter, 3))
+            # Score iteration 0
             iteration_scores, iteration_clips = self.score_samples(beta, iteration_samples, save_path=sample_path + "/iter_0/")
             
-            # Iteration loop
-            for i in tqdm(range(1, self.n_iter), desc="search iterations"):
+            #Update best image and iteration images from iteration 0
+            if float(torch.mean(iteration_scores)) > best_distribution_score:
+                best_distribution_score = float(torch.mean(iteration_scores))
+                best_image = iteration_samples[int(torch.argmax(iteration_scores))]
+                c_i = slerp(c_i, iteration_clips[int(torch.argmax(iteration_scores))], 0.2*(math.pow(1/self.n_iter, 2)))
+            iter_scores.append(best_distribution_score)
+            iter_images.append(best_image)
+            
+            best_distribution_params = {
+                                        "images":iteration_samples,
+                                        "clip":c_i,
+                                        "z_img": init_img,
+                                        "strength": 0.92-0.30*math.pow(1/self.n_iter, 3)}
+            pbar.update(1)
+            # Iteration >0 loop
+            for i in range(1, self.n_iter):
                 # Initalize parameters for iteration
                 strength = 0.92-0.30*(math.pow((i+1)/self.n_iter, 3))
                 momentum = 0.2*(math.pow((i+1)/self.n_iter, 2))
                 n_i = max(10, int((self.n_samples/self.n_branches)*strength))
                 
+                # Save
+                iter_path = "{}iter_{}/".format(sample_path, i)
+                best_batch_path = "{}best_batch/".format(iter_path)
                 if(self.log):
-                    iter_path = "{}iter_{}/".format(sample_path, i)
                     os.makedirs(iter_path, exist_ok=True)
+                    os.makedirs(best_batch_path, exist_ok=True)
                     torch.save(torch.tensor(strength), iter_path+"iter_strength.pt")
                 
-                #Update best image and iteration images
-                if float(torch.max(iteration_scores)) > best_search_score:
-                    best_search_score = float(torch.max(iteration_scores))
-                    best_image = iteration_samples[int(torch.argmax(iteration_scores))]
-                    c_i = slerp(c_i, iteration_clips[int(torch.argmax(iteration_scores))], momentum)
-                iter_scores.append(best_search_score)
-                iter_images.append(best_image)
-                
                 # Update seeds from previous iteration
-                z_seeds = iteration_samples[torch.topk(iteration_scores, self.n_branches).indices]
-                clip_seeds = [slerp(c_i, c_prev, momentum) for c_prev in iteration_clips[torch.topk(iteration_scores, self.n_branches).indices]]
+                seed_indices = torch.topk(iteration_scores, self.n_branches).indices.tolist()
+                z_seeds = [iteration_samples[seed] for seed in seed_indices]
+                clip_seeds = [slerp(c_i, iteration_clips[seed], momentum) for seed in seed_indices]
                 if not best_image not in z_seeds:
                     z_seeds.append(best_image)
-                    clip_seeds.append(best_clip)
+                    clip_seeds.append(c_i)
                 
                 # Make image batches
                 tqdm.write("Strength: {}, Momentum: {}, N: {}".format(strength, momentum, n_i))
-                iteration_samples, iteration_clips, iteration_scores, best_iteration_score = [], [], 0
+                iteration_samples, iteration_clips, iteration_scores, = [], [], []
+                # best_batch_samples, best_batch_clips, best_batch_scores = None, None, None
+                best_batch_score = 0
                 for b in range(len(z_seeds)):
                     #Generate and save batch clip
-                    branch_clip = slerp(cur_clip, clip_seeds[b], momentum)
+                    branch_clip = slerp(c_i, clip_seeds[b], momentum)
+                    batch_path = "{}/batch_{}/".format(iter_path, b)
                     if(self.log):
-                        batch_path = "{}/batch_{}/".format(iter_path, b)
                         os.makedirs(batch_path, exist_ok=True)
                         torch.save(branch_clip, batch_path+"batch_clip.pt")
                         
@@ -232,67 +246,48 @@ class StochasticSearch():
                     #Score batch samples
                     batch_scores, batch_clips = self.score_samples(beta, batch_samples, batch_path)
                     
-                    if torch.mean(batch_scores) > best_iteration_score:
-                        iteration_scores = batch_scores
-                        iteration_samples = batch_samples
+                    # Keep track of best batch for logging
                     
-                    best_batch_images.append(batch_samples[int(torch.argmax(batch_scores))])
-                    average_batch_scores.append(float(torch.mean(batch_scores)))
-                    best_batch_scores.append(float(torch.max(batch_scores)))
-                    #Append scores, samples, and clips to iteration lists
-                    scores.append(batch_scores)
-                    samples += batch_samples
-                    sample_clips += batch_clips
-                if i > 0:
-                    if not best_image not in z_seeds:
-                        #Create batch directory
-                        batch_count +=1
-                        batch_path = "{}/batch_{}/".format(iter_path, self.n_branches+1)
-                        os.makedirs(batch_path, exist_ok=True)
-                        tqdm.write("Adding best image and clip to branches!")
-                        #Save branch clip
+                    if torch.mean(batch_scores) > best_batch_score:
+                        best_batch_score = torch.mean(batch_scores)
+                        best_batch_scores = batch_scores
+                        best_batch_samples = batch_samples
+                        best_batch_clips = batch_clips
+                        # Create symlink from current batch folder to "best_batch" folder for easy traversing later
                         if(self.log):
-                            torch.save(cur_clip, batch_path+"batch_clip.pt")
-                        branch_clips.append(cur_clip)
-                        samples += self.generateNSamples(save_path=batch_path,
-                                                        image=best_image, 
-                                                        c_i=cur_clip,
-                                                        n=n_i,  
-                                                        strength=strength,
-                                                        noise_level=noise)
-                        #Score batch samples
-                        batch_scores, batch_clips = self.score_samples(beta, batch_samples, batch_path)
-                        best_batch_images.append(batch_samples[int(torch.argmax(batch_scores))])
-                        best_batch_scores.append(float(torch.max(batch_scores)))
-                        average_batch_scores.append(float(torch.mean(batch_scores)))
-                        #Append scores, samples, and clips to iteration lists
-                        scores.append(batch_scores)
-                        samples += batch_samples
-                        sample_clips += batch_clips
-                        
-                scores = torch.concat(scores, dim=0)
-                #Set branches for next iteration based on top scores from this iteration, ignoring batches
-                topn_pearson = torch.topk(scores, self.n_branches)
-                for i in range(self.n_branches):
-                    init_images[i] = samples[int(topn_pearson.indices[i])]
-                    init_clip[i] = sample_clips[int(topn_pearson.indices[i])]
-                best_batch_index = int(np.argmax(average_batch_scores))
-                best_batch_corrrelation = float(best_batch_scores[best_batch_index])
-                if(self.log):
-                    torch.save(torch.tensor(best_batch_index), "{}/best_batch_index.pt".format(iter_path))
-                tqdm.write("BC: {}".format(best_batch_corrrelation))
+                            try:
+                                os.symlink(batch_path, best_batch_path, target_is_directory=True)
+                            except:
+                                os.remove(best_batch_path)
+                                os.symlink(batch_path, best_batch_path, target_is_directory=True)
+                            
+                    # Keep track of all batches in iteration for updating seeds
+                    iteration_samples += batch_samples
+                    iteration_scores.append(batch_scores)
+                    iteration_clips.append(batch_clips)
+                    
+                    #Update best image and iteration images
+                    if torch.mean(batch_scores) > best_distribution_score:
+                        best_distribution_score = torch.mean(best_batch_scores)
+                        best_image = best_batch_samples[int(torch.argmax(best_batch_scores))]
+                        c_i = slerp(c_i, best_batch_clips[int(torch.argmax(best_batch_scores))], momentum)
+                        best_distribution_params = {
+                                        "images":batch_samples,
+                                        "clip":branch_clip,
+                                        "z_img": z_seeds[b],
+                                        "strength": strength}
                 
-                iter_images.append(best_batch_images[int(best_batch_index)])
-                iter_scores.append(best_batch_corrrelation)
-                var_scores.append(float(torch.var(scores)))
+                # Concatenate scores and clips from each batch to be sorted for seeding the next iteration
+                iteration_scores = torch.concat(iteration_scores)
+                iteration_clips = torch.concat(iteration_clips)
+                print(iteration_scores.shape, iteration_clips.shape)
                 
-                if best_batch_corrrelation > best_search_score or best_search_score == -1:
-                    best_search_score = best_batch_corrrelation
-                    best_image = best_batch_images[best_batch_index]
-                    best_clip = branch_clips[best_batch_index]
-                    cur_clip = slerp(cur_clip, best_clip, momentum)
-            
-        return best_image, iter_images, iter_scores, var_scores
+                iter_scores.append(best_distribution_score)
+                iter_images.append(best_image)
+                pbar.update(1)
+                tqdm.write("BC: {}".format(best_distribution_score))
+            pbar.close()
+        return best_image, best_distribution_params, iter_images, iter_scores
 
 
     

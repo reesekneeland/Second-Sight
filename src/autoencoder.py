@@ -252,13 +252,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--subjects', 
         help="list of subjects to train models for, if not specified, will run on all subjects",
-        type=list,
-        default=[1, 2, 5, 7])
+        type=str,
+        default="1,2,5,7")
     parser.add_argument(
         '--configs', 
         help="list of autoencoder configs to train models for, if not specified, will run on all configs",
         type=list,
-        default=["gnet", "clip", "hybrid"])
+        default=["gnet,clip,hybrid"])
     
     parser.add_argument(
         "--batch_size", type=int, default=64,
@@ -298,7 +298,8 @@ if __name__ == "__main__":
         default=True,
     )
     args = parser.parse_args()
-    
+    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
+    configs_list = [int(sub) for sub in args.configs.strip().split(",")]
     
     for sub in args.subjects:
         for config in args.configs:

@@ -36,7 +36,7 @@ if __name__ == "__main__":
                         default="cuda:0")
 
     args = parser.parse_args()
-    subject_list = [int(sub) for sub in args.subjects.split(",")]
+    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
     if args.downloadnsd:
         download_nsd(subjects = subject_list)
     
