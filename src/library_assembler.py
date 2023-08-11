@@ -141,6 +141,6 @@ if __name__ == "__main__":
     LD_v = LibraryAssembler(configList=["gnet"],
                         subject=subject,
                         ae=True,
-                        mask=torch.load("data/subject{}/masks/early_vis.pt".format(subject)),
+                        mask=torch.load("data/preprocessed_data/subject{}/masks/early_vis.pt".format(subject)),
                         device=device)
     LD_v.benchmark(vector="z_vdvae")
