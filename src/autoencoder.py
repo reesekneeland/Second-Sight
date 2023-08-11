@@ -19,7 +19,7 @@ class AutoEncoder():
                  subject=1,
                  lr=0.00001,
                  log=False,
-                 batch_size=750,
+                 batch_size=64,
                  device="cuda",
                  num_workers=4,
                  epochs=200,
@@ -37,7 +37,7 @@ class AutoEncoder():
             self.num_epochs = epochs
             self.num_workers = num_workers
             if config == "clip":
-                self.vector = "c_i"
+                self.vector = "c"
             else:
                 self.vector = "images"
             # Initialize the data loaders

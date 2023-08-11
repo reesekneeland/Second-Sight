@@ -1,5 +1,3 @@
-import os, sys
-#os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 import torch
 import torch as T
 import matplotlib.pyplot as plt
@@ -8,7 +6,6 @@ from PIL import Image
 from utils import *
 from autoencoder import AutoEncoder
 import time
-import yaml
 from torchmetrics import PearsonCorrCoef
 from model_zoo import Encoder, Torch_LayerwiseFWRF
 
@@ -81,23 +78,17 @@ class GNet8_Encoder():
         
         # Setting up Cuda
         torch.manual_seed(time.time())
-        self.device = torch.device(device) #cuda
+        self.device = torch.device(device)
         torch.backends.cudnn.enabled=True
         # Subject number
         self.subject = subject
         
-        # Config info
-        with open("config.yml", "r") as yamlfile:
-            self.config = yaml.load(yamlfile, Loader=yaml.FullLoader)[self.subject]["gnetEncoder"]
-        
-        # Hash number 
-        self.hashNum = self.config["hashNum"]
-        
         # Vector type
-        self.vector = self.config["vector"]
+        self.vector = "images"
         
         # x size
-        self.x_size = self.config["x_size"]
+        subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
+        self.x_size = subject_sizes[self.subject]
         
         # Reload joined GNet model files
         self.joined_checkpoint = torch.load('models/gnet_multisubject', map_location=self.device)
@@ -154,9 +145,7 @@ class GNet8_Encoder():
         self.stim_data[self.subject] = np.moveaxis(np.array(data), 3, 1)
 
         gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, mask, batch_size=100, device=self.device)
-        
-        # print(gnet8j_image_pred)
-        # print(gnet8j_image_pred[self.subject].shape)
+
         return torch.from_numpy(gnet8j_image_pred[self.subject])
       
     def benchmark(self, average=True, ae=False):
@@ -244,46 +233,11 @@ class GNet8_Encoder():
         
 def main():
     
-    #GN = GNet8_Encoder(subject=7, hashNum=update_hash())
     GN = GNet8_Encoder(subject=1, device="cuda:3")
     
-    
-    #AN.benchmark(average=False)
     GN.benchmark(average=False, ae=False)
     GN.benchmark(average=True, ae=False)
-    # GN.benchmark(average=False, ae=True)
-    # GN.benchmark(average=True, ae=True)
-    # subjects = [5,7]
-    # for subject in subjects:
-    #     GN = GNet8_Encoder(subject=subject, device="cuda:1")
-    #     process_x_encoded(Encoder=GN)
-    #     GN.score_voxels(average=False)
-    #     GN.benchmark(average=False, ae=False)
-    #     GN.benchmark(average=True, ae=False)
-        # GN.benchmark(average=False, ae=True)
-        # GN.benchmark(average=True, ae=True)
-    # GN = GNet8_Encoder(subject=2, device="cuda:2")
-    # GN.score_voxels(average=False)
-    # GN = GNet8_Encoder(subject=5, device="cuda:2")
-    # GN.score_voxels(average=False)
-    # GN = GNet8_Encoder(subject=7, device="cuda:2")
-    # GN.score_voxels(average=False)
-    
-    # mask_path = "masks/subject1/"
-    # masks = {0:torch.full((11838,), False),
-    #             1:torch.load(mask_path + "V1.pt"),
-    #             2:torch.load(mask_path + "V2.pt"),
-    #             3:torch.load(mask_path + "V3.pt"),
-    #             4:torch.load(mask_path + "V4.pt"),
-    #             5:torch.load(mask_path + "early_vis.pt"),
-    #             6:torch.load(mask_path + "higher_vis.pt")}  
-    
-    # print(type(masks[1]))
-    # print(torch.sum(masks[1] == True))
-    # GN.predict(data, masks[1])
-    
-    # process_x_encoded(Encoder=GN)
-           
+
         
 if __name__ == "__main__":
     main()

@@ -50,12 +50,17 @@ if __name__ == "__main__":
         for sub in subject_list:
             encModel = CLIPEncoder(subject=sub, device=args.device, log=False)
             encModel.train()
+            encModel.benchmark(average=False)
+            encModel.benchmark(average=True)
 
     generate_beta_primes(subjects=subject_list, device=args.device)
-
+    
     if args.train:
         for sub in subject_list:
-            autoEncModel = AutoEncoder(subject=sub, device=args.device, log=False)
-            autoEncModel.train()
+            for config in ["hybrid", "clip", "gnet"]:
+                autoEncModel = AutoEncoder(config=config, subject=sub, device=args.device, log=False)
+                autoEncModel.train()
+                autoEncModel.benchmark(encodedPass=False, average=False)
+                autoEncModel.benchmark(encodedPass=False, average=True)
 
 
