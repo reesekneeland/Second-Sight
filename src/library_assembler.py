@@ -32,19 +32,12 @@ class LibraryAssembler():
 
             self.y_indices = get_pruned_indices(subject=self.subject)
 
-            for param in self.configList:
-                if param == "gnet":
-                    if self.ae:
-                        self.AEModels.append(AutoEncoder(config="gnet",
-                                                        inference=True,
-                                                        subject=self.subject,
-                                                        device=self.device))
-                elif param == "clip":
-                    if self.ae:
-                        self.AEModels.append(AutoEncoder(config="clip",
-                                                        inference=True,
-                                                        subject=self.subject,
-                                                        device=self.device))
+            if self.ae:
+                for param in self.configList:
+                    self.AEModels.append(AutoEncoder(config=param,
+                                                    inference=True,
+                                                    subject=self.subject,
+                                                    device=self.device))
             self.x_preds = []
             for model in self.configList:
                 modelPreds = torch.load("data/preprocessed_data/subject{}/{}_coco_beta_primes.pt".format(self.subject, model), map_location=self.device)

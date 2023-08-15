@@ -392,37 +392,32 @@ def remove_heldout_indices(idx, scanId_sorted=True):
     return converted_indices
 
 
-def read_images(self, image_index, show=False):
-    """read_images reads a list of images, and returns their data
+def read_images(image_index, show=False):
+        """read_images reads a list of images, and returns their data
 
-    Parameters
-    ----------
-    image_index : list of integers
-        which images indexed in the 73k format to return
-    show : bool, optional
-        whether to also show the images, by default False
+        Parameters
+        ----------
+        image_index : list of integers
+            which images indexed in the 73k format to return
+        show : bool, optional
+            whether to also show the images, by default False
 
-    Returns
-    -------
-    numpy.ndarray, 3D
-        RGB image data
-    """
+        Returns
+        -------
+        numpy.ndarray, 3D
+            RGB image data
+        """
 
-    if not hasattr(self, 'stim_descriptions'):
-        self.stim_descriptions = pd.read_csv(
-            self.stimuli_description_file, index_col=0)
-
-    sf = h5py.File(self.stimuli_file, 'r')
-    sdataset = sf.get('imgBrick')
-    if show:
-        f, ss = plt.subplots(1, len(image_index),
-                                figsize=(6*len(image_index), 6))
-        if len(image_index) == 1:
-            ss = [ss]
-        for s, d in zip(ss, sdataset[image_index]):
-            s.axis('off')
-            s.imshow(d)
-        ss.close()
-    return sdataset[image_index]
+        sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
+        sdataset = sf.get('imgBrick')
+        if show:
+            f, ss = plt.subplots(1, len(image_index),
+                                 figsize=(6*len(image_index), 6))
+            if len(image_index) == 1:
+                ss = [ss]
+            for s, d in zip(ss, sdataset[image_index]):
+                s.axis('off')
+                s.imshow(d)
+        return sdataset[image_index]
 
 

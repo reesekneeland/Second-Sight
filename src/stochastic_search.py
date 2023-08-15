@@ -142,7 +142,7 @@ class StochasticSearch():
         if(self.log):
             os.makedirs(save_path + "beta_primes/", exist_ok=True)
             os.makedirs(save_path + "images/", exist_ok=True)
-            for im in images:
+            for i, im in enumerate(images):
                 im.save(save_path + "images/{}.png".format(i))
             for i in range(beta_primes.shape[0]):
                 torch.save(beta_primes[i], "{}/beta_primes/{}.pt".format(save_path, i))
@@ -185,8 +185,17 @@ class StochasticSearch():
                                                     c_i=c_i,  
                                                     n=self.n_samples,  
                                                     strength=0.92-0.30*math.pow(1/self.n_iter, 3))
+            
+            iter_path = "{}iter_0/".format(sample_path)
+            best_batch_path = "{}best_batch".format(iter_path)
+            if(self.log):
+                os.makedirs(iter_path, exist_ok=True)
+                relpath = os.path.relpath(iter_path, best_batch_path)
+                if os.path.islink(best_batch_path):
+                    os.unlink(best_batch_path)
+                os.symlink(relpath, best_batch_path, target_is_directory=True)
             # Score iteration 0
-            iteration_scores, iteration_clips = self.score_samples(beta, iteration_samples, save_path=sample_path + "/iter_0/")
+            iteration_scores, iteration_clips = self.score_samples(beta, iteration_samples, save_path=iter_path)
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -211,10 +220,9 @@ class StochasticSearch():
                 
                 # Save
                 iter_path = "{}iter_{}/".format(sample_path, i)
-                best_batch_path = "{}best_batch/".format(iter_path)
+                best_batch_path = "{}best_batch".format(iter_path)
                 if(self.log):
                     os.makedirs(iter_path, exist_ok=True)
-                    os.makedirs(best_batch_path, exist_ok=True)
                     torch.save(torch.tensor(strength), iter_path+"iter_strength.pt")
                 
                 # Update seeds from previous iteration
@@ -229,7 +237,7 @@ class StochasticSearch():
                 tqdm.write("Strength: {}, Momentum: {}, N: {}".format(strength, momentum, n_i))
                 iteration_samples, iteration_clips, iteration_scores, = [], [], []
                 # best_batch_samples, best_batch_clips, best_batch_scores = None, None, None
-                best_batch_score = 0
+                best_batch_score = -1
                 for b in range(len(z_seeds)):
                     #Generate and save batch clip
                     branch_clip = slerp(c_i, clip_seeds[b], momentum)
@@ -255,11 +263,10 @@ class StochasticSearch():
                         best_batch_clips = batch_clips
                         # Create symlink from current batch folder to "best_batch" folder for easy traversing later
                         if(self.log):
-                            try:
-                                os.symlink(batch_path, best_batch_path, target_is_directory=True)
-                            except:
-                                os.remove(best_batch_path)
-                                os.symlink(batch_path, best_batch_path, target_is_directory=True)
+                            relpath = os.path.relpath(batch_path, best_batch_path)
+                            if os.path.islink(best_batch_path):
+                                os.unlink(best_batch_path)
+                            os.symlink(relpath, best_batch_path, target_is_directory=True)
                             
                     # Keep track of all batches in iteration for updating seeds
                     iteration_samples += batch_samples
@@ -268,9 +275,9 @@ class StochasticSearch():
                     
                     #Update best image and iteration images
                     if torch.mean(batch_scores) > best_distribution_score:
-                        best_distribution_score = torch.mean(best_batch_scores)
-                        best_image = best_batch_samples[int(torch.argmax(best_batch_scores))]
-                        c_i = slerp(c_i, best_batch_clips[int(torch.argmax(best_batch_scores))], momentum)
+                        best_distribution_score = torch.mean(batch_scores)
+                        best_image = batch_samples[int(torch.argmax(batch_scores))]
+                        c_i = slerp(c_i, batch_clips[int(torch.argmax(batch_scores))], momentum)
                         best_distribution_params = {
                                         "images":batch_samples,
                                         "clip":branch_clip,

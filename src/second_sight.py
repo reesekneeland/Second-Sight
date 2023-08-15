@@ -24,14 +24,12 @@ if __name__ == "__main__":
     
     parser.add_argument('-l',
                         '--log', 
-                        help="boolean flag, if true, will save all intermediate images for each iteration of the algorithm, as well as intermediate encoded brain scans. WARNING: This saves a lot of data, only enable if you have terabytes of disk space to throw at it.",
-                        type=bool,
-                        default=False)
+                        help="boolean flag, if passed, will save all intermediate images for each iteration of the algorithm, as well as intermediate encoded brain scans. WARNING: This saves a lot of data, only enable if you have terabytes of disk space to throw at it.",
+                        action='store_true')
     
-    parser.add_argument('--ae', 
-                        help="boolean flag, if true, will use the denoised betas passed through an autoencoder as the search target, will use original betas if false",
-                        type=bool,
-                        default=True)
+    parser.add_argument('--noae', 
+                        help="boolean flag, if passed, will use original betas instead of the denoised betas passed through an autoencoder as the search target",
+                        action='store_true')
     
     parser.add_argument('-s',
                         '--subjects', 
@@ -66,10 +64,16 @@ if __name__ == "__main__":
     
     subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
     idx_list = [int(sub) for sub in args.idx.strip().split(",")]
-    
+    print(idx_list)
+    if(args.noae):
+        ae = False
+    else:
+        ae = True
+        
     for subject in subject_list:
         with torch.no_grad():
-            os.makedirs("{}/subject{}/".format(args.output, subject), exist_ok=True)
+            subject_path = "{}subject{}/".format(args.output, subject)
+            os.makedirs(subject_path, exist_ok=True)
             # Load data and targets
             _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
             _, _, x_test_avg, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
@@ -83,7 +87,7 @@ if __name__ == "__main__":
             # Generating starting guesses for low level (VDVAE) and high level (CLIP) vectors.
             LD = LibraryAssembler(configList=["gnet", "clip"],
                                 subject=subject,
-                                ae=args.ae,
+                                ae=True,
                                 device=args.device)
             best_library_images  = LD.predict(x_test, vector="images", topn=1)
             library_clips = LD.predict(x_test, vector="c", topn=100).reshape((len(idx_list), 1, 1024))
@@ -91,11 +95,11 @@ if __name__ == "__main__":
             
             LD_v = LibraryAssembler(configList=["gnet"],
                                 subject=subject,
-                                ae=args.ae,
+                                ae=True,
                                 mask=torch.load("data/preprocessed_data/subject{}/masks/early_vis.pt".format(subject)),
                                 device=args.device)
-            library_vdvae = LD_v.predict(x_test, vector="z_vdvae", topn=25)
-            library_vdvae = normalize_vdvae(library_vdvae).reshape((len(idx_list), 1, 91168))
+            library_vdvae_latents = LD_v.predict(x_test, vector="z_vdvae", topn=25)
+            library_vdvae_latents = normalize_vdvae(library_vdvae_latents).reshape((len(idx_list), 1, 91168))
             del LD_v
             
             # Initialize Models
@@ -104,21 +108,23 @@ if __name__ == "__main__":
                                     subject=subject,
                                     device=args.device,
                                     log=args.log,
-                                    ae=args.ae,
+                                    ae=ae,
                                     n_iter=args.iterations,
                                     n_samples=args.num_samples,
                                     n_branches=args.branches)
                     
             for i, val in enumerate(tqdm(idx_list, desc="Reconstructing samples")):
-                sample_path = "{}/subject{}/{}/".format(args.output, subject, val)
-                best_dist_path = "{}best_distribution/"
+                sample_path = "{}{}/".format(subject_path, val)
+                best_dist_path = "{}best_distribution/".format(sample_path)
                 os.makedirs(best_dist_path, exist_ok=True)
                 # Generate target reconstructions
-                target_v = V.reconstruct(targets_vdvae[i])
-                target_c = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
-                target_cv = SCS.R.reconstruct(image=target_v, image_embeds=targets_clips[i], negative_prompt="text, caption", strength=0.9)
+                gt_vdvae = V.reconstruct(targets_vdvae[i])
+                gt_clip = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
+                gt_clip_vdvae = SCS.R.reconstruct(image=gt_vdvae, image_embeds=targets_clips[i], negative_prompt="text, caption", strength=0.9)
+                library_vdvae = V.reconstruct(library_vdvae_latents[i])
+                library_clip = SCS.R.reconstruct(image_embeds=library_clips[i], negative_prompt="text, caption", strength=1.0)
+                library_clip_vdvae = SCS.R.reconstruct(image=library_vdvae, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
                 # Generate and save output best initial guess reconstructions in a distribution
-                library_vdvae_img = V.reconstruct(library_vdvae[i])
                 if(args.log):
                     os.makedirs("{}clip_distribution/".format(sample_path), exist_ok=True)
                     torch.save(library_clips[i], "{}clip_distribution/clip.pt".format(sample_path))
@@ -128,21 +134,21 @@ if __name__ == "__main__":
                     
                     os.makedirs("{}clip+vdvae_distribution/".format(sample_path), exist_ok=True)
                     torch.save(library_clips[i], "{}clip+vdvae_distribution/clip.pt".format(sample_path))
-                    library_vdvae_img.save("{}clip+vdvae_distribution/z_img.png".format(sample_path))
+                    library_vdvae.save("{}clip+vdvae_distribution/z_img.png".format(sample_path))
                     f = open("{}clip+vdvae_distribution/strength.txt".format(sample_path), "w")
                     f.write(f"{0.9}\n")
                     f.close()
                     
                     os.makedirs("{}vdvae_distribution/".format(sample_path), exist_ok=True)
-                    library_vdvae_img.save("{}vdvae_distribution/z_img.png".format(sample_path))
+                    library_vdvae.save("{}vdvae_distribution/z_img.png".format(sample_path))
                     for j in range(12):
-                        output_c = SCS.R.reconstruct(image_embeds=library_clips[i], negative_prompt="text, caption", strength=1.0)
-                        output_cv = SCS.R.reconstruct(image=library_vdvae_img, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
-                        output_c.save("{}/clip_distribution/{}.png".format(sample_path, j))
-                        output_cv.save("{}/clip+vdvae_distribution/{}.png".format(sample_path, j))
+                        library_clip = SCS.R.reconstruct(image_embeds=library_clips[i], negative_prompt="text, caption", strength=1.0)
+                        library_clip_vdvae = SCS.R.reconstruct(image=library_vdvae, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
+                        library_clip.save("{}/clip_distribution/{}.png".format(sample_path, j))
+                        library_clip_vdvae.save("{}/clip+vdvae_distribution/{}.png".format(sample_path, j))
                 
                 # Perform search
-                scs_reconstruction, best_distribution_params, image_list, score_list = SCS.search(sample_path=sample_path, beta=x_test[i], c_i=library_clips[i], init_img=library_vdvae_img)
+                scs_reconstruction, best_distribution_params, image_list, score_list = SCS.search(sample_path=sample_path, beta=x_test[i], c_i=library_clips[i], init_img=library_vdvae)
                 
                 # Save final distribution parameters for search
                 f = open("{}strength.txt".format(best_dist_path), "w")
@@ -150,8 +156,8 @@ if __name__ == "__main__":
                 f.close()
                 torch.save(best_distribution_params["clip"], "{}clip.pt".format(best_dist_path))
                 best_distribution_params["z_img"].save("{}z_img.png".format(best_dist_path))
-                for i, im in enumerate(best_distribution_params["images"]):
-                    im.save("{}{}.png".format(best_dist_path, i))
+                for j, im in enumerate(best_distribution_params["images"]):
+                    im.save("{}{}.png".format(best_dist_path, j))
                 
                 
                 # Format output iteration diagram
@@ -159,15 +165,14 @@ if __name__ == "__main__":
                 ground_truth = Image.fromarray(read_images(image_index=[nsdId], show=True)[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 rows = int(math.ceil(len(image_list)/2 + 4))
                 columns = 2
-                images = [ground_truth, scs_reconstruction, target_v, library_vdvae_img, target_c, output_c, target_cv, output_cv]
+                images = [ground_truth, scs_reconstruction, gt_vdvae, library_vdvae, gt_clip, library_clip, gt_clip_vdvae, library_clip_vdvae]
                 captions = ["Ground Truth", "Search Reconstruction", "Ground Truth VDVAE", "Decoded VDVAE", "Ground Truth CLIP", "Decoded CLIP", "Ground Truth CLIP+VDVAE", "Decoded CLIP+VDVAE"]
                 for j in range(len(image_list)):
                     images.append(image_list[j])
-                    captions.append("BC: {}".format(round(score_list[j], 3)))
+                    captions.append("BC: {}".format(round(float(score_list[j]), 3)))
                 figure = tileImages("Search progression for index: {}".format(val), images, captions, rows, columns)
                 
                 # Save relevant output images for evaluation
-                scs_reconstruction.save("{}/search_reconstruction.png".format(sample_path))
                 figure.save("{}/iteration_diagram.png".format(sample_path))
                 count = 0
                 images.append(process_image(best_library_images[i]))

@@ -1,7 +1,8 @@
 __pycache__
 /__pycache__
-/image_vectors
 /nsddata_betas
 /nsddata_stimuli
 /nsddata
 /preprocessed_data
+/charts
+/vdvae/*.pt
