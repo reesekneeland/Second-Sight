@@ -10,7 +10,7 @@
 <a src="https://img.shields.io/badge/%20-%20Project%20Website%20-%20" href="https://www.reesekneeland.com/second-sight">
 <img src="https://img.shields.io/badge/%20-%20Project%20Website%20-%20">
 </a>
-<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open_in_Spaces-informational.svg?style=flat-square" href="https://huggingface.co/reesekneeland/Second-Sight">
+<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open_in_Spaces-informational.svg?style=flat-square" href="https://huggingface.co/reesekneeland/Second-Sight/tree/main">
 <img src="https://img.shields.io/badge/%F0%9F%A4%97-Hugging_Face_Repo-informational.svg?style=flat-square">
 
 </a>

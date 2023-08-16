@@ -117,6 +117,8 @@ if __name__ == "__main__":
                 sample_path = "{}{}/".format(subject_path, val)
                 best_dist_path = "{}best_distribution/".format(sample_path)
                 os.makedirs(best_dist_path, exist_ok=True)
+                os.makedirs(best_dist_path + "images/", exist_ok=True)
+                os.makedirs(best_dist_path + "beta_primes/", exist_ok=True)
                 # Generate target reconstructions
                 gt_vdvae = V.reconstruct(targets_vdvae[i])
                 gt_clip = SCS.R.reconstruct(image_embeds=targets_clips[i], negative_prompt="text, caption", strength=1.0)
@@ -126,13 +128,13 @@ if __name__ == "__main__":
                 library_clip_vdvae = SCS.R.reconstruct(image=library_vdvae, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
                 # Generate and save output best initial guess reconstructions in a distribution format
                 if(args.log):
-                    os.makedirs("{}clip_distribution/".format(sample_path), exist_ok=True)
+                    os.makedirs("{}clip_distribution/images/".format(sample_path), exist_ok=True)
                     torch.save(library_clips[i], "{}clip_distribution/clip.pt".format(sample_path))
                     f = open("{}clip_distribution/strength.txt".format(sample_path), "w")
                     f.write(f"{1.0}\n")
                     f.close()
                     
-                    os.makedirs("{}clip+vdvae_distribution/".format(sample_path), exist_ok=True)
+                    os.makedirs("{}clip+vdvae_distribution/images/".format(sample_path), exist_ok=True)
                     torch.save(library_clips[i], "{}clip+vdvae_distribution/clip.pt".format(sample_path))
                     library_vdvae.save("{}clip+vdvae_distribution/z_img.png".format(sample_path))
                     f = open("{}clip+vdvae_distribution/strength.txt".format(sample_path), "w")
@@ -144,8 +146,8 @@ if __name__ == "__main__":
                     for j in range(12):
                         library_clip = SCS.R.reconstruct(image_embeds=library_clips[i], negative_prompt="text, caption", strength=1.0)
                         library_clip_vdvae = SCS.R.reconstruct(image=library_vdvae, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
-                        library_clip.save("{}/clip_distribution/{}.png".format(sample_path, j))
-                        library_clip_vdvae.save("{}/clip+vdvae_distribution/{}.png".format(sample_path, j))
+                        library_clip.save("{}/clip_distribution/images/{}.png".format(sample_path, j))
+                        library_clip_vdvae.save("{}/clip+vdvae_distribution/images/{}.png".format(sample_path, j))
                 
                 # Perform search
                 scs_reconstruction, best_distribution_params, image_list, score_list = SCS.search(sample_path=sample_path, beta=x_test[i], c_i=library_clips[i], init_img=library_vdvae)
@@ -156,8 +158,9 @@ if __name__ == "__main__":
                 f.close()
                 torch.save(best_distribution_params["clip"], "{}clip.pt".format(best_dist_path))
                 best_distribution_params["z_img"].save("{}z_img.png".format(best_dist_path))
-                for j, im in enumerate(best_distribution_params["images"]):
-                    im.save("{}{}.png".format(best_dist_path, j))
+                for j, (im, beta_prime) in enumerate(zip(best_distribution_params["images"], best_distribution_params["beta_primes"])):
+                    im.save("{}{}.png".format(best_dist_path + "images/", j))
+                    torch.save(beta_prime, "{}{}.pt".format(best_dist_path + "beta_primes/", j))
                 
                 
                 # Format output iteration diagram
@@ -166,7 +169,7 @@ if __name__ == "__main__":
                 rows = int(math.ceil(len(image_list)/2 + 4))
                 columns = 2
                 images = [ground_truth, scs_reconstruction, gt_vdvae, library_vdvae, gt_clip, library_clip, gt_clip_vdvae, library_clip_vdvae]
-                captions = ["Ground Truth", "Search Reconstruction", "Ground Truth VDVAE", "Decoded VDVAE", "Ground Truth CLIP", "Decoded CLIP", "Ground Truth CLIP+VDVAE", "Decoded CLIP+VDVAE"]
+                captions = ["Ground Truth", "search_reconstruction", "Ground Truth VDVAE", "Decoded VDVAE", "Ground Truth CLIP", "Decoded CLIP", "Ground Truth CLIP+VDVAE", "Decoded CLIP+VDVAE"]
                 for j in range(len(image_list)):
                     images.append(image_list[j])
                     captions.append("BC: {}".format(round(float(score_list[j]), 3)))

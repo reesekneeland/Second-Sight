@@ -154,7 +154,7 @@ class StochasticSearch():
             score = PeC(xDup, beta_primes)
             scores.append(score)
         scores = torch.mean(torch.stack(scores), dim=0)
-        return scores, sample_clips
+        return scores, sample_clips, beta_primes
     
     # Preprocess beta, remove empty trials, and autoencode if necessary
     def denoise(self, beta):
@@ -195,7 +195,7 @@ class StochasticSearch():
                     os.unlink(best_batch_path)
                 os.symlink(relpath, best_batch_path, target_is_directory=True)
             # Score iteration 0
-            iteration_scores, iteration_clips = self.score_samples(beta, iteration_samples, save_path=iter_path)
+            iteration_scores, iteration_clips, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -207,6 +207,7 @@ class StochasticSearch():
             
             best_distribution_params = {
                                         "images":iteration_samples,
+                                        "beta_primes": iteration_beta_primes,
                                         "clip":c_i,
                                         "z_img": init_img,
                                         "strength": 0.92-0.30*math.pow(1/self.n_iter, 3)}
@@ -236,7 +237,6 @@ class StochasticSearch():
                 # Make image batches
                 tqdm.write("Strength: {}, Momentum: {}, N: {}".format(strength, momentum, n_i))
                 iteration_samples, iteration_clips, iteration_scores, = [], [], []
-                # best_batch_samples, best_batch_clips, best_batch_scores = None, None, None
                 best_batch_score = -1
                 for b in range(len(z_seeds)):
                     #Generate and save batch clip
@@ -245,6 +245,7 @@ class StochasticSearch():
                     if(self.log):
                         os.makedirs(batch_path, exist_ok=True)
                         torch.save(branch_clip, batch_path+"batch_clip.pt")
+                        z_seeds[b].save(batch_path+"z_img.png")
                         
                     #Generate batch samples
                     batch_samples = self.generateNSamples(image=z_seeds[b], 
@@ -252,15 +253,12 @@ class StochasticSearch():
                                                             n=n_i,  
                                                             strength=strength)
                     #Score batch samples
-                    batch_scores, batch_clips = self.score_samples(beta, batch_samples, batch_path)
+                    batch_scores, batch_clips, batch_beta_primes = self.score_samples(beta, batch_samples, batch_path)
                     
                     # Keep track of best batch for logging
                     
                     if torch.mean(batch_scores) > best_batch_score:
                         best_batch_score = torch.mean(batch_scores)
-                        best_batch_scores = batch_scores
-                        best_batch_samples = batch_samples
-                        best_batch_clips = batch_clips
                         # Create symlink from current batch folder to "best_batch" folder for easy traversing later
                         if(self.log):
                             relpath = os.path.relpath(batch_path, best_batch_path)
@@ -280,6 +278,7 @@ class StochasticSearch():
                         c_i = slerp(c_i, batch_clips[int(torch.argmax(batch_scores))], momentum)
                         best_distribution_params = {
                                         "images":batch_samples,
+                                        "beta_primes": batch_beta_primes,
                                         "clip":branch_clip,
                                         "z_img": z_seeds[b],
                                         "strength": strength}
