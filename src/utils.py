@@ -133,7 +133,84 @@ def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split
     y_train = torch.stack(y_train)
     y_val = torch.stack(y_val)
     y_test = torch.stack(y_test)
-    print("shapes: ", x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape)
+    tqdm.write("shapes: {}, {}, {}, {}, {}, {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
+    if(loader):
+        trainset = torch.utils.data.TensorDataset(x_train, y_train)
+        valset = torch.utils.data.TensorDataset(x_val, y_val)
+        testset = torch.utils.data.TensorDataset(x_test, y_test)
+        # Loads the Dataset into a DataLoader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+        return trainloader, valloader, testloader
+    else:
+        return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
+    
+def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4):
+    # If loading autoencoded data, load x as brain data (beta) and y as encoded brain data (beta prime)
+    if(ae):
+        assert encoderModel is not None
+        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
+        y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+    else:
+        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
+        y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+    x_train, x_val, x_test = [], [], []
+    y_train, y_val, y_test = [], [], []
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
+    subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
+    test_trials = []
+    pbar = tqdm(desc="loading samples", total=27749)
+    split_point = int(subj_train.shape[0]*0.85)
+    for i in range(split_point):
+        for j in range(3):
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            # tqdm.write(str(scanId))
+            if(scanId < x.shape[0]):
+                x_train.append(x[scanId-1])
+                y_train.append(y[scanId-1])
+                pbar.update() 
+    for i in range(split_point, subj_train.shape[0]):
+        for j in range(3):
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            if(scanId < x.shape[0]):
+                x_val.append(x[scanId-1])
+                y_val.append(y[scanId-1])
+                pbar.update() 
+    for i in range(subj_test.shape[0]):
+        nsdId = subj_test.iloc[i]['nsdId']
+        avx = []
+        avy = []
+        x_row = torch.zeros((3, x.shape[1]))
+        for j in range(3):
+            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            if(scanId < x.shape[0]):
+                if average or nest:
+                    avx.append(x[scanId-1])
+                    avy.append(y[scanId-1])
+                else:
+                    x_test.append(x[scanId-1])
+                    y_test.append(y[scanId-1])
+                    test_trials.append(nsdId)
+                pbar.update() 
+        if(len(avy)>0):
+            if average:
+                avx = torch.stack(avx)
+                x_test.append(torch.mean(avx, dim=0))
+            else:
+                for j in range(len(avx)):
+                    x_row[j] = avx[j]
+                x_test.append(x_row)
+            y_test.append(avy[0])
+            test_trials.append(nsdId)
+    x_train = torch.stack(x_train).to("cpu")
+    x_val = torch.stack(x_val).to("cpu")
+    x_test = torch.stack(x_test).to("cpu")
+    y_train = torch.stack(y_train).to("cpu")
+    y_val = torch.stack(y_val).to("cpu")
+    y_test = torch.stack(y_test).to("cpu")
+    tqdm.write("Data Shapes... x_train: {}, x_val: {}, x_test: {}, y_train: {}, y_val: {}, y_test: {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
         valset = torch.utils.data.TensorDataset(x_val, y_val)

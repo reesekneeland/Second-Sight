@@ -124,7 +124,7 @@ if __name__ == "__main__":
                 library_vdvae = V.reconstruct(library_vdvae_latents[i])
                 library_clip = SCS.R.reconstruct(image_embeds=library_clips[i], negative_prompt="text, caption", strength=1.0)
                 library_clip_vdvae = SCS.R.reconstruct(image=library_vdvae, image_embeds=library_clips[i], negative_prompt="text, caption", strength=0.9)
-                # Generate and save output best initial guess reconstructions in a distribution
+                # Generate and save output best initial guess reconstructions in a distribution format
                 if(args.log):
                     os.makedirs("{}clip_distribution/".format(sample_path), exist_ok=True)
                     torch.save(library_clips[i], "{}clip_distribution/clip.pt".format(sample_path))
