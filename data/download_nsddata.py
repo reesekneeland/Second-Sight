@@ -21,12 +21,13 @@ def download_nsd(subjects):
 
 if __name__ == '__main__':
     # Create the parser and add arguments
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-s',
                         '--subjects', 
-                        help="list of subjects to run the algorithm on, if not specified, will run on all subjects",
-                        type=list,
-                        default=[1, 2, 5, 7])
+                        help="list of subjects to download models for, if not specified, will run on all subjects",
+                        type=str,
+                        default="1,2,5,7")
     args = parser.parse_args()
-    download_nsd(args.subjects)
+    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
+    download_nsd(subject_list)

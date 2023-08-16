@@ -10,7 +10,7 @@ import argparse
 if __name__ == "__main__":
     
     # Create the parser and add arguments
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument('--output', 
                         help="output directory for the generated samples",

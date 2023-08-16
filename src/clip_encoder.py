@@ -206,7 +206,7 @@ class CLIPEncoder():
     
 if __name__ == "__main__":
      # Create the parser and add arguments
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument(
         '--subjects', 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda:0",
+        default="cuda",
     )
     parser.add_argument(
         "--benchmark",

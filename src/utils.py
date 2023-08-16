@@ -10,159 +10,43 @@ import pandas as pd
 import h5py
 import matplotlib.pyplot as plt
 
-prep_path = "/export/raid1/home/kneel027/nsd_local/preprocessed_data/"
-latent_path = "/export/raid1/home/kneel027/Second-Sight/latent_vectors/"
-mask_path = "/export/raid1/home/kneel027/Second-Sight/masks/"
-
-
-# self.stimuli_file = op.join(
-#     self.nsd_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'nsd_stimuli.hdf5')
-
-# self.stimuli_description_file = op.join(
-#     self.nsd_folder, 'nsddata', 'experiments', 'nsd', 'nsd_stim_info_merged.csv')
-
-# self.stim_descriptions = pd.read_csv(
-#         self.stimuli_description_file, index_col=0)
-
-# self.coco_annotation_file = op.join(
-#     self.local_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'annotations', '{}_{}.json')
-
-
-def read_images(image_index, show=False):
-    """read_images reads a list of images, and returns their data
-
-    Parameters
-    ----------
-    image_index : list of integers
-        which images indexed in the 73k format to return
-    show : bool, optional
-        whether to also show the images, by default False
-
-    Returns
-    -------
-    numpy.ndarray, 3D
-        RGB image data
-    """
+def read_images(image_index):
 
     sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
     sdataset = sf.get('imgBrick')
-    if show:
-        f, ss = plt.subplots(1, len(image_index),
-                                figsize=(6*len(image_index), 6))
-        if len(image_index) == 1:
-            ss = [ss]
-        for s, d in zip(ss, sdataset[image_index]):
-            s.axis('off')
-            s.imshow(d)
     return sdataset[image_index]
 
 # Main data loader, 
-# Loader = True
-#    - Returns the train and test data loader
-# Loader = False
-#    - Returns the x_train, x_val, x_test, y_train, y_val, y_test
-
-def load_nsd(vector, subject=1, batch_size=64, num_workers=4, loader=True, split=True, ae=False, encoderModel=None, average=False, nest=False):
+# vector: required parameter for the type of vector you want to load, options are: "c", "images", "z_vdvae"
+# subject: required parameter for which subjects data to load, options are: 1, 2, 5, 7
+# loader: flag to return dataloaders instead of raw data tensors
+# ae: flag to return data used for training the autoencoder
+# encoderModel: if ae flag is enabled, this is a required parameter specifying which encoding model's predictions to use for the autoencoder target
+# average: flag to determine whether the brain data is averaged across the trial repetitions
+# nest: if loader is False, changes the shape of the data structure to keep sample repetitions together
+# batch_size: only used if loader is True, determines dataloader batch size
+# num_workers: only used if loader is True, determines num_workers for dataloader
+def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4):
+    # If loading autoencoded data, load raw x as brain data (beta) and raw y as encoded brain data (beta prime)
     if(ae):
         assert encoderModel is not None
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
         y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
+    # Load raw x as brain data and raw y as the provided vector, either c for a CLIP vector or images 
     else:
-        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
-        y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
-    if(not split): 
-        if(loader):
-            dataset = torch.utils.data.TensorDataset(x, y)
-            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-            return dataloader
-        else:
-            return x, y
-    x_train, x_val, x_test = [], [], []
-    y_train, y_val, y_test = [], [], []
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
-    subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
-    subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
-    test_trials = []
-    # 
-    split_point = int(subj_train.shape[0]*0.85)
-    for i in tqdm(range(split_point), desc="loading training samples"):
-        for j in range(3):
-            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
-            if(scanId < x.shape[0]):
-                x_train.append(x[scanId-1])
-                y_train.append(y[scanId-1])
-                        
-    for i in tqdm(range(split_point, subj_train.shape[0]), desc="loading validation samples"):
-        for j in range(3):
-            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
-            if(scanId < x.shape[0]):
-                x_val.append(x[scanId-1])
-                y_val.append(y[scanId-1])
-    for i in range(subj_test.shape[0]):
-        nsdId = subj_test.iloc[i]['nsdId']
-        avx = []
-        avy = []
-        x_row = torch.zeros((3, x.shape[1]))
-        for j in range(3):
-            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)]
-            if(scanId < x.shape[0]):
-                if average or nest:
-                    avx.append(x[scanId-1])
-                    avy.append(y[scanId-1])
-                else:
-                    x_test.append(x[scanId-1])
-                    y_test.append(y[scanId-1])
-                    test_trials.append(nsdId)
-        if(len(avy)>0):
-            # if len(avy) < 3:
-                # print("WARNING: Missing data for trial {}".format(i-194))
-            if average:
-                avx = torch.stack(avx)
-                x_test.append(torch.mean(avx, dim=0))
-            else:
-                for j in range(len(avx)):
-                    # if len(avy) < 3:
-                        # print("sample: {}, nonzero: {}".format(i-194, torch.sum(torch.count_nonzero(avx[j]))))
-                    x_row[j] = avx[j]
-                x_test.append(x_row)
-            y_test.append(avy[0])
-            test_trials.append(nsdId)
-    x_train = torch.stack(x_train).to("cpu")
-    x_val = torch.stack(x_val).to("cpu")
-    x_test = torch.stack(x_test).to("cpu")
-    y_train = torch.stack(y_train)
-    y_val = torch.stack(y_val)
-    y_test = torch.stack(y_test)
-    tqdm.write("shapes: {}, {}, {}, {}, {}, {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
-    if(loader):
-        trainset = torch.utils.data.TensorDataset(x_train, y_train)
-        valset = torch.utils.data.TensorDataset(x_val, y_val)
-        testset = torch.utils.data.TensorDataset(x_test, y_test)
-        # Loads the Dataset into a DataLoader
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
-        return trainloader, valloader, testloader
-    else:
-        return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
-    
-def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4):
-    # If loading autoencoded data, load x as brain data (beta) and y as encoded brain data (beta prime)
-    if(ae):
-        assert encoderModel is not None
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
-        y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
-    else:
-        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False)
-        y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False)
+        y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False).to("cpu")
+    print(x.shape, y.shape)
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
+    # Preparing dataframe to help separate the shared1000 test data
     stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
     subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
     pbar = tqdm(desc="loading samples", total=27749)
     split_point = int(subj_train.shape[0]*0.85)
+    # Collect 85% of the non-test data for the training set
     for i in range(split_point):
         for j in range(3):
             scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
@@ -171,6 +55,7 @@ def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, aver
                 x_train.append(x[scanId-1])
                 y_train.append(y[scanId-1])
                 pbar.update() 
+    # Collect 15% of the non-test data for the validation set
     for i in range(split_point, subj_train.shape[0]):
         for j in range(3):
             scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
@@ -178,6 +63,7 @@ def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, aver
                 x_val.append(x[scanId-1])
                 y_val.append(y[scanId-1])
                 pbar.update() 
+    # Collect test data
     for i in range(subj_test.shape[0]):
         nsdId = subj_test.iloc[i]['nsdId']
         avx = []
@@ -194,6 +80,7 @@ def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, aver
                     y_test.append(y[scanId-1])
                     test_trials.append(nsdId)
                 pbar.update() 
+        # Setup nested or averaged data structure if flags are passed
         if(len(avy)>0):
             if average:
                 avx = torch.stack(avx)
@@ -204,6 +91,7 @@ def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, aver
                 x_test.append(x_row)
             y_test.append(avy[0])
             test_trials.append(nsdId)
+    # Concatenate data into tensors
     x_train = torch.stack(x_train).to("cpu")
     x_val = torch.stack(x_val).to("cpu")
     x_test = torch.stack(x_test).to("cpu")
@@ -223,11 +111,11 @@ def load_nsd_new(vector, subject, loader=True, ae=False, encoderModel=None, aver
     else:
         return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
-    
+
+# This function is used to assemble the iteration diagrams and other collages of images
 #useTitle = 0 means no title at all
 #useTitle = 1 means normal centered title at the top
 #useTitle = 2 means title uses the captions list for a column wise title
-#rewrite this function to be better designed and more general
 def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True, background_color='white', buffer=0, redCol=False):
     imW, imH = images[0].size
     bigW = (imW + buffer) * w
@@ -318,7 +206,6 @@ def make_gaussian_mass_stack(xs, ys, sigmas, n_pix, size=None, dtype=np.float32)
         _,_,Z[i,:,:] = make_gaussian_mass(xs[i], ys[i], sigmas[i], n_pix, size=size, dtype=dtype)
     return X, Y, Z
         
-        
 # File Utility
 def zip_dict(*args):
     '''
@@ -342,9 +229,7 @@ def equalize_color(image):
     filt = ImageEnhance.Color(image)
     return filt.enhance(0.8)
 
-
-# SCS Performance Metrics
-
+# Performance Metrics
 def mse_scs(imageA, imageB):
 	# the 'Mean Squared Error' between the two images is the
 	# sum of the squared difference between the two images;
@@ -367,19 +252,6 @@ def process_image(imageArray, x=768, y=768):
     image = Image.fromarray(imageArray)
     image = image.resize((x, y), resample=Image.Resampling.LANCZOS)
     return image
-
-def prune_vector(x, subject=1):
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
-    subj = stim_descriptions[stim_descriptions["subject" + str(subject)] != 0]
-    nsdIds = set(subj['nsdId'].tolist())
-    
-    pruned_x = torch.zeros((73000-len(nsdIds), x.shape[1]))
-    count = 0
-    for pred in range(73000):
-        if pred not in nsdIds:
-            pruned_x[count] = x[pred]
-            count+=1
-    return pruned_x
 
 def get_pruned_indices(subject=1):
     stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
@@ -468,33 +340,5 @@ def remove_heldout_indices(idx, scanId_sorted=True):
             converted_indices.append(index_list[i])
     return converted_indices
 
-
-def read_images(image_index, show=False):
-        """read_images reads a list of images, and returns their data
-
-        Parameters
-        ----------
-        image_index : list of integers
-            which images indexed in the 73k format to return
-        show : bool, optional
-            whether to also show the images, by default False
-
-        Returns
-        -------
-        numpy.ndarray, 3D
-            RGB image data
-        """
-
-        sf = h5py.File('data/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5', 'r')
-        sdataset = sf.get('imgBrick')
-        if show:
-            f, ss = plt.subplots(1, len(image_index),
-                                 figsize=(6*len(image_index), 6))
-            if len(image_index) == 1:
-                ss = [ss]
-            for s, d in zip(ss, sdataset[image_index]):
-                s.axis('off')
-                s.imshow(d)
-        return sdataset[image_index]
 
 

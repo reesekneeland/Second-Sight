@@ -1,14 +1,24 @@
 # Second Sight: Using brain-optimized encoding models to align image distributions with human brain activity
 
+<div align=center>
+<img src="./data/charts/Pipeline_Diagram.png"/>
+</div>
+<br/>
+<div align=center>
+<a src="https://img.shields.io/badge/%F0%9F%93%96-Arxiv_2306.00927-red.svg?style=flat-square" href="https://arxiv.org/abs/2306.00927">
+<img src="https://img.shields.io/badge/%F0%9F%93%96-Arxiv_2306.00927-red.svg?style=flat-square"></a>
+<a src="https://img.shields.io/badge/%20-%20Project%20Website%20-%20" href="https://www.reesekneeland.com/second-sight">
+<img src="https://img.shields.io/badge/%20-%20Project%20Website%20-%20">
+</a>
+<a src="https://img.shields.io/badge/%F0%9F%A4%97-Open_in_Spaces-informational.svg?style=flat-square" href="https://huggingface.co/reesekneeland/Second-Sight">
+<img src="https://img.shields.io/badge/%F0%9F%A4%97-Hugging_Face_Repo-informational.svg?style=flat-square">
 
-![](data/charts/Pipeline_Diagram.png)<br>
+</a>
 
-Project page: https://www.reesekneeland.com/second-sight
-
-arXiv preprint: https://arxiv.org/abs/2306.00927
+</div>
 
 ## Installation instructions
-
+This repository requires at least an NVIDIA A100 40GB GPU. 
 1. Download this repository:
  ```
  git clone https://github.com/reesekneeland/Second-Sight.git
@@ -21,13 +31,130 @@ conda env create -f environment.yml
 conda activate SS
 ```
 
-3. Aquire a copy of the Natural Scenes Dataset, you can download the relevant files for this project using aws via our setup script:
+3. Perform setup steps via our automation script, to run on all subjects with no local copy of the Natural Scenes Dataset use the following command. This procedure, which downloads the data, processes it, trains the models, and encodes the training images collectively takes ~5 hours on an A100.
+```
+python src/run.py --downloadnsd --subjects 1
+
+options:
+  -h, --help            show this help message and exit
+  -d, --downloadnsd     flag to download the NSD data via AWS, requires aws command to be configued. If not set, assumes that the required NSD files are present under the data/ directory (default: False)
+  -t, --train           flag to train models from scratch, will only download the gnet model, and train all others from scratch. If flag is not set it will download all pretrained models. (default: False)
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to run the algorithm on, if not specified, will run on all subjects (default: 1,2,5,7)
+  --device DEVICE       cuda device to run predicts on. (default: cuda)
+
+```
+## Alternative Installation Options
+Instead of using the main automation script provided above, you can perform the various setup and configuration steps individually using the scripts below. This is useful if you want to set up custom training configurations and have more control over the data processing procedures.
+
+1. Aquire a copy of the Natural Scenes Dataset, you can download the relevant files for this project using aws via our setup script below, or by downloading/moving your own copy to the ```/data``` directory. To download your own copy, start by agreeing to the Natural Scenes Dataset's [Terms and Conditions](https://cvnlab.slite.page/p/IB6BSeW_7o/Terms-and-Conditions) and fill out the [NSD Data Access form.](https://forms.gle/xue2bCdM9LaFNMeb7)
 ```
 python data/download_nsddata.py
-```
-Or by downloading/moving your own copy to the ```/data``` directory. To download your own copy, start by agreeing to the Natural Scenes Dataset's [Terms and Conditions](https://cvnlab.slite.page/p/IB6BSeW_7o/Terms-and-Conditions) and fill out the [NSD Data Access form.](https://forms.gle/xue2bCdM9LaFNMeb7)
 
-4. CONTINUE SETUP
+options:
+  -h, --help            show this help message and exit
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to download models for, if not specified, will run on all subjects (default: 1,2,5,7)
+```
+
+
+2. You can skip training Second Sight yourself and instead run the rest of the notebooks on Subject 1 of NSD by downloading our pre-trained models available on [huggingface](https://huggingface.co/reesekneeland/Second-Sight/tree/main) and putting these model checkpoints inside the ```models``` folder, or by running our download script below to perform this step automatically. The pretrained GNet model is utilized in this work, and so must be downloaded, however the remaining models can be trained from scratch in steps 4 and 6:
+```
+python data/download_weights.py
+
+options:
+  -h, --help            show this help message and exit
+  --gnet                flag to download only the GNet model (1.18GB) but you will be required to train the other models, otherwise all models will be downloaded (14GB) (default: False)
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to download models for, if not specified, will run on all subjects (default: 1,2,5,7)
+```
+
+3. Process the brain data and encode the dataset images into their CLIP vectors and VDVAE latents via our setup script:
+```
+python data/setup_data.py
+
+options:
+  -h, --help            show this help message and exit
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to run the algorithm on, if not specified, will run on all subjects (default: 1,2,5,7)
+  -d DEVICE, --device DEVICE
+                        cuda device to run predicts on. (default: cuda)
+```
+
+4. Train the CLIP Encoding model, if not downloading the pretrained model.
+```
+python src/clip_encoder.py
+
+options:
+  -h, --help            show this help message and exit
+  --subjects SUBJECTS   list of subjects to train models for, if not specified, will run on all subjects (default: 1,2,5,7)
+  --batch_size BATCH_SIZE
+                        Batch size for training (default: 750)
+  --log LOG             whether to log to wandb (default: False)
+  --num_epochs NUM_EPOCHS
+                        number of epochs of training (default: 200)
+  --lr LR
+  --num_workers NUM_WORKERS
+  --device DEVICE
+  --benchmark BENCHMARK
+                        run benchmark on each encoder model after it finishes training. (default: True)
+```
+
+5. Use the encoding models to generate beta primes for the images in NSD
+```
+python src/generate_beta_primes.py
+
+options:
+  -h, --help            show this help message and exit
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to run the algorithm on, if not specified, will run on all subjects (default: 1,2,5,7)
+  -d DEVICE, --device DEVICE
+                        cuda device to run predicts on. (default: cuda:0)
+```
+
+
+6. Use the encoded beta primes to train the AutoEncoder models:
+```
+python src/autoencoder.py
+
+options:
+  -h, --help            show this help message and exit
+  --subjects SUBJECTS   list of subjects to train models for, if not specified, will run on all subjects (default: 1,2,5,7)
+  --configs CONFIGS     list of autoencoder configs to train models for, if not specified, will run on all configs (default: gnet,clip,hybrid)
+  --batch_size BATCH_SIZE
+                        Batch size for training (default: 64)
+  --log LOG             whether to log to wandb (default: False)
+  --num_epochs NUM_EPOCHS
+                        number of epochs of training (default: 200)
+  --lr LR
+  --num_workers NUM_WORKERS
+  --device DEVICE
+  --benchmark BENCHMARK
+                        run benchmark on each autoencoder model after it finishes training. (default: True)
+```
+
+## Inference
+Once the setup process is complete, you can generate predictions on indices from the NSD shared1000 test set using the following command. Inference for this algorithm can be quite expensive, with computation times amounting to ~30m per sample on an A100, or around 17 days to generate predictions for the whole test set.
+```
+python src/second_sight.py
+
+options:
+  -h, --help            show this help message and exit
+  --output OUTPUT       output directory for the generated samples (default: output/)
+  --idx IDX             list of indicies to be generated for each subject. (default: See the provided indices in data/test_indices.txt)
+  -l, --log             boolean flag, if passed, will save all intermediate images for each iteration of the algorithm, as well as intermediate encoded brain scans. WARNING: This saves a lot of data, only enable if you
+                        have terabytes of disk space to throw at it. (default: False)
+  --noae                boolean flag, if passed, will use original betas instead of the denoised betas passed through an autoencoder as the search target (default: False)
+  -s SUBJECTS, --subjects SUBJECTS
+                        list of subjects to run the algorithm on, if not specified, will run on all subjects (default: 1,2,5,7)
+  -n NUM_SAMPLES, --num_samples NUM_SAMPLES
+                        number of library images generated at every interation of the algorithm. (default: 100)
+  -i ITERATIONS, --iterations ITERATIONS
+                        number of interations for the search algorithm. (default: 6)
+  -b BRANCHES, --branches BRANCHES
+                        number of additional suboptimal paths to explore during the search. (default: 4)
+  --device DEVICE
+```
 
 ## General information
 
@@ -37,223 +164,6 @@ This repository contains scripts for
 2. Reconstructing images from brain activity using the model architecture (```src/second_sight.py```)
 3. Evaluating reconstructions against the ground truth images according to low- and high-level image metrics (**TODO**) 
 
-### Pre-trained Subject models
-
-You can skip training MindEye yourself and instead run the rest of the notebooks on Subject 1 of NSD by downloading our pre-trained models available on [huggingface](https://huggingface.co/datasets/pscotti/naturalscenesdataset/tree/main/mindeye_models) and putting these folders containing model checkpoints inside the ```models``` folder, or by running our download script to perform this step automatically:
-```
-python data/download_weights.py
-
-Options:
-  --gnet                flag to download only the GNet model (1.18GB), as all other models are trainable.
-
-  --subj [1,2,5,7]      list of subjects to download models for, if not specified, will run on all subjects
-```
-
-<!-- 
-## Training MindEye (high-level pipeline)
-
-Train MindEye via ``Train_MindEye.py``.
-
-- Set ``data_path`` to the folder containing the Natural Scenes Dataset (will download there if not found; >30Gb per subject, only downloads data for the current subject).
-- Set ``model_name`` to what you want to name the model, used for saving.
-- Set ``--no-hidden --no-norm_embs`` if you want to map to the final layer of CLIP for LAION-5B retrieval or to reconstruct via Stable Diffusion (Image Variations). Otherwise, Versatile Diffusion uses the default ``--hidden --norm_embs``.
-
-Various arguments can be set (see below) for training; the default is to train MindEye to the last hidden layer of CLIP ViT-L/14 using the same settings as our paper, for Subject 1 of NSD.
-
-Trained model checkpoints will be saved inside a folder "fMRI-reconstruction-NSD/train_logs". All other outputs get saved inside "fMRI-reconstruction-NSD/src" folder.
-
-```bash
-$ python Train_MindEye.py --help
-```
-```
-usage: Train_MindEye.py [-h] [--model_name MODEL_NAME] [--data_path DATA_PATH]
-                        [--subj {1,2,5,7}] [--batch_size BATCH_SIZE]
-                        [--hidden | --no-hidden]
-                        [--clip_variant {RN50,ViT-L/14,ViT-B/32,RN50x64}]
-                        [--wandb_log | --no-wandb_log]
-                        [--resume_from_ckpt | --no-resume_from_ckpt]
-                        [--wandb_project WANDB_PROJECT]
-                        [--mixup_pct MIXUP_PCT] [--norm_embs | --no-norm_embs]
-                        [--use_image_aug | --no-use_image_aug]
-                        [--num_epochs NUM_EPOCHS] [--prior | --no-prior]
-                        [--v2c | --no-v2c] [--plot_umap | --no-plot_umap]
-                        [--lr_scheduler_type {cycle,linear}]
-                        [--ckpt_saving | --no-ckpt_saving]
-                        [--ckpt_interval CKPT_INTERVAL]
-                        [--save_at_end | --no-save_at_end] [--seed SEED]
-                        [--max_lr MAX_LR] [--n_samples_save {0,1}]
-                        [--use_projector | --no-use_projector]
-                        [--vd_cache_dir VD_CACHE_DIR]
-
-Model Training Configuration
-
-options:
-  -h, --help            show this help message and exit
-  --model_name MODEL_NAME
-                        name of model, used for ckpt saving and wandb logging
-                        (if enabled)
-  --data_path DATA_PATH
-                        Path to where NSD data is stored / where to download
-                        it to
-  --subj {1,2,5,7}
-  --batch_size BATCH_SIZE
-                        Batch size can be increased by 10x if only training
-                        v2c and not diffusion prior
-  --hidden, --no-hidden
-                        if True, CLIP embeddings will come from last hidden
-                        layer (e.g., 257x768 - Versatile Diffusion), rather
-                        than final layer (default: True)
-  --clip_variant {RN50,ViT-L/14,ViT-B/32,RN50x64}
-                        OpenAI clip variant
-  --wandb_log, --no-wandb_log
-                        whether to log to wandb (default: False)
-  --resume_from_ckpt, --no-resume_from_ckpt
-                        if not using wandb and want to resume from a ckpt
-                        (default: False)
-  --wandb_project WANDB_PROJECT
-                        wandb project name
-  --mixup_pct MIXUP_PCT
-                        proportion of way through training when to switch from
-                        BiMixCo to SoftCLIP
-  --norm_embs, --no-norm_embs
-                        Do l2-norming of CLIP embeddings (default: True)
-  --use_image_aug, --no-use_image_aug
-                        whether to use image augmentation (default: True)
-  --num_epochs NUM_EPOCHS
-                        number of epochs of training
-  --prior, --no-prior   if False, will only use CLIP loss and ignore diffusion
-                        prior (default: True)
-  --v2c, --no-v2c       if False, will only use diffusion prior loss (default:
-                        True)
-  --plot_umap, --no-plot_umap
-                        Plot UMAP plots alongside reconstructions (default:
-                        False)
-  --lr_scheduler_type {cycle,linear}
-  --ckpt_saving, --no-ckpt_saving
-  --ckpt_interval CKPT_INTERVAL
-                        save backup ckpt and reconstruct every x epochs
-  --save_at_end, --no-save_at_end
-                        if True, saves best.ckpt at end of training. if False
-                        and ckpt_saving==True, will save best.ckpt whenever
-                        epoch shows best validation score (default: False)
-  --seed SEED
-  --max_lr MAX_LR
-  --n_samples_save {0,1}
-                        Number of reconstructions for monitoring progress, 0
-                        will speed up training
-  --use_projector, --no-use_projector
-                        Additional MLP after the main MLP so model can
-                        separately learn a way to minimize NCE from prior loss
-                        (BYOL) (default: True)
-  --vd_cache_dir VD_CACHE_DIR
-                        Where is cached Versatile Diffusion model; if not
-                        cached will download to this path
-```
-
-## Reconstructing from pre-trained MindEye
-
-Now that you have pre-trained model ckpts in your "train_logs" folder, either from running ``Train_MindEye.py`` or by downloading our pre-trained Subject 1 models from [huggingface](https://huggingface.co/datasets/pscotti/naturalscenesdataset/tree/main/mindeye_models), we can proceed to reconstructing images from the test set of held-out brain activity. 
-
-``Reconstructions.py`` defaults to outputting Versatile Diffusion reconstructions as a torch .pt file, without img2img and without second-order selection (recons_per_sample=1).
-
-- Set ``data_path`` to the folder containing the Natural Scenes Dataset (will download there if not found; >30Gb per subject, only downloads data for the current subject).
-- Set ``model_name`` to the name of the folder contained in "fMRI-reconstruction-NSD/train_logs" that contains the ckpt mapping brain activity to the last hidden layer of CLIP.
-- If you want to use img2img, set ``autoencoder_name`` to the name of the folder contained in "fMRI-reconstruction-NSD/train_logs" that contains the ckpt mapping brain activity to the variational autoencoder of Stable Diffusion. 
-- If you are using img2img, set ``img2img_strength`` to the level of guidance you prefer, where 1=no img2img and 0=outputs solely from the low-level pipeline.
-
-```bash
-$ python Reconstructions.py --help
-```
-```
-usage: Reconstructions.py [-h] [--model_name MODEL_NAME]
-                          [--autoencoder_name AUTOENCODER_NAME] [--data_path DATA_PATH]
-                          [--subj {1,2,5,7}] [--img2img_strength IMG2IMG_STRENGTH]
-                          [--recons_per_sample RECONS_PER_SAMPLE]
-                          [--vd_cache_dir VD_CACHE_DIR]
-
-Model Training Configuration
-
-options:
-  -h, --help            show this help message and exit
-  --model_name MODEL_NAME
-                        name of trained model
-  --autoencoder_name AUTOENCODER_NAME
-                        name of trained autoencoder model
-  --data_path DATA_PATH
-                        Path to where NSD data is stored (see README)
-  --subj {1,2,5,7}
-  --img2img_strength IMG2IMG_STRENGTH
-                        How much img2img (1=no img2img; 0=outputting the low-level image
-                        itself)
-  --recons_per_sample RECONS_PER_SAMPLE
-                        How many recons to output, to then automatically pick the best
-                        one (MindEye uses 16)
-  --vd_cache_dir VD_CACHE_DIR
-                        Where is cached Versatile Diffusion model; if not cached will
-                        download to this path
-```
-
-## Image/Brain Retrieval (inc. LAION-5B image retrieval)
-
-To evaluate image/brain retrieval using the NSD test set then use the Jupyter notebook ``Retrievals.ipynb`` and follow the code blocks under the "Image/Brain Retrieval" heading.
-
-Running ``Retrievals.py`` will retrieve the top 16 nearest neighbors in LAION-5B based on the MindEye variant where brain activity is mapped to the final layer of CLIP. This is followed by second-order selection where the 16 retrieved images are converted to CLIP last hidden layer embeddings and compared to the MindEye outputs from the core model where brain activity is mapped to the last hidden layer of CLIP. The highest CLIP similarity retrieved image will be chosen, with all top-1 retrievals saved to a torch .pt file.
-
-- Set ``data_path`` to the folder containing the Natural Scenes Dataset (will download there if not found; >30Gb per subject, only downloads data for the current subject).
-- Set ``model_name`` to the name of the folder contained in "fMRI-reconstruction-NSD/train_logs" that contains the ckpt mapping brain activity to the last hidden layer of CLIP.
-- Set ``model_name2`` to the name of the folder contained in "fMRI-reconstruction-NSD/train_logs" that contains the ckpt mapping brain activity to the final layer of CLIP.
-
-```bash
-$ python Retrievals.py --help
-```
-```
-usage: Retrievals.py [-h] [--model_name MODEL_NAME]
-                               [--model_name2 MODEL_NAME2] [--data_path DATA_PATH]
-                               [--subj {1,2,5,7}]
-
-Model Training Configuration
-
-options:
-  -h, --help            show this help message and exit
-  --model_name MODEL_NAME
-                        name of 257x768 model, used for everything except LAION-5B
-                        retrieval
-  --model_name2 MODEL_NAME2
-                        name of 1x768 model, used for LAION-5B retrieval
-  --data_path DATA_PATH
-                        Path to where NSD data is stored (see README)
-  --subj {1,2,5,7}
-```
-
-
-## Evaluating Reconstructions
-
-After you have saved a .pt file from running ``Reconstructions.py`` or ``Retrievals.py``, you can use ``Reconstruction_Metrics.py`` to evaluate reconstructed images using the same low- and high-level image metrics used in the paper.
-
-- Set ``recon_path`` to the name of the file in "fMRI-reconstruction-NSD/src" that was output from ``Reconstructions.py`` (should be ```{model_name}_recons_img2img{img2img_strength}_{recons_per_sample}samples.pt```). 
-- Alternatively, to evaluate LAION-5B retrievals, you can replace recon_path with the name of the .pt file output from ```Retrievals.py``` (should be ```{model_name}_laion_retrievals_top16.pt```).
-- Set ``all_images_path`` to the all_images.pt file in "fMRI-reconstruction-NSD/src" that was output from either ``Reconstructions.py`` or ``Retrievals.py`` (should be ```all_images.pt```). 
-
-```bash
-$ python Reconstruction_Metrics.py --help
-```
-```
-usage: Reconstruction_Metrics.py [-h] [--recon_path RECON_PATH]
-                                 [--all_images_path ALL_IMAGES_PATH]
-
-Model Training Configuration
-
-options:
-  -h, --help            show this help message and exit
-  --recon_path RECON_PATH
-                        path to reconstructed/retrieved outputs
-  --all_images_path ALL_IMAGES_PATH
-                        path to ground truth outputs
-```
-
-## Training MindEye (low-level pipeline)
-
-Under construction (see train_autoencoder.py) -->
 
 # Citation
 
@@ -278,10 +188,3 @@ If you make use of this work please cite both the Second Sight paper and the Nat
       pages={116–126}
 } 
 ```
-
-
-## Computational Overhead
-
-# setup_data.py runtime:
-  - Vector Processing: Approximately 3 hours 
-  - Brain Data Processing: 

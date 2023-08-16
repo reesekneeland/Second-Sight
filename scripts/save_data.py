@@ -187,6 +187,7 @@ import nibabel as nib
 # print(difference_result)
 
 
-# x_train, x_val, x_test, y_train, y_val, y_test, test_trials = load_nsd(vector="c", subject=1, loader=False, average=False)
+x_train1, x_val1, x_test1, y_train1, y_val1, y_test1, test_trials1 = load_nsd(vector="c", subject=1, loader=False, average=False)
 x_train, x_val, x_test, y_train, y_val, y_test, test_trials = load_nsd_new(vector="c", subject=1, loader=False, average=False)
+
 

@@ -247,7 +247,7 @@ class AutoEncoder():
 
 if __name__ == "__main__":
      # Create the parser and add arguments
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument(
         '--subjects', 
@@ -257,8 +257,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--configs', 
         help="list of autoencoder configs to train models for, if not specified, will run on all configs",
-        type=list,
-        default=["gnet,clip,hybrid"])
+        type=str,
+        default="gnet,clip,hybrid")
     
     parser.add_argument(
         "--batch_size", type=int, default=64,

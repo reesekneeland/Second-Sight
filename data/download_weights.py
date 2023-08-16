@@ -87,7 +87,7 @@ def download_weights(subjects, only_gnet=False):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument(
                         '--gnet', 
@@ -97,7 +97,8 @@ if __name__ == "__main__":
     parser.add_argument('-s',
                         '--subjects', 
                         help="list of subjects to download models for, if not specified, will run on all subjects",
-                        type=list,
-                        default=[1, 2, 5, 7])
+                        type=str,
+                        default="1,2,5,7")
     args = parser.parse_args()
-    download_weights(args.subjects, args.gnet)
+    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
+    download_weights(subject_list, args.gnet)

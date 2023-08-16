@@ -12,7 +12,7 @@ from generate_beta_primes import generate_beta_primes
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("-d",
                         "--downloadnsd",
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', 
                         help="cuda device to run predicts on.",
                         type=str,
-                        default="cuda:0")
+                        default="cuda")
 
     args = parser.parse_args()
     subject_list = [int(sub) for sub in args.subjects.strip().split(",")]

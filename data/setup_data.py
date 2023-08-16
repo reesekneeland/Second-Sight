@@ -123,7 +123,7 @@ def process_trial_data(subjects):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument('-s',
                         '--subjects', 
@@ -135,10 +135,10 @@ if __name__ == "__main__":
                         '--device', 
                         help="cuda device to run predicts on.",
                         type=str,
-                        default="cuda:0")
+                        default="cuda")
     
 
     args = parser.parse_args()
-    subject_list = [int(sub) for sub in args.subjects.split(",")]
+    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
     process_images(args.device)
     process_trial_data(subject_list)
