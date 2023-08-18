@@ -362,22 +362,22 @@ class Stochastic_Search_Statistics():
             library_reconstruction_image = Image.open(library_reconstruction_path)
             library_reconstruction.append(library_reconstruction_image)
             
-            # for folder in folders:
+            for folder in folders:
                 
-            #     # Create the path
-            #     images_path = directory_path + str(i) + "/" + folder + "/images/"
-            #     beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
-            #     os.makedirs(beta_primes_path, exist_ok=True)
-            #     for filename in os.listdir(images_path): 
-            #         reconstruction_image = Image.open(images_path + filename)
-            #         folder_image_set.append(reconstruction_image)
+                # Create the path
+                images_path = directory_path + str(i) + "/" + folder + "/images/"
+                beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
+                os.makedirs(beta_primes_path, exist_ok=True)
+                for filename in os.listdir(images_path): 
+                    reconstruction_image = Image.open(images_path + filename)
+                    folder_image_set.append(reconstruction_image)
                     
-            #     beta_primes = SCS.predict(folder_image_set)
+                beta_primes = SCS.predict(folder_image_set)
                 
-            #     for j in range(beta_primes.shape[0]):
-            #         torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
+                for j in range(beta_primes.shape[0]):
+                    torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
                     
-            #     folder_image_set = []
+                folder_image_set = []
             
             ground_truth_beta_prime = SCS.predict(ground_truth)
             torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(directory_path + str(i)))
@@ -418,7 +418,7 @@ class Stochastic_Search_Statistics():
         os.makedirs(dataframe_path, exist_ok=True)
         
         # Create betas if needed
-        # self.create_beta_primes(experiment_name, subject = self.subject)
+        self.create_beta_primes(experiment_name)
         
         # List of image numbers created. 
         idx = self.image_indices(experiment_name, subject = self.subject)
@@ -662,7 +662,7 @@ def main():
     
     SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:1")
     # SCS.create_beta_primes("noae")
-    SCS.create_dataframe("noae")
+    SCS.create_dataframe("preprint_redux")
     
     
     
