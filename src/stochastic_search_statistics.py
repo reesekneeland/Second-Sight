@@ -52,7 +52,7 @@ class batch_generator_external_images(Dataset):
 
 class Stochastic_Search_Statistics():
     
-    def __init__(self, big=False, subject = 1, device="cuda"):
+    def __init__(self, subject = 1, device = "cuda"):
 
         self.device=device
         self.subject = subject
@@ -312,10 +312,11 @@ class Stochastic_Search_Statistics():
     
     
     # Grab the image indicies to create calculations on. 
-    def image_indices(self, folder, subject = 1):
+    def image_indices(self, experiment_name, subject = 1):
         
         # Directory path
-        dir_path = "output/{}/subject{}/".format(folder, self.subject)
+        dir_path = "Second-Sight-Archive/reconstructions/subject{}/{}".format(self.subject, experiment_name)
+        
         # Grab the list of files
         files = []
         for path in os.listdir(dir_path):
@@ -338,54 +339,54 @@ class Stochastic_Search_Statistics():
         folder_image_set = []
         ground_truth = []
         library_reconstruction = []
-        folders = ["best_distribution"]
-        # folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution", "best_distribution"]
+        #folders = ["best_distribution"]
+        folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution", "best_distribution"]
         directory_path = "output/{}/subject{}/".format(experiment_name, self.subject)
         
-        # existing_path = directory_path + "/22/clip_distribution/0_beta_prime.pt"
+        existing_path = directory_path + "/22/clip_distribution/0_beta_prime.pt"
         
-        # if(not os.path.exists(existing_path)):
+        if(not os.path.exists(existing_path)):
         
-        SCS = StochasticSearch(modelParams=["gnet", "clip"], subject=self.subject, device=self.device)
-        
-        # List of image numbers created. 
-        idx = self.image_indices(experiment_name, subject = self.subject)
-        
-        # Append rows to an empty DataFrame
-        for i in tqdm(idx, desc="creating beta primes"):
+            SCS = StochasticSearch(modelParams=["gnet", "clip"], subject=self.subject, device=self.device)
             
-            ground_truth_path = directory_path + str(i) + "/Ground Truth.png"
-            ground_truth_image = Image.open(ground_truth_path)
-            ground_truth.append(ground_truth_image)
+            # List of image numbers created. 
+            idx = self.image_indices(experiment_name, subject = self.subject)
             
-            library_reconstruction_path = directory_path + str(i) + "/library_reconstruction.png"
-            library_reconstruction_image = Image.open(library_reconstruction_path)
-            library_reconstruction.append(library_reconstruction_image)
-            
-            for folder in folders:
+            # Append rows to an empty DataFrame
+            for i in tqdm(idx, desc="creating beta primes"):
                 
-                # Create the path
-                images_path = directory_path + str(i) + "/" + folder + "/images/"
-                beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
-                os.makedirs(beta_primes_path, exist_ok=True)
-                for filename in os.listdir(images_path): 
-                    reconstruction_image = Image.open(images_path + filename)
-                    folder_image_set.append(reconstruction_image)
-                    
-                beta_primes = SCS.predict(folder_image_set)
+                ground_truth_path = directory_path + str(i) + "/Ground Truth.png"
+                ground_truth_image = Image.open(ground_truth_path)
+                ground_truth.append(ground_truth_image)
                 
-                for j in range(beta_primes.shape[0]):
-                    torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
+                library_reconstruction_path = directory_path + str(i) + "/library_reconstruction.png"
+                library_reconstruction_image = Image.open(library_reconstruction_path)
+                library_reconstruction.append(library_reconstruction_image)
+                
+                for folder in folders:
                     
-                folder_image_set = []
-            
-            ground_truth_beta_prime = SCS.predict(ground_truth)
-            torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(directory_path + str(i)))
-            ground_truth = []
-            
-            library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
-            torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(i)))
-            library_reconstruction = []
+                    # Create the path
+                    images_path = directory_path + str(i) + "/" + folder + "/images/"
+                    beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
+                    os.makedirs(beta_primes_path, exist_ok=True)
+                    for filename in os.listdir(images_path): 
+                        reconstruction_image = Image.open(images_path + filename)
+                        folder_image_set.append(reconstruction_image)
+                        
+                    beta_primes = SCS.predict(folder_image_set)
+                    
+                    for j in range(beta_primes.shape[0]):
+                        torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
+                        
+                    folder_image_set = []
+                
+                ground_truth_beta_prime = SCS.predict(ground_truth)
+                torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(directory_path + str(i)))
+                ground_truth = []
+                
+                library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
+                torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(i)))
+                library_reconstruction = []
                 
     def calculate_brain_predictions(self, path, brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, 
                                     brain_mask_early_visual, brain_mask_higher_visual, beta_sample):
@@ -410,6 +411,7 @@ class Stochastic_Search_Statistics():
         
         return pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general
     
+<<<<<<< HEAD
     def create_dataframe(self, experiment_name, logging = False, old = False):
         # Path to the folder
         if old:
@@ -418,6 +420,208 @@ class Stochastic_Search_Statistics():
         else:
             directory_path = "output/{}/subject{}/".format(experiment_name, self.subject)
             dataframe_path = "output/dataframes/{}/subject{}/".format(experiment_name, self.subject)
+=======
+    
+    def create_dataframe_brain_predictions(self, experiment_name, logging = False):
+        
+        # Path to the folder
+        directory_path = "/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight-Archive/reconstructions/subject{}/{}/".format(self.subject, experiment_name)
+        dataframe_path = "/home/naxos2-raid25/ojeda040/local/ojeda040/Second-Sight-Archive/reconstructions/subject{}/dataframes/".format(self.subject)
+        
+        os.makedirs(dataframe_path, exist_ok=True)
+        
+        # Create betas if needed
+        #self.create_beta_primes(experiment_name)
+        
+        # List of image numbers created. 
+        # idx = self.image_indices(experiment_name, subject = self.subject)
+        
+        # print("IDX: ", len(idx), idx)
+        idx = self.paper_image_indices
+        print("IDX: ", len(idx), idx)
+        
+        # Load Average Brain Samples
+        _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=True, nest=False)
+        
+        # Grab the necessary brain masks
+        brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual, brain_mask_higher_visual = self.return_all_masks()
+        
+        # Create an Empty DataFrame
+        # Object With column names only
+        # Sample Indicator: 
+            #   0 --> Ground Truth
+            #   1 --> VDVAE Distribution        (Decoded Distribution)
+            #   2 --> Clip Distrubituon         (Decoded CLIP Only)
+            #   3 --> Clip Distrubituon + VDVAE (Decoded CLIP + VDVAE)
+            #   4 --> iter_0
+            #   5 --> iter_1
+            #   6 --> iter_2
+            #   7 --> iter_3
+            #   8 --> iter_4
+            #   9 --> iter_5
+            #   11 --> Search Reconstruction
+            #   12 --> Library Reconstruction
+        df = pd.DataFrame(columns = ['ID', 'Sample Count', 'Batch Number', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+                                     'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
+                                     'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 2', 
+                                     'AlexNet 5', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV' ])
+        
+        # Sample count. 
+        sample_count = 0
+        
+        # Dataframe index count. 
+        df_row_num = 0
+        
+        # Images per folder for net metrics.
+        folder_images = []
+        
+        # Folders in the directory and sample number for dataframe operations
+        folders = {}
+        if(logging):
+            folders = {"vdvae_distribution" : 1, "clip_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9}
+        else:
+            folders = {"best_distribution": 10}
+        
+        # Append rows to an empty DataFrame
+        for i in tqdm(idx, desc="creating dataframe rows"):
+            
+            # Ground Truth Image
+            ground_truth_path = directory_path + str(i) + '/' + 'Ground Truth.png'
+            ground_truth = Image.open(ground_truth_path)
+            
+            # Search Reconstruction 
+            search_reconstruction_path = directory_path + str(i) + '/' + 'Search Reconstruction.png'
+            search_reonstruction = Image.open(search_reconstruction_path)
+            
+            # Library Reconstruction
+            library_reconstruction_path = directory_path + str(i) + '/' + 'Library Reconstruction.png'
+            library_reconstruction = Image.open(library_reconstruction_path)
+            
+            for folder, sample_number in folders.items():
+                
+                print("In folder: ", folder)
+                
+                # Create the path
+                path = directory_path + str(i) + "/" + folder + "/"
+            
+                if("iter" in folder):
+                    
+                    batch_number = torch.load(path + "/best_batch_index.pt")
+                    
+                    # Find out if this is the iter that the search reconstruction was taken from. 
+                    iter_path           = directory_path + str(i) + '/' + folder + '.png'
+                    ssim_iter           = self.calculate_ssim(iter_path, search_reconstruction_path)
+                    
+                    for filename in os.listdir(path + "/batch_" + str(int(batch_number))): 
+                        
+                        if(".pt" in filename):
+                            continue
+                    
+                        # Reconstruction path
+                        reconstruction_path = path + '/batch_' + str(int(batch_number)) + '/' + filename
+                        
+                        # Reconstruction image
+                        reconstruction = Image.open(reconstruction_path)
+                        folder_images.append(reconstruction)
+                        
+                        # Calculate the strength at that reconstruction iter image. 
+                        strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
+                        
+                        # Pearson correlation for each region of the brain. 
+                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + '/batch_' + str(int(batch_number)) + "/" + str(sample_count) + "_beta_prime.pt", 
+                                                                                            brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual,
+                                                                                            brain_mask_higher_visual, beta_samples[i])
+                        
+                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Batch Number' : str(int(batch_number)),  'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 
+                                            'Brain Correlation V1' : str(round(pearson_correlation_V1, 10)), 'Brain Correlation V2' : str(round(pearson_correlation_V2, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3 , 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual , 10)), 
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general, 10))},  index=[df_row_num])
+                                
+                        # Add the row to the dataframe
+                        df = pd.concat([df, row])
+                        
+                        # Iterate the counts
+                        sample_count += 1
+                        df_row_num += 1
+                    
+                else: 
+                    for filename in os.listdir(path): 
+                        
+                        if(".pt" in filename):
+                            continue
+                        
+                        # Reconstruction path
+                        reconstruction_path = path + filename
+                        
+                        # Reconstruction image
+                        reconstruction = Image.open(reconstruction_path)
+                        folder_images.append(reconstruction)
+                        
+                        # Calculate the strength at that reconstruction iter image. 
+                        strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
+                        
+                        # Pearson correlation for each region of the brain. 
+                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + str(sample_count) + "_beta_prime.pt", 
+                                                                                            brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4,
+                                                                                            brain_mask_early_visual, brain_mask_higher_visual, beta_samples[i])
+                        
+                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general, 10))},  index=[df_row_num])
+                                
+                        # Add the row to the dataframe
+                        df = pd.concat([df, row])
+                        
+                        # Iterate the counts
+                        sample_count += 1
+                        df_row_num += 1
+                    
+                # Reset the sample_count for the next folder. 
+                sample_count = 0 
+            
+            # Make data frame row for library reconstruction Image
+            
+            # Pearson correlation for each region of the brain. 
+            pearson_correlation_V1_library , pearson_correlation_V2_library , pearson_correlation_V3_library , pearson_correlation_V4_library , pearson_correlation_early_visual_library , pearson_correlation_higher_visual_library , pearson_correlation_nsd_general_library  = self.calculate_brain_predictions(directory_path + str(i) + "/library_reconstruction_beta_prime.pt", 
+                                                                                                                                                                                                                    brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual,
+                                                                                                                                                                                                                    brain_mask_higher_visual, beta_samples[i])
+            
+            row_library_reoncstruction = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "12", 'Strength' : str(round(1, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1_library, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2_library, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3_library, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4_library, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual_library, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual_library, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general_library, 10))}, index=[df_row_num])
+            df_row_num += 1
+            folder_images.append(library_reconstruction)
+            df = pd.concat([df, row_library_reoncstruction])
+            
+            # Pearson correlation for each region of the brain. 
+            pearson_correlation_V1_gt, pearson_correlation_V2_gt, pearson_correlation_V3_gt, pearson_correlation_V4_gt, pearson_correlation_early_visual_gt, pearson_correlation_higher_visual_gt, pearson_correlation_nsd_general_gt  = self.calculate_brain_predictions(directory_path + str(i) + "/ground_truth_beta_prime.pt", 
+                                                                                brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual,
+                                                                                brain_mask_higher_visual, beta_samples[i])
+            
+            row_ground_truth = pd.DataFrame({'ID' : str(i), 'Sample Indicator' : "0", 'Strength' : str(round(strength, 10)), 'Brain Correlation V1' : str(round(pearson_correlation_V1_gt, 10)),
+                                            'Brain Correlation V2' : str(round(pearson_correlation_V2_gt, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3_gt, 10)), 
+                                            'Brain Correlation V4' : str(round(pearson_correlation_V4_gt, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual_gt, 10)),
+                                            'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual_gt, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general_gt, 10))}, index=[df_row_num])
+            df_row_num += 1
+            folder_images.append(ground_truth)
+            df = pd.concat([df, row_ground_truth])
+                
+            # Reset the sample_count for the next folder. 
+            sample_count = 0 
+            folder_images = []
+                                           
+                        
+        print(df.shape)
+        print(df)
+        df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_" + str(len(idx)) +  "_brain_correlation_only_all_noae.csv")
+        
+    def create_dataframe(self, experiment_name, logging = False):
+        # Path to the folder
+        directory_path = "Second-Sight-Archive/reconstructions/subject{}/{}".format(self.subject, experiment_name)
+        dataframe_path = "Second-Sight-Archive/reconstructions/subject{}/dataframes/".format(self.subject)
+>>>>>>> 2849b8e8c9b10d77ad5474aea1848d4a6de701f1
         
         os.makedirs(dataframe_path, exist_ok=True)
         
@@ -668,6 +872,7 @@ class Stochastic_Search_Statistics():
     
 def main():
     
+<<<<<<< HEAD
     SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:1")
     # SCS.create_beta_primes("noae")
     # SCS.create_dataframe("preprint_redux")
@@ -695,6 +900,10 @@ def main():
     # SCS = Stochastic_Search_Statistics(big = True, subject = 2, device="cuda:1")
     # # SCS.create_library_beta_primes("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter")
     # SCS.create_dataframe_only_brain_correlation("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", subject=2)
+=======
+    SCS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
+    SCS.create_dataframe_brain_predictions("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", logging = True)
+>>>>>>> 2849b8e8c9b10d77ad5474aea1848d4a6de701f1
         
 if __name__ == "__main__":
     main()
