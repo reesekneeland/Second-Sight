@@ -29,7 +29,6 @@ def read_images(image_index):
 # batch_size: only used if loader is True, determines dataloader batch size
 # num_workers: only used if loader is True, determines num_workers for dataloader
 def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4):
-    print("load_nsd")
     # If loading autoencoded data, load raw x as brain data (beta) and raw y as encoded brain data (beta prime)
     if(ae):
         assert encoderModel is not None
@@ -39,7 +38,6 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     else:
         x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
         y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False).to("cpu")
-    print(x.shape, y.shape)
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
     # Preparing dataframe to help separate the shared1000 test data

@@ -410,18 +410,23 @@ class Stochastic_Search_Statistics():
         
         return pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general
     
-    def create_dataframe(self, experiment_name, logging = False):
+    def create_dataframe(self, experiment_name, logging = False, old = False):
         # Path to the folder
-        directory_path = "output/{}/subject{}/".format(experiment_name, self.subject)
-        dataframe_path = "output/dataframes/{}/subject{}/".format(experiment_name, self.subject)
+        if old:
+            directory_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight-Archive/reconstructions/subject{}/{}/".format(self.subject, experiment_name)
+            dataframe_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight-Archive/reconstructions/dataframes/subject{}/{}/".format(self.subject, experiment_name)
+        else:
+            directory_path = "output/{}/subject{}/".format(experiment_name, self.subject)
+            dataframe_path = "output/dataframes/{}/subject{}/".format(experiment_name, self.subject)
         
         os.makedirs(dataframe_path, exist_ok=True)
         
         # Create betas if needed
-        self.create_beta_primes(experiment_name)
+        # self.create_beta_primes(experiment_name)
         
         # List of image numbers created. 
-        idx = self.image_indices(experiment_name, subject = self.subject)
+        # idx = self.image_indices(experiment_name, subject = self.subject)
+        idx = self.paper_image_indices
         print("IDX: ", len(idx), idx)
         # Autoencoded avearged brain samples 
         # beta_samples = self.autoencoded_brain_samples(subject=self.subject)
@@ -463,7 +468,7 @@ class Stochastic_Search_Statistics():
         # Folders in the directory and sample number for dataframe operations
         folders = {}
         if(logging):
-            folders = {"vdvae_distribution" : 1, "clip_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9, "best_distribution": 10}
+            folders = {"vdvae_distribution" : 1, "clip_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9}
         else:
             folders = {"best_distribution": 10}
         
@@ -479,7 +484,8 @@ class Stochastic_Search_Statistics():
             search_reonstruction = Image.open(search_reconstruction_path)
             
             # Library Reconstruction
-            library_reconstruction_path = directory_path + str(i) + '/' + 'library_reconstruction.png'
+            library_reconstruction_path = directory_path + str(i) + '/' + 'Library Reconstruction.png'
+            # library_reconstruction_path = directory_path + str(i) + '/' + 'library_reconstruction.png'
             library_reconstruction = Image.open(library_reconstruction_path)
             
             for folder, sample_number in folders.items():
@@ -543,13 +549,14 @@ class Stochastic_Search_Statistics():
                         df_row_num += 1
                     
                 else: 
-                    for filename in os.listdir(path + "/images/"): 
+                    for filename in os.listdir(path): # + "/images/"
                         
                         if(sample_count == 5):
                             break
                         
                         # Reconstruction path
-                        reconstruction_path = path + '/images/' + filename
+                        # reconstruction_path = path + '/images/' + filename
+                        reconstruction_path = path + "/" + filename
                         
                         # Reconstruction image
                         reconstruction = Image.open(reconstruction_path)
@@ -568,7 +575,8 @@ class Stochastic_Search_Statistics():
                         strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
                         
                         # Pearson correlation for each region of the brain. 
-                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + "/beta_primes/" + str(sample_count) + ".pt", 
+                        # self.calculate_brain_predictions(path + "/beta_primes/" + str(sample_count) + ".pt"
+                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + "/" + str(sample_count) + "_beta_prime.pt", 
                                                                                             brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4,
                                                                                             brain_mask_early_visual, brain_mask_higher_visual, beta_samples[i])
                         
@@ -655,14 +663,15 @@ class Stochastic_Search_Statistics():
                         
         print(df.shape)
         print(df)
-        df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_" + str(len(idx)) +  ".csv")
+        df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_only_bc_ablation_" + str(len(idx)) +  ".csv")
     
     
 def main():
     
     SCS = Stochastic_Search_Statistics(big = True, subject = 1, device="cuda:1")
     # SCS.create_beta_primes("noae")
-    SCS.create_dataframe("preprint_redux")
+    # SCS.create_dataframe("preprint_redux")
+    SCS.create_dataframe("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", logging=True, old=True)
     
     
     
