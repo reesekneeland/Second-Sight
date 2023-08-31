@@ -165,7 +165,7 @@ if __name__ == "__main__":
                 
                 # Format output iteration diagram
                 nsdId = trials[val]
-                ground_truth = Image.fromarray(read_images(image_index=[nsdId], show=True)[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
+                ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 rows = int(math.ceil(len(image_list)/2 + 4))
                 columns = 2
                 images = [ground_truth, scs_reconstruction, gt_vdvae, library_vdvae, gt_clip, library_clip, gt_clip_vdvae, library_clip_vdvae]
@@ -186,3 +186,9 @@ if __name__ == "__main__":
                         count +=1
                     else:
                         images[j].save("{}/{}.png".format(sample_path, captions[j]))
+                        
+                ground_truth_beta_prime = SCS.predict([ground_truth])
+                torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(sample_path))
+                
+                library_reconstruction_beta_prime = SCS.predict([best_library_images[i]])
+                torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(sample_path))
