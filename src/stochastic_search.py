@@ -147,7 +147,7 @@ class StochasticSearch():
             for i in range(beta_primes.shape[0]):
                 torch.save(beta_primes[i], "{}/beta_primes/{}.pt".format(save_path, i))
         scores = []
-        PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
+        PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[0]).to(self.device) 
         for i in range(beta.shape[0]):
             xDup = beta[i].repeat(beta_primes.shape[0], 1).moveaxis(0, 1).to(self.device)
             score = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
@@ -262,6 +262,7 @@ class StochasticSearch():
                         # Create symlink from current batch folder to "best_batch" folder for easy traversing later
                         if(self.log):
                             relpath = os.path.relpath(batch_path, best_batch_path)
+                            print("RELPATH", relpath)
                             if os.path.islink(best_batch_path):
                                 os.unlink(best_batch_path)
                             os.symlink(relpath, best_batch_path, target_is_directory=True)
