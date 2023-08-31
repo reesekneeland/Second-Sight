@@ -44,7 +44,7 @@ options:
   --device DEVICE       cuda device to run predicts on. (default: cuda)
 
 ```
-## Alternative Installation Options
+## Alternative Setup Options
 Instead of using the main automation script provided above, you can perform the various setup and configuration steps individually using the scripts below. This is useful if you want to set up custom training configurations and have more control over the data processing procedures.
 
 1. Aquire a copy of the Natural Scenes Dataset, you can download the relevant files for this project using aws via our setup script below, or by downloading/moving your own copy to the ```/data``` directory. To download your own copy, start by agreeing to the Natural Scenes Dataset's [Terms and Conditions](https://cvnlab.slite.page/p/IB6BSeW_7o/Terms-and-Conditions) and fill out the [NSD Data Access form.](https://forms.gle/xue2bCdM9LaFNMeb7)
