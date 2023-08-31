@@ -146,12 +146,11 @@ class StochasticSearch():
                 im.save(save_path + "images/{}.png".format(i))
             for i in range(beta_primes.shape[0]):
                 torch.save(beta_primes[i], "{}/beta_primes/{}.pt".format(save_path, i))
-        beta_primes = beta_primes.moveaxis(0, 1).to(self.device)
         scores = []
         PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[1]).to(self.device) 
         for i in range(beta.shape[0]):
-            xDup = beta[i].repeat(beta_primes.shape[1], 1).moveaxis(0, 1).to(self.device)
-            score = PeC(xDup, beta_primes)
+            xDup = beta[i].repeat(beta_primes.shape[0], 1).moveaxis(0, 1).to(self.device)
+            score = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
             scores.append(score)
         scores = torch.mean(torch.stack(scores), dim=0)
         return scores, sample_clips, beta_primes
@@ -174,7 +173,7 @@ class StochasticSearch():
     def search(self, sample_path, beta, c_i, init_img=None):
         with torch.no_grad():
             # Initialize search variables
-            best_image, c_i, best_distribution_score = init_img, c_i, -1
+            best_image, best_clip, best_distribution_score = init_img, c_i, -1
             iter_images, iter_scores = [], []
             pbar = tqdm(total=self.n_iter, desc="Search iterations")
             # Prepare beta as search target
@@ -196,12 +195,14 @@ class StochasticSearch():
                 os.symlink(relpath, best_batch_path, target_is_directory=True)
             # Score iteration 0
             iteration_scores, iteration_clips, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
+            print("ITERATION SHAPES: ", iteration_scores.shape, iteration_clips.shape, len(iteration_samples))
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
                 best_distribution_score = float(torch.mean(iteration_scores))
                 best_image = iteration_samples[int(torch.argmax(iteration_scores))]
-                c_i = slerp(c_i, iteration_clips[int(torch.argmax(iteration_scores))], 0.2*(math.pow(1/self.n_iter, 2)))
+                best_clip = iteration_clips[int(torch.argmax(iteration_scores))]
+                c_i = slerp(c_i, best_clip, 0.2*(math.pow(1/self.n_iter, 2)))
             iter_scores.append(best_distribution_score)
             iter_images.append(best_image)
             
@@ -218,7 +219,6 @@ class StochasticSearch():
                 strength = 0.92-0.30*(math.pow((i+1)/self.n_iter, 3))
                 momentum = 0.2*(math.pow((i+1)/self.n_iter, 2))
                 n_i = max(10, int((self.n_samples/self.n_branches)*strength))
-                
                 # Save
                 iter_path = "{}iter_{}/".format(sample_path, i)
                 best_batch_path = "{}best_batch".format(iter_path)
@@ -275,7 +275,7 @@ class StochasticSearch():
                     if torch.mean(batch_scores) > best_distribution_score:
                         best_distribution_score = torch.mean(batch_scores)
                         best_image = batch_samples[int(torch.argmax(batch_scores))]
-                        c_i = slerp(c_i, batch_clips[int(torch.argmax(batch_scores))], momentum)
+                        best_clip = clip_seeds[b]
                         best_distribution_params = {
                                         "images":batch_samples,
                                         "beta_primes": batch_beta_primes,
@@ -286,8 +286,8 @@ class StochasticSearch():
                 # Concatenate scores and clips from each batch to be sorted for seeding the next iteration
                 iteration_scores = torch.concat(iteration_scores)
                 iteration_clips = torch.concat(iteration_clips)
-                print(iteration_scores.shape, iteration_clips.shape)
-                
+                print("ITERATION SHAPES: ", iteration_scores.shape, iteration_clips.shape, len(iteration_samples))
+                c_i = slerp(c_i, best_clip, momentum)
                 iter_scores.append(best_distribution_score)
                 iter_images.append(best_image)
                 pbar.update(1)
