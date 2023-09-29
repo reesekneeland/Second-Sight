@@ -69,6 +69,7 @@ if __name__ == "__main__":
         ae = False
     else:
         ae = True
+    print("AE: ", ae)
         
     for subject in subject_list:
         with torch.no_grad():
@@ -87,7 +88,7 @@ if __name__ == "__main__":
             # Generating starting guesses for low level (VDVAE) and high level (CLIP) vectors.
             LD = LibraryAssembler(configList=["gnet", "clip"],
                                 subject=subject,
-                                ae=True,
+                                ae=ae,
                                 device=args.device)
             best_library_images  = LD.predict(x_test, vector="images", topn=1)
             library_clips = LD.predict(x_test, vector="c", topn=100).reshape((len(idx_list), 1, 1024))
@@ -95,15 +96,14 @@ if __name__ == "__main__":
             
             LD_v = LibraryAssembler(configList=["gnet"],
                                 subject=subject,
-                                ae=True,
+                                ae=ae,
                                 mask=torch.load("data/preprocessed_data/subject{}/masks/early_vis.pt".format(subject)),
                                 device=args.device)
             library_vdvae_latents = LD_v.predict(x_test, vector="z_vdvae", topn=25)
             library_vdvae_latents = normalize_vdvae(library_vdvae_latents).reshape((len(idx_list), 1, 91168))
             del LD_v
-            
             # Initialize Models
-            V = VDVAE()
+            V = VDVAE(device=args.device)
             SCS = StochasticSearch(modelParams=["gnet", "clip"],
                                     subject=subject,
                                     device=args.device,
@@ -187,8 +187,6 @@ if __name__ == "__main__":
                     else:
                         images[j].save("{}/{}.png".format(sample_path, captions[j]))
                         
-                ground_truth_beta_prime = SCS.predict([ground_truth])
-                torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(sample_path))
-                
-                library_reconstruction_beta_prime = SCS.predict([best_library_images[i]])
-                torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(sample_path))
+                extra_beta_primes = SCS.predict([ground_truth, process_image(best_library_images[i])])
+                torch.save(extra_beta_primes[0], "{}/ground_truth_beta_prime.pt".format(sample_path))
+                torch.save(extra_beta_primes[1], "{}/library_reconstruction_beta_prime.pt".format(sample_path))

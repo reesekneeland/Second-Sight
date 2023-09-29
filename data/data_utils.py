@@ -12,7 +12,7 @@ from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
 import h5py
 
-def read_images(image_index, show=False):
+def read_images(image_index):
         """read_images reads a list of images, and returns their data
 
         Parameters

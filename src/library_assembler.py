@@ -53,16 +53,16 @@ class LibraryAssembler():
             
             scores = torch.zeros((self.y_indices.shape[0],))
             div = 0
-            for AEmodel, preds in zip(self.AEModels, self.x_preds):
+            for m in range(len(self.x_preds)):
                 for rep in range(x.shape[0]):
                     x_rep = x[rep]
                     if(torch.count_nonzero(x_rep) > 0):
                         if self.ae:
-                            x_rep = AEmodel.predict(x_rep)
-                        xDup = x_rep[self.mask].repeat(21000, 1).moveaxis(0, 1)
+                            x_rep = AEmodel[m].predict(x_rep)
+                        xDup = x_rep[self.mask].repeat(21000, 1).moveaxis(0, 1).to(self.device)
                         for coco_batch in range(3):
                             x_preds_t = []
-                            x_preds_batch = preds[21000*coco_batch:21000*coco_batch+21000, self.mask]
+                            x_preds_batch = self.x_preds[m][21000*coco_batch:21000*coco_batch+21000, self.mask]
                             x_preds_t = x_preds_batch.moveaxis(0, 1).to(self.device)
                             modelScore = PeC(xDup, x_preds_t).cpu()
                             

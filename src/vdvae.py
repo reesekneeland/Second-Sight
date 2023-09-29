@@ -21,9 +21,9 @@ class VDVAE():
             __delattr__ = dict.__delitem__
         H = dotdict(H)
 
-        H, self.preprocess_fn = set_up_data(H)
-        self.ema_vae = load_vaes(H)
-        self.device = torch.device(device)
+        self.device = device
+        H, self.preprocess_fn = set_up_data(H, device=self.device)
+        self.ema_vae = load_vaes(H, device=self.device)
         
     def sample_from_hier_latents(self, latents):
         layers_num=len(latents)

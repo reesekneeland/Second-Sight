@@ -68,15 +68,21 @@ class StochasticSearch():
 
     # Hybrid encoder implementation, predict beta primes using the ensemble of encoding models in the SCS config
     def predict(self, x, mask=None, return_clips=False):
-        combined_preds = torch.zeros((len(self.modelParams), len(x), self.x_size)).cpu()
+        
         if(isinstance(x, list)):
+            combined_preds = torch.zeros((len(self.modelParams), len(x), self.x_size)).cpu()
             img_tensor = torch.zeros((len(x), 425, 425, 3))
             for i, sample in enumerate(x):
                 image = sample.resize((425, 425))
-                img_tensor[i] = pil_to_tensor(image).reshape((425, 425, 3))
+                img_tensor[i] = torch.from_numpy(np.array(image)).reshape((425, 425, 3))
             x = img_tensor
-        x = x.reshape((x.shape[0], 425, 425, 3))
-
+        elif(isinstance(x, torch.Tensor)):
+            assert 425 in x.shape or 541875 in x.shape,"Tensor of wrong size"
+            combined_preds = torch.zeros((len(self.modelParams), x.shape[0], self.x_size)).cpu()
+            x = x.reshape((x.shape[0], 425, 425, 3))
+        else:
+            raise TypeError
+        
         sample_clips = self.R.encode_image_raw(x, device=self.device)
         
         for c, mType in enumerate(self.modelParams):
@@ -156,7 +162,7 @@ class StochasticSearch():
         return scores, sample_clips, beta_primes
     
     # Preprocess beta, remove empty trials, and autoencode if necessary
-    def denoise(self, beta):
+    def prepare_betas(self, beta):
         beta_list = []
         for i in range(beta.shape[0]):
             if(torch.count_nonzero(beta[i]) > 0):
@@ -177,7 +183,7 @@ class StochasticSearch():
             iter_images, iter_scores = [], []
             pbar = tqdm(total=self.n_iter, desc="Search iterations")
             # Prepare beta as search target
-            beta = self.denoise(beta)
+            beta = self.prepare_betas(beta)
             
             # Generate iteration 0
             iteration_samples = self.generateNSamples(image=init_img, 
@@ -189,13 +195,11 @@ class StochasticSearch():
             best_batch_path = "{}best_batch".format(iter_path)
             if(self.log):
                 os.makedirs(iter_path, exist_ok=True)
-                relpath = os.path.relpath(iter_path, best_batch_path)
-                if os.path.islink(best_batch_path):
-                    os.unlink(best_batch_path)
-                os.symlink(relpath, best_batch_path, target_is_directory=True)
+                if os.path.islink(os.path.abspath(best_batch_path)):
+                    remove_symlink(os.path.abspath(best_batch_path))
+                os.symlink(os.path.abspath(iter_path), os.path.abspath(best_batch_path), target_is_directory=True)
             # Score iteration 0
             iteration_scores, iteration_clips, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
-            print("ITERATION SHAPES: ", iteration_scores.shape, iteration_clips.shape, len(iteration_samples))
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -227,9 +231,9 @@ class StochasticSearch():
                     torch.save(torch.tensor(strength), iter_path+"iter_strength.pt")
                 
                 # Update seeds from previous iteration
-                seed_indices = torch.topk(iteration_scores, self.n_branches).indices.tolist()
-                z_seeds = [iteration_samples[seed] for seed in seed_indices]
-                clip_seeds = [slerp(c_i, iteration_clips[seed], momentum) for seed in seed_indices]
+                seed_indices = torch.topk(iteration_scores, self.n_branches).indices
+                z_seeds = [iteration_samples[int(seed)] for seed in seed_indices]
+                clip_seeds = [slerp(c_i, iteration_clips[int(seed)], momentum) for seed in seed_indices]
                 if not best_image not in z_seeds:
                     z_seeds.append(best_image)
                     clip_seeds.append(c_i)
@@ -261,11 +265,9 @@ class StochasticSearch():
                         best_batch_score = torch.mean(batch_scores)
                         # Create symlink from current batch folder to "best_batch" folder for easy traversing later
                         if(self.log):
-                            relpath = os.path.relpath(batch_path, best_batch_path)
-                            print("RELPATH", relpath)
-                            if os.path.islink(best_batch_path):
-                                os.unlink(best_batch_path)
-                            os.symlink(relpath, best_batch_path, target_is_directory=True)
+                            if os.path.islink(os.path.abspath(best_batch_path)):
+                                remove_symlink(os.path.abspath(best_batch_path))
+                            os.symlink(os.path.abspath(batch_path), os.path.abspath(best_batch_path), target_is_directory=True)
                             
                     # Keep track of all batches in iteration for updating seeds
                     iteration_samples += batch_samples
@@ -285,9 +287,8 @@ class StochasticSearch():
                                         "strength": strength}
                 
                 # Concatenate scores and clips from each batch to be sorted for seeding the next iteration
-                iteration_scores = torch.concat(iteration_scores)
-                iteration_clips = torch.concat(iteration_clips)
-                print("ITERATION SHAPES: ", iteration_scores.shape, iteration_clips.shape, len(iteration_samples))
+                iteration_scores = torch.concat(iteration_scores, dim=0)
+                iteration_clips = torch.concat(iteration_clips, dim=0)
                 c_i = slerp(c_i, best_clip, momentum)
                 iter_scores.append(best_distribution_score)
                 iter_images.append(best_image)

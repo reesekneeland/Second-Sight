@@ -4,5 +4,6 @@ data/__pycache__
 vdvae/__pycache__
 /wandb
 /models
+/models_trained/
 /output
 /scripts

@@ -29,7 +29,7 @@ def download_weights(subjects, only_gnet=False):
     if not only_gnet:
         if(1 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_dual_autoencoder.pt")
-            destinations.append("models/sub01_dual_autoencoder.pt")
+            destinations.append("models/sub01_hybrid_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub01_clip_encoder.pt")
             destinations.append("models/sub01_clip_encoder.pt")
@@ -42,7 +42,7 @@ def download_weights(subjects, only_gnet=False):
             
         if(2 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_dual_autoencoder.pt")
-            destinations.append("models/sub02_dual_autoencoder.pt")
+            destinations.append("models/sub02_hybrid_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub02_clip_encoder.pt")
             destinations.append("models/sub02_clip_encoder.pt")
@@ -55,7 +55,7 @@ def download_weights(subjects, only_gnet=False):
             
         if(5 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_dual_autoencoder.pt")
-            destinations.append("models/sub05_dual_autoencoder.pt")
+            destinations.append("models/sub05_hybrid_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub05_clip_encoder.pt")
             destinations.append("models/sub05_clip_encoder.pt")
@@ -68,7 +68,7 @@ def download_weights(subjects, only_gnet=False):
                 
         if(7 in subjects):
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_dual_autoencoder.pt")
-            destinations.append("models/sub07_dual_autoencoder.pt")
+            destinations.append("models/sub07_hybrid_autoencoder.pt")
             
             file_ids.append("https://huggingface.co/reesekneeland/Second-Sight/resolve/main/sub07_clip_encoder.pt")
             destinations.append("models/sub07_clip_encoder.pt")
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     
     parser.add_argument(
                         '--gnet', 
-                        help="flag to download only the GNet model (1.18GB) but you will be required to train the other models, otherwise all models will be downloaded (14GB)",
+                        help="flag to download only the GNet models and the VDVAE models, but you will be required to train the other models, otherwise all models will be downloaded.",
                         action='store_true')
     
     parser.add_argument('-s',

@@ -434,4 +434,25 @@ def compute_cnn_metrics(cnn_metrics_ground_truth, cnn_metrics_reconstructions):
             
     return cnn_metrics  
 
+def remove_symlink(symlink):
+    """Remove a symlink from the file system.
 
+    Parameters
+    ----------
+    symlink : :obj:`str`
+        Symlink to remove.
+    """
+    # Broken links return False on .exists(), so we need to check .islink() as well
+    if not (os.path.islink(symlink) or os.path.exists(symlink)):
+        return
+
+    if os.path.isdir(symlink):
+        try:
+            os.rmdir(symlink)
+        except NotADirectoryError:
+            os.unlink(symlink)
+        except PermissionError:
+            raise
+
+    else:
+        os.unlink(symlink) 

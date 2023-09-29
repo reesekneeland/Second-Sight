@@ -64,7 +64,7 @@ def process_images(device):
     # Variables for clip image vectos
     c_tensor = torch.zeros((73000, 1024), dtype=torch.float32)
 
-    image_read = read_images(image_index=[j for j in range(73000)], show=False)
+    image_read = read_images(image_index=[j for j in range(73000)])
     img_array = torch.from_numpy(image_read).reshape((73000, 541875))
     torch.save(img_array,  "data/preprocessed_data/images_73k.pt")
 
