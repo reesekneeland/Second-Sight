@@ -11,6 +11,7 @@ import h5py
 import matplotlib.pyplot as plt
 import json
 import scipy as sp
+import pickle
 
 def read_images(image_index):
 
@@ -112,6 +113,52 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     else:
         return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
+#stimtype: all, simple, complex
+#mode: vision, imagery
+
+def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False):
+    
+    img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
+    ex_file = open(img_stim_file, 'rb')
+    imagery_dict = pickle.load(ex_file)
+    ex_file.close()
+    exps = imagery_dict['exps']
+    cues = imagery_dict['cues']
+    image_map  = imagery_dict['image_map']
+    image_data = imagery_dict['image_data']
+    cond_idx = {
+    'visionsimple': np.arange(len(exps))[exps=='visA'],
+    'visioncomplex': np.arange(len(exps))[exps=='visB'],
+    'visionall': np.arange(len(exps))[np.logical_or(exps=='visA', exps=='visB')],
+    'imagerysimple': np.arange(len(exps))[np.logical_or(exps=='imgA_1', exps=='imgA_2')],
+    'imagerycomplex': np.arange(len(exps))[np.logical_or(exps=='imgB_1', exps=='imgB_2')],
+    'imageryall': np.arange(len(exps))[np.logical_or(np.logical_or(exps=='imgA_1', exps=='imgA_2'), np.logical_or(exps=='imgB_1', exps=='imgB_2'))]
+    }
+    cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
+    # Load files for subject
+    x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
+    y = torch.load("data/preprocessed_data/{}_12.pt".format(vector)).requires_grad_(False).to("cpu")
+    
+    # Prune down to specific experimental mode/stimuli type
+    x = x[cond_idx[mode+stimtype]]
+
+    # Average across trials
+    if average:
+        x = condition_average(x, cond_im_idx[mode+stimtype])
+        x = x.reshape((x.shape[0], 1, x.shape[1]))
+    elif nest:
+        x_new = torch.zeros((12, 8, x.shape[1]))
+        for i in range(12):
+            x_new[i] = x[i*8: i*8 + 8]
+        x = x_new
+
+
+    if stimtype == "simple":
+        y = y[:6]
+    elif stimtype == "complex":
+        y = y[6:]
+    print(x.shape, y.shape)
+    return x, y
 
 # This function is used to assemble the iteration diagrams and other collages of images
 #useTitle = 0 means no title at all
@@ -456,3 +503,11 @@ def remove_symlink(symlink):
 
     else:
         os.unlink(symlink) 
+
+def condition_average(data, cond):
+    idx, idx_count = np.unique(cond, return_counts=True)
+    idx_list = [cond==i for i in np.sort(idx)]
+    avg_data = torch.zeros((len(idx),data.shape[1]), dtype=torch.float32)
+    for i,m in enumerate(idx_list):
+        avg_data[i] = torch.mean(data[m], axis=0)
+    return avg_data
