@@ -337,67 +337,79 @@ class Stochastic_Search_Statistics():
     def create_beta_primes(self, experiment_name):
         
         folder_image_set = []
-        ground_truth = []
-        library_reconstruction = []
-        # folders = ["best_distribution"]
-        # folders = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4", "iter_5"]
-        folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution", "best_distribution"]
+        # ground_truth = []
+        # library_reconstruction = []
+        # # folders = ["best_distribution"]
+        # # folders = ["iter_0", "iter_1", "iter_2", "iter_3", "iter_4", "iter_5"]
+        folders = ["vdvae_distribution", "clip_distribution", "clip+vdvae_distribution"]
+        # folders = ["clip_distribution", "clip+vdvae_distribution"]
         directory_path = "output/{}/subject{}/".format(experiment_name, self.subject)
         # directory_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight-Archive/reconstructions/subject{}/{}/".format(self.subject, experiment_name)
         
-        existing_path = directory_path + "/22/clip_distribution/0_beta_prime_3.pt"
+        # existing_path = directory_path + "/22/clip_distribution/0_beta_prime_3.pt"
         
-        if(not os.path.exists(existing_path)):
+        # if(not os.path.exists(existing_path)):
         
-            SCS = StochasticSearch(modelParams=["gnet", "clip"], subject=self.subject, device=self.device)
+        SCS = StochasticSearch(modelParams=["gnet", "clip"], subject=self.subject, device=self.device)
+        
+        # List of image numbers created. 
+        # idx = self.image_indices(experiment_name, subject = self.subject)
+        idx = self.paper_image_indices
+        # idx = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 79, 80, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 106, 107, 108, 109, 111, 113, 115, 116, 117, 118, 119, 120, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
+    
+        # Append rows to an empty DataFrame
+        for i in tqdm(idx, desc="creating beta primes"):
             
-            # List of image numbers created. 
-            idx = self.image_indices(experiment_name, subject = self.subject)
-            # idx = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 56, 58, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 79, 80, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 106, 107, 108, 109, 111, 113, 115, 116, 117, 118, 119, 120, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
-        
-            # Append rows to an empty DataFrame
-            for i in tqdm(idx, desc="creating beta primes"):
+            # ground_truth_path = directory_path + str(i) + "/Ground Truth.png"
+            # ground_truth_image = Image.open(ground_truth_path)
+            # ground_truth.append(ground_truth_image)
+            
+            # # library_reconstruction_path = directory_path + str(i) + "/library_reconstruction.png"
+            # library_reconstruction_path = directory_path + str(i) + "/Library Reconstruction.png"
+            # library_reconstruction_image = Image.open(library_reconstruction_path)
+            # library_reconstruction.append(library_reconstruction_image)
+            
+            for folder in folders:
+                path = directory_path + str(i) + "/" + folder + "/"
+                best_batch_path = "{}best_batch".format(path)
+                if os.path.islink(os.path.abspath(best_batch_path)):
+                    remove_symlink(os.path.abspath(best_batch_path))
+                os.symlink(os.path.abspath(path), os.path.abspath(best_batch_path), target_is_directory=True)
+                if folder == "vdvae_distribution":
+                    os.makedirs(path + "images/", exist_ok=True)
+                    os.rename(path + "z_img.png", path + "images/z_img.png")
                 
-                ground_truth_path = directory_path + str(i) + "/Ground Truth.png"
-                ground_truth_image = Image.open(ground_truth_path)
-                ground_truth.append(ground_truth_image)
+                # subfolders = [f.name for f in os.scandir(path) if f.is_dir()]
+                # for batch in subfolders:
+                    # Create the path
+                    # images_path = directory_path + str(i) + "/" + folder + "/images/"
+                    # beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
+                    # images_path = directory_path + str(i) + "/" + folder + "/" + batch + "/"
+                images_path = path + "images/"
+                beta_primes_path = path + "beta_primes/"
+                os.makedirs(beta_primes_path, exist_ok=True)
+                # print(images_path)
+                for filename in os.listdir(images_path): 
+                    # print(filename)
+                    if ".png" in filename:
+                        reconstruction_image = Image.open(images_path + filename)
+                        folder_image_set.append(reconstruction_image)
+                # print(folder_image_set)
+                beta_primes = SCS.predict(folder_image_set)
                 
-                # library_reconstruction_path = directory_path + str(i) + "/library_reconstruction.png"
-                library_reconstruction_path = directory_path + str(i) + "/Library Reconstruction.png"
-                library_reconstruction_image = Image.open(library_reconstruction_path)
-                library_reconstruction.append(library_reconstruction_image)
-                
-                for folder in folders:
-                    subfolders = [f.name for f in os.scandir(directory_path + str(i) + "/" + folder + "/") if f.is_dir()]
-                    for batch in subfolders:
-                        # Create the path
-                        # images_path = directory_path + str(i) + "/" + folder + "/images/"
-                        # beta_primes_path = directory_path + str(i) + "/" + folder + "/beta_primes/"
-                        images_path = directory_path + str(i) + "/" + folder + "/" + batch + "/"
-                        beta_primes_path = directory_path + str(i) + "/" + folder + "/" + batch + "/"
-                        os.makedirs(beta_primes_path, exist_ok=True)
-                        # print(images_path)
-                        for filename in os.listdir(images_path): 
-                            # print(filename)
-                            if ".png" in filename:
-                                reconstruction_image = Image.open(images_path + filename)
-                                folder_image_set.append(reconstruction_image)
-                        # print(folder_image_set)
-                        beta_primes = SCS.predict(folder_image_set)
-                        
-                        for j in range(beta_primes.shape[0]):
-                            # torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
-                            torch.save(beta_primes[j], "{}{}_beta_prime_3.pt".format(beta_primes_path, j))
-                            
-                        folder_image_set = []
-                
-                ground_truth_beta_prime = SCS.predict(ground_truth)
-                torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(directory_path + str(i)))
-                ground_truth = []
-                
-                library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
-                torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(i)))
-                library_reconstruction = []
+                for j in range(beta_primes.shape[0]):
+                    # torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
+                    torch.save(beta_primes[j], "{}{}.pt".format(beta_primes_path, j))
+                    
+                folder_image_set = []
+            
+            # ground_truth_beta_prime = SCS.predict(ground_truth)
+            # torch.save(ground_truth_beta_prime[0], "{}/ground_truth_beta_prime.pt".format(directory_path + str(i)))
+            # ground_truth = []
+            
+            # library_reconstruction_beta_prime = SCS.predict(library_reconstruction)
+            # torch.save(library_reconstruction_beta_prime[0], "{}/library_reconstruction_beta_prime.pt".format(directory_path + str(i)))
+            # library_reconstruction = []
                 
     def calculate_brain_predictions(self, path, brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, 
                                     brain_mask_early_visual, brain_mask_higher_visual, beta_sample):
@@ -675,7 +687,7 @@ class Stochastic_Search_Statistics():
         folders = {}
         if(logging):
             # folders = {"iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9}
-            folders = {"vdvae_distribution" : 1, "clip_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9}
+            folders = {"vdvae_distribution" : 1, "clip_distribution" : 2, "clip+vdvae_distribution" : 3, "iter_0" : 4, "iter_1" : 5 , "iter_2" : 6, "iter_3" : 7, "iter_4" : 8, "iter_5" : 9, "best_distribution": 10}
         else:
             folders = {"best_distribution": 10}
         
@@ -702,15 +714,17 @@ class Stochastic_Search_Statistics():
                 
                 # Create the path
                 path = directory_path + str(i) + "/" + folder
+                
             
                 if("iter" in folder):
                     
-                    batch_number = torch.load(path + "/best_batch_index.pt")
+                    # batch_number = torch.load(path + "/best_batch_index.pt")
                     
                     # Find out if this is the iter that the search reconstruction was taken from. 
                     iter_path           = directory_path + str(i) + '/' + folder + '.png'
                     ssim_iter           = self.calculate_ssim(iter_path, search_reconstruction_path)
-                    for filename in os.listdir(path + "/batch_" + str(int(batch_number)) + "/images/"):
+                    for filename in os.listdir(path + "/best_batch/images/"):
+                    # for filename in os.listdir(path + "/batch_" + str(int(batch_number)) + "/images/"):
                     # for filename in os.listdir(path + "/batch_" + str(int(batch_number))): 
                         
                         if(".pt" in filename):
@@ -720,7 +734,8 @@ class Stochastic_Search_Statistics():
                             break
                     
                         # Reconstruction path
-                        reconstruction_path = path + '/batch_' + str(int(batch_number)) + '/images/' + filename
+                        reconstruction_path = path + '/best_batch/images/' + filename
+                        # reconstruction_path = path + '/batch_' + str(int(batch_number)) + '/images/' + filename
                         # reconstruction_path = path + '/batch_' + str(int(batch_number)) + "/" + filename
                         # Reconstruction image
                         reconstruction = Image.open(reconstruction_path)
@@ -739,12 +754,12 @@ class Stochastic_Search_Statistics():
                         strength = 0.92-0.3*(math.pow((sample_count + 1)/ 6, 3))
                         
                         # Pearson correlation for each region of the brain. 
-                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + '/batch_' + str(int(batch_number)) + "/beta_primes/" + str(sample_count) + ".pt", 
+                        pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + "/best_batch/beta_primes/" + str(sample_count) + ".pt", 
                         # pearson_correlation_V1, pearson_correlation_V2, pearson_correlation_V3, pearson_correlation_V4, pearson_correlation_early_visual, pearson_correlation_higher_visual, pearson_correlation_nsd_general = self.calculate_brain_predictions(path + '/batch_' + str(int(batch_number)) + "/" + str(sample_count) + "_beta_prime_3.pt", 
                                                                                             brain_mask_V1, brain_mask_V2, brain_mask_V3, brain_mask_V4, brain_mask_early_visual,
                                                                                             brain_mask_higher_visual, beta_samples[i])
                         
-                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Batch Number' : str(int(batch_number)), 'Search Reconstruction' : str(ssim_iter == 1.0),  'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 
+                        row = pd.DataFrame({'ID' : str(i), 'Sample Count' : str(sample_count), 'Batch Number' : None, 'Search Reconstruction' : str(ssim_iter == 1.0),  'Sample Indicator' : str(sample_number), 'Strength' : str(round(strength, 10)), 
                                             'Brain Correlation V1' : str(round(pearson_correlation_V1, 10)), 'Brain Correlation V2' : str(round(pearson_correlation_V2, 10)), 'Brain Correlation V3' : str(round(pearson_correlation_V3 , 10)), 
                                             'Brain Correlation V4' : str(round(pearson_correlation_V4, 10)), 'Brain Correlation Early Visual' : str(round(pearson_correlation_early_visual , 10)), 
                                             'Brain Correlation Higher Visual' : str(round(pearson_correlation_higher_visual, 10)), 'Brain Correlation NSD General' : str(round(pearson_correlation_nsd_general, 10)),
@@ -878,18 +893,12 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    SCS = Stochastic_Search_Statistics(subject = 1, device="cuda:2")
-    idx = SCS.paper_image_indices[114:]
-    # print(idx[0])
-    split1=int(len(idx)/3)
-    split2 = 2 * split1
-    print(idx[:split1])
-    print(idx[split1:split2])
-    print(idx[split2:])
+    SCS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
+    
 
     #SCS.create_beta_primes("preprint_redux_2")
     # SCS.create_dataframe("Final Run: SCS UC LD 6:100:4 Dual Guided clip_iter", logging = True)
-    # SCS.create_dataframe("noae_2", logging=False)
+    SCS.create_dataframe("averaged_noae", logging=True)
     # print(len(SCS.paper_image_indices))
     # print(len([20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 106, 107, 108, 109, 111, 113, 115, 116, 117, 118, 119, 120, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 186, 188, 189, 190, 191, 192, 193, 194, 195, 196, 198, 199, 200, 201, 202, 203, 205, 206, 207, 211, 212, 213, 214, 216, 217, 218, 219, 220, 221, 222, 224, 226, 227, 228, 229, 230, 231, 232, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 256, 257, 258, 259, 261, 262, 263, 264, 266, 267, 268, 270, 272, 273, 274, 275, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 316, 317, 318, 319, 320, 321, 322, 323, 324, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 341, 343, 344, 345, 346, 347, 348, 349, 350, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 393, 395, 396, 397, 398, 400, 401, 402, 403, 404, 406, 407, 408, 409, 410, 411, 413, 414, 415, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 428, 429, 430, 431, 432, 433, 435, 436, 437, 438, 440, 441, 443, 444, 445, 447, 448, 449, 450, 452, 453, 454, 455, 456, 457, 458, 459, 460, 461, 462, 463, 464, 465, 468, 469, 470, 471, 472, 473, 474, 475, 476, 477, 478, 481, 482, 483, 484, 485, 486, 489, 492, 493, 494, 495, 496, 497, 498, 499, 501, 502, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 518, 519, 520, 521, 522, 524, 525, 526, 527, 528, 529, 530, 532, 533, 534, 535, 536, 537, 538, 539, 540, 541, 542, 543, 544, 545, 548, 549, 551, 552, 553, 554, 555, 556, 557, 558, 559, 560, 561, 563, 564, 565, 566, 567, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577, 578, 580, 581, 582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596, 597, 600, 601, 602, 603, 604, 605, 606, 607, 608, 610, 611, 613, 614, 617, 618, 619, 620, 621, 622, 624, 625, 626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649, 650, 651, 652, 653, 655, 656, 657, 659, 661, 662, 663, 664, 666, 667, 668, 669, 670, 671, 672, 673, 674, 675, 676, 677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 690, 691, 692, 694, 695, 696, 698, 699, 700, 701, 702, 703, 704, 705, 706, 708, 709, 710, 711, 712, 714, 715, 716, 717, 718, 719, 720, 721, 722, 723, 725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 736, 737, 738, 739, 741, 742, 743, 744, 745, 746, 747, 748, 749, 750, 751, 752, 753, 754, 755, 756, 757, 758, 759, 760, 761, 763, 764, 765, 766, 767, 768, 769, 770, 771, 772, 773, 774, 775, 778, 780, 782, 783, 784, 786, 787, 788, 789, 790, 791, 792, 793, 794, 795, 796, 797, 798, 799, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835, 836, 839, 840, 841, 842, 843, 844, 845, 847, 848, 849, 851, 852, 854, 855, 856, 857, 858, 859, 861, 862, 863, 864, 865, 866, 867, 869, 870, 871, 872, 873, 875, 876, 877, 878, 879, 880, 881, 883, 884, 885, 886, 888, 889, 890, 892, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912, 913, 915, 917, 918, 919, 920, 921, 923, 924, 925, 926, 927, 929, 930, 931, 932, 933, 934, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 947, 948, 949, 950, 951, 952, 953, 954, 955, 956, 957, 958, 959, 961, 962, 963, 965, 966, 967, 968, 969, 971, 974, 976, 977, 978, 979, 980, 981]))
 if __name__ == "__main__":

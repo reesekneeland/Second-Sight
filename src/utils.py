@@ -99,6 +99,7 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     y_train = torch.stack(y_train).to("cpu")
     y_val = torch.stack(y_val).to("cpu")
     y_test = torch.stack(y_test).to("cpu")
+    #Flag to make compatible with existing SS architectures that expect multiple trials
     tqdm.write("Data Shapes... x_train: {}, x_val: {}, x_test: {}, y_train: {}, y_val: {}, y_test: {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
