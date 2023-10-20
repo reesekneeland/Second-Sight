@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
 import h5py
+import pickle
 
 def read_images(image_index):
         """read_images reads a list of images, and returns their data
@@ -126,8 +127,7 @@ def create_whole_region_unnormalized(subject = 1):
             
     # Save the tensor into the data directory. 
     torch.save(whole_region, file)
-    
-    
+
 def create_whole_region_normalized(subject = 1):
     
     whole_region = torch.load("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
@@ -139,13 +139,70 @@ def create_whole_region_normalized(subject = 1):
         normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
         whole_region_norm[:, i] = normalized_voxel
 
-    # Save the tensor of normailized data
+    # Save the tensor of normalized data
     torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_general.pt".format(subject))
     
     # Delete NSD unnormalized file after the normalized data is created. 
     if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
         os.remove("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
+
+def create_whole_region_imagery_unnormalized(subject = 1):
     
+    nsd_general = nib.load("data/nsddata/ppdata/subj0{}/func1pt8mm/roi/nsdgeneral.nii.gz".format(subject)).get_fdata()
+    nsd_general = np.nan_to_num(nsd_general)
+    nsd_general = np.where(nsd_general==1.0, True, False)
+        
+    layer_size = np.sum(nsd_general == True)
+    os.makedirs("data/preprocessed_data/subject{}/".format(subject), exist_ok=True)
+
+    
+    whole_region = np.zeros((720, layer_size))
+
+    nsd_general_mask = np.nan_to_num(nsd_general)
+    nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
+    
+    beta_file = "data/nsddata_betas/ppdata/subj0{}/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.nii.gz".format(subject)
+
+    imagery_betas = nib.load(beta_file).get_fdata()
+
+    imagery_betas = imagery_betas.transpose((3,0,1,2))
+
+    whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1))[:,nsd_general.flatten()].astype(np.float32) / 300.)
+    file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject)
+    torch.save(whole_region, file)
+    return whole_region
+
+def create_whole_region_imagery_normalized(subject = 1):
+    img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
+    ex_file = open(img_stim_file, 'rb')
+    imagery_dict = pickle.load(ex_file)
+    ex_file.close()
+    exps = imagery_dict['exps']
+    cues = imagery_dict['cues']
+    meta_cond_idx = {
+        'visA': np.arange(len(exps))[exps=='visA'],
+        'visB': np.arange(len(exps))[exps=='visB'],
+        'imgA_1': np.arange(len(exps))[exps=='imgA_1'],
+        'imgA_2': np.arange(len(exps))[exps=='imgA_2'],
+        'imgB_1': np.arange(len(exps))[exps=='imgB_1'],
+        'imgB_2': np.arange(len(exps))[exps=='imgB_2']
+    }
+
+    whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    whole_region_norm = torch.zeros_like(whole_region)
+            
+    # Normalize the data using Z scoring method for each voxel
+    for c,idx in meta_cond_idx.items():
+        whole_region_norm[idx] = zscore(whole_region[idx])
+
+    # Save the tensor of normalized data
+    torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject))
+    
+    # Delete NSD unnormalized file after the normalized data is created. 
+    if(os.path.exists("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))):
+        os.remove("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    
+
 def process_masks(subject=1):
     
     os.makedirs("data/preprocessed_data/subject{}/masks".format(subject), exist_ok=True)
@@ -230,3 +287,36 @@ def process_raw_tensors(vector):
     if(os.path.exists("data/preprocessed_data/{}_73k.pt".format(vector))):
         for i in tqdm(range(10), desc="deleting duplicate data"):
             os.remove("data/preprocessed_data/{}_{}.pt".format(vector, i))
+
+def zip_dict(*args):
+    '''
+    like zip but applies to multiple dicts with matching keys, returning a single key and all the corresponding values for that key.
+    '''
+    for a in args[1:]:
+        assert (a.keys()==args[0].keys())
+    for k in args[0].keys():
+        yield [k,] + [a[k] for a in args]
+
+def zscore(x, mean=None, stddev=None, return_stats=False):
+    if mean is not None:
+        m = mean
+    else:
+        m = torch.mean(x, axis=0, keepdims=True)
+    if stddev is not None:
+        s = stddev
+    else:
+        s = torch.std(x, axis=0, keepdims=True)
+    if return_stats:
+        return (x - m)/(s+1e-6), m, s
+    else:
+        return (x - m)/(s+1e-6)
+
+def format_imagery_stimuli():
+    path  = "data/nsddata_stimuli/stimuli/imagery_images/"
+    img_tensor = torch.zeros((12, 541875))
+    for i in range(12):
+        im = Image.open(path + "{}.png".format(i))
+        im = im.resize((425, 425))
+        im = np.array(im).flatten()
+        img_tensor[i] = torch.from_numpy(im)
+    return img_tensor

@@ -56,20 +56,26 @@ def process_images(device):
 
     # Variable for latent vectors
     latent_shapes_created = False
-    latent_tensor = torch.zeros((73000, 91168), dtype=torch.float32)
+    # latent_tensor = torch.zeros((73000, 91168), dtype=torch.float32)
+    latent_tensor = torch.zeros((12, 91168), dtype=torch.float32)
 
     # Can be reduced to fit on smaller GPUs
-    minibatch = 50
+    minibatch = 12
 
     # Variables for clip image vectos
-    c_tensor = torch.zeros((73000, 1024), dtype=torch.float32)
+    # c_tensor = torch.zeros((73000, 1024), dtype=torch.float32)
+    c_tensor = torch.zeros((12, 1024), dtype=torch.float32)
 
-    image_read = read_images(image_index=[j for j in range(73000)])
-    img_array = torch.from_numpy(image_read).reshape((73000, 541875))
-    torch.save(img_array,  "data/preprocessed_data/images_73k.pt")
+    # image_read = read_images(image_index=[j for j in range(73000)])
+    # img_array = torch.from_numpy(image_read).reshape((73000, 541875))
+    # torch.save(img_array,  "data/preprocessed_data/images_73k.pt")
+
+    imagery_stimuli = _imagery_stimuli()
+    torch.save(imagery_stimuli, "data/preprocessed_data/images_12.pt")
 
     # Iterate through all images in nsd sampled from COCO
-    image_batcher = batch_generator(data_path = "data/preprocessed_data/images_73k.pt")
+    # image_batcher = batch_generator(data_path = "data/preprocessed_data/images_73k.pt")
+    image_batcher = batch_generator(data_path = "data/preprocessed_data/images_12.pt")
     imageloader = DataLoader(image_batcher,minibatch,shuffle=False)
     for i, (batch, batch_tensor) in tqdm(enumerate(imageloader), desc="Converting COCO images to VDVAE and CLIP vectors", total=len(imageloader)):
         # Create the latent VDVAE Z vector
@@ -90,19 +96,21 @@ def process_images(device):
         # Save the c and z vectors into there corresponding files. 
         latent_shapes = torch.stack(latent_shapes)
         if(not latent_shapes_created): 
-            torch.save(latent_shapes, "vdvae/vdvae_shapes.pt")
+            # torch.save(latent_shapes, "vdvae/vdvae_shapes.pt")
             latent_shapes_created = True
             
         # Concetate the new latent vector onto the tensor of latents
         latent_tensor[i*minibatch : i*minibatch + minibatch] = latents.to("cpu")
         c_tensor[i*minibatch : i*minibatch + minibatch]  = R.encode_image_raw(images=batch_tensor.reshape((minibatch, 425, 425, 3)), device=device).to("cpu")
-    torch.save(c_tensor,  "data/preprocessed_data/c_73k.pt")  
-    torch.save(latent_tensor, "data/preprocessed_data/z_vdvae_73k.pt")
+    # torch.save(c_tensor,  "data/preprocessed_data/c_73k.pt")  
+    # torch.save(latent_tensor, "data/preprocessed_data/z_vdvae_73k.pt")
+    torch.save(c_tensor,  "data/preprocessed_data/c_12.pt")  
+    torch.save(latent_tensor, "data/preprocessed_data/z_vdvae_12.pt")
 
     # Store the mean and standard deviation of the vdvae vectors for normalization purposes. 
-    vdvae_73k = torch.load("data/preprocessed_data/z_vdvae_73k.pt")
-    torch.save(torch.mean(vdvae_73k, dim=0), "vdvae/train_mean.pt")
-    torch.save(torch.std(vdvae_73k, dim=0),  "vdvae/train_std.pt")
+    # vdvae_73k = torch.load("data/preprocessed_data/z_vdvae_73k.pt")
+    # torch.save(torch.mean(vdvae_73k, dim=0), "vdvae/train_mean.pt")
+    # torch.save(torch.std(vdvae_73k, dim=0),  "vdvae/train_std.pt")
 
 def process_trial_data(subjects):
     ##################### Brain Data Processing ###############################
@@ -123,22 +131,23 @@ def process_trial_data(subjects):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
-    parser.add_argument('-s',
-                        '--subjects', 
-                        help="list of subjects to run the algorithm on, if not specified, will run on all subjects",
-                        type=str,
-                        default="1,2,5,7")
+    # parser.add_argument('-s',
+    #                     '--subjects', 
+    #                     help="list of subjects to run the algorithm on, if not specified, will run on all subjects",
+    #                     type=str,
+    #                     default="1,2,5,7")
 
-    parser.add_argument('-d',
-                        '--device', 
-                        help="cuda device to run predicts on.",
-                        type=str,
-                        default="cuda")
+    # parser.add_argument('-d',
+    #                     '--device', 
+    #                     help="cuda device to run predicts on.",
+    #                     type=str,
+    #                     default="cuda")
     
 
-    args = parser.parse_args()
-    subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
-    process_images(args.device)
-    process_trial_data(subject_list)
+    # args = parser.parse_args()
+    # subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
+    # process_images(args.device)
+    # process_trial_data(subject_list)
+    process_images("cuda:2")

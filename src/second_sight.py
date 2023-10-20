@@ -32,6 +32,14 @@ if __name__ == "__main__":
     parser.add_argument('--noae', 
                         help="boolean flag, if passed, will use original betas instead of the denoised betas passed through an autoencoder as the search target",
                         action='store_true')
+
+    parser.add_argument('--mi', 
+                        help="boolean flag, if passed, will use mental imagery betas instead of the vision betas as the search target",
+                        action='store_true')
+
+    parser.add_argument('--mivis', 
+                        help="boolean flag, if passed, will use mental imagery betas instead of the vision betas as the search target",
+                        action='store_true')
     
     parser.add_argument('-s',
                         '--subjects', 
@@ -80,9 +88,18 @@ if __name__ == "__main__":
             subject_path = "{}subject{}/".format(args.output, subject)
             os.makedirs(subject_path, exist_ok=True)
             # Load data and targets
-            _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
-            _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
-            x_test = x_test[idx_list]
+            if args.mi:
+                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
+                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
+                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
+            elif args.mivis:
+                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
+                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
+                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
+            else:
+                _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
+                _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
+                x_test = x_test[idx_list]
     
             SCS = StochasticSearch(modelParams=["gnet"],
                                     subject=subject,
@@ -92,6 +109,8 @@ if __name__ == "__main__":
                                     n_iter=args.iterations,
                                     n_samples=args.num_samples,
                                     n_branches=args.branches)
+
+            os.makedirs(subject_path + "iteration_figures/", exist_ok=True)
             AEModel = AutoEncoder(config="gnet",
                                     inference=True,
                                     subject=subject,
@@ -130,11 +149,13 @@ if __name__ == "__main__":
                 
                 
                 # Format output iteration diagram
-                nsdId = trials[val]
-                ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
+                if not (args.mi or args.mivis):
+                    nsdId = trials[val]
+                    ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
+                else:
+                    ground_truth = Image.fromarray(targets_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 mindeye = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/reconstructions/{}/subject{}/{}/mindeye.png".format(experiment_type, subject, val))
-                
-                
+                # THIS NEEDS TO BE FIXED TO WORK WITH BOTH METHODS
                 images = [ground_truth, scs_reconstruction, init_img, mindeye]
                 rows = int(math.ceil(len(image_list)/2 + len(images)/2))
                 columns = 2
@@ -146,6 +167,7 @@ if __name__ == "__main__":
                 
                 # Save relevant output images for evaluation
                 figure.save("{}/iteration_diagram.png".format(sample_path))
+                figure.save("{}iteration_figures/{}.png".format(subject_path, val))
                 count = 0
                 for j in range(len(images)):
                     if("BC" in captions[j]):
