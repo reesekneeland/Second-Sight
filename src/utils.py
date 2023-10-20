@@ -100,6 +100,7 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     y_train = torch.stack(y_train).to("cpu")
     y_val = torch.stack(y_val).to("cpu")
     y_test = torch.stack(y_test).to("cpu")
+    #Flag to make compatible with existing SS architectures that expect multiple trials
     tqdm.write("Data Shapes... x_train: {}, x_val: {}, x_test: {}, y_train: {}, y_val: {}, y_test: {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
     if(loader):
         trainset = torch.utils.data.TensorDataset(x_train, y_train)
@@ -504,7 +505,7 @@ def remove_symlink(symlink):
 
     else:
         os.unlink(symlink) 
-
+        
 def condition_average(data, cond):
     idx, idx_count = np.unique(cond, return_counts=True)
     idx_list = [cond==i for i in np.sort(idx)]
@@ -512,6 +513,14 @@ def condition_average(data, cond):
     for i,m in enumerate(idx_list):
         avg_data[i] = torch.mean(data[m], axis=0)
     return avg_data, len(idx_count)
+
+# Preprocess beta, remove empty trials
+def prepare_betas(beta):
+    beta_list = []
+    for i in range(beta.shape[0]):
+        if(torch.count_nonzero(beta[i]) > 0):
+            beta_list.append(beta[i])
+    return torch.stack(beta_list)
 
 def bootstrap_variance(data, n_iterations=1000):
     """
