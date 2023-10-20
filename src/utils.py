@@ -457,3 +457,47 @@ def remove_symlink(symlink):
 
     else:
         os.unlink(symlink) 
+        
+# Preprocess beta, remove empty trials
+def prepare_betas(beta):
+    beta_list = []
+    for i in range(beta.shape[0]):
+        if(torch.count_nonzero(beta[i]) > 0):
+            beta_list.append(beta[i])
+    return torch.stack(beta_list)
+
+def bootstrap_variance(data, n_iterations=1000):
+    """
+    Estimate the variance of an array of 3 values using bootstrapping.
+
+    Parameters:
+    - data: List or array-like object containing the data to get the variance of.
+    - n_iterations: Number of bootstrap samples to generate.
+
+    Returns:
+    - variance_distribution: List of variances from each bootstrap sample.
+    """
+    if(isinstance(data, torch.Tensor)):
+        data = data.cpu().numpy()
+        
+    rng = np.random.default_rng()
+    variance_distribution = []
+    
+    if len(data.shape) == 1:
+        n = len(data)
+        for _ in range(n_iterations):
+            sample = rng.choice(data, size=n, replace=True)
+            # print(sample)
+            variance_distribution.append(np.var(sample))
+
+    elif len(data.shape) == 2:
+        n_rows = data.shape[0]
+        for _ in range(n_iterations):
+            sampled_rows = data[rng.choice(n_rows, n_rows, replace=True)]
+            variance_distribution.append(np.var(sampled_rows, axis=0).mean())
+
+    else:
+        raise ValueError("Input data must be either one-dimensional or two-dimensional.")
+
+    
+    return float(np.mean(variance_distribution))

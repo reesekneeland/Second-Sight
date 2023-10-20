@@ -12,7 +12,7 @@ import yaml
 from clip_encoder import CLIPEncoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
-from diffusers import StableUnCLIPImg2ImgPipeline
+from reconstructor import Reconstructor
 from torchvision.transforms.functional import pil_to_tensor
 
 
@@ -41,7 +41,7 @@ class StochasticSearch():
             self.n_branches = n_branches
             self.vector = "images"
             if not disable_SD:
-                self.R = StableUnCLIPImg2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16).to(self.device)
+                self.R = Reconstructor(which='v1.0', fp16=True, device=self.device)
             
             
             # Configure AutoEncoders
@@ -67,10 +67,9 @@ class StochasticSearch():
                                                     device=self.device))
 
     # Hybrid encoder implementation, predict beta primes using the ensemble of encoding models in the SCS config
-    def predict(self, x, mask=None, return_clips=False):
+    def predict(self, x, mask=None):
         
         if(isinstance(x, list)):
-            combined_preds = torch.zeros((len(self.modelParams), len(x), self.x_size)).cpu()
             img_tensor = torch.zeros((len(x), 425, 425, 3))
             for i, sample in enumerate(x):
                 image = sample.resize((425, 425))
@@ -78,22 +77,13 @@ class StochasticSearch():
             x = img_tensor
         elif(isinstance(x, torch.Tensor)):
             assert 425 in x.shape or 541875 in x.shape,"Tensor of wrong size"
-            combined_preds = torch.zeros((len(self.modelParams), x.shape[0], self.x_size)).cpu()
             x = x.reshape((x.shape[0], 425, 425, 3))
         else:
             raise TypeError
+
+        combined_preds = self.EncModels[0].predict(x, mask).cpu()
         
-        sample_clips = self.R.encode_image_raw(x, device=self.device)
-        
-        for c, mType in enumerate(self.modelParams):
-            if mType == "gnet":
-                combined_preds[c] = self.EncModels[c].predict(x, mask).cpu()
-            elif mType == "clip":
-                combined_preds[c] = self.EncModels[c].predict(sample_clips, mask).cpu()
-        if return_clips:
-            return torch.mean(combined_preds, dim=0), sample_clips.cpu()
-        else:
-            return torch.mean(combined_preds, dim=0)
+        return combined_preds
 
     def benchmark_config(self, average=True):
         with torch.no_grad():
@@ -136,15 +126,14 @@ class StochasticSearch():
         images = []
         for i in range(n):
             im = self.R.reconstruct(image=image,
-                                             image_embeds=c_i, 
-                                             strength=strength,
-                                             negative_prompt="text, caption")
+                                    c_i=c_i, 
+                                    strength=strength)
             images.append(im)
         return images
 
 
     def score_samples(self, beta, images, save_path):
-        beta_primes, sample_clips = self.predict(images, return_clips=True)
+        beta_primes = self.predict(images)
         if(self.log):
             os.makedirs(save_path + "beta_primes/", exist_ok=True)
             os.makedirs(save_path + "images/", exist_ok=True)
@@ -159,37 +148,27 @@ class StochasticSearch():
             score = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
             scores.append(score)
         scores = torch.mean(torch.stack(scores), dim=0)
-        return scores, sample_clips, beta_primes
+        return scores, beta_primes
     
-    # Preprocess beta, remove empty trials, and autoencode if necessary
-    def prepare_betas(self, beta):
-        beta_list = []
-        for i in range(beta.shape[0]):
-            if(torch.count_nonzero(beta[i]) > 0):
-                if(self.ae):
-                    beta_list.append(self.AEModel.predict(beta[i]))
-                else:
-                    beta_list.append(beta[i])
-        return torch.stack(beta_list)
+    
 
     # Main search method
-    # c_i is a 1024 clip vector
     # beta is a 3*x_size tensor of brain data to use as guidance targets
     # init_img is a pil image to serve as a low level strcutral guesscur_iter
-    def search(self, sample_path, beta, c_i, init_img=None):
+    def search(self, sample_path, beta, c_i, target_variance, init_img=None):
         with torch.no_grad():
             # Initialize search variables
-            best_image, best_clip, best_distribution_score = init_img, c_i, -1
-            iter_images, iter_scores = [], []
+            best_image, best_distribution_score = init_img, -1
+            iter_images, iter_scores, var_scores = [], [], []
             pbar = tqdm(total=self.n_iter, desc="Search iterations")
             # Prepare beta as search target
-            beta = self.prepare_betas(beta)
+            print("TARGET VARIANCE AE: {:.10f}".format(target_variance))
             
             # Generate iteration 0
             iteration_samples = self.generateNSamples(image=init_img, 
                                                     c_i=c_i,  
                                                     n=self.n_samples,  
-                                                    strength=0.92-0.30*math.pow(1/self.n_iter, 3))
+                                                    strength=0.92)
             
             iter_path = "{}iter_0/".format(sample_path)
             best_batch_path = "{}best_batch".format(iter_path)
@@ -199,30 +178,33 @@ class StochasticSearch():
                     remove_symlink(os.path.abspath(best_batch_path))
                 os.symlink(os.path.abspath(iter_path), os.path.abspath(best_batch_path), target_is_directory=True)
             # Score iteration 0
-            iteration_scores, iteration_clips, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
+            iteration_scores, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
                 best_distribution_score = float(torch.mean(iteration_scores))
                 best_image = iteration_samples[int(torch.argmax(iteration_scores))]
-                best_clip = iteration_clips[int(torch.argmax(iteration_scores))]
-                c_i = slerp(c_i, best_clip, 0.2*(math.pow(1/self.n_iter, 2)))
-            iter_scores.append(best_distribution_score)
+            iter_scores.append(float(best_distribution_score))
             iter_images.append(best_image)
-            
+            bp_var = bootstrap_variance(iteration_beta_primes)
+            var_scores.append(bp_var)
+            tqdm.write("SEARCH VARIANCE BP: {:.10f}".format(bp_var))
             best_distribution_params = {
                                         "images":iteration_samples,
                                         "beta_primes": iteration_beta_primes,
-                                        "clip":c_i,
                                         "z_img": init_img,
-                                        "strength": 0.92-0.30*math.pow(1/self.n_iter, 3)}
+                                        "strength": 0.92}
             pbar.update(1)
+            # Target condition, our variance is lower than the target so our distribution is the right width
+            if bp_var < target_variance:
+                pbar.close()
+                return best_image, best_distribution_params, iter_images, iter_scores, var_scores
+        
             # Iteration >0 loop
             for i in range(1, self.n_iter):
                 # Initalize parameters for iteration
-                strength = 0.92-0.30*(math.pow((i+1)/self.n_iter, 3))
-                momentum = 0.2*(math.pow((i+1)/self.n_iter, 2))
-                n_i = max(10, int((self.n_samples/self.n_branches)*strength))
+                strength = 0.92-0.92*(i/self.n_iter)
+                n_i = max(5, int((self.n_samples/self.n_branches)*strength))
                 # Save
                 iter_path = "{}iter_{}/".format(sample_path, i)
                 best_batch_path = "{}best_batch".format(iter_path)
@@ -233,31 +215,26 @@ class StochasticSearch():
                 # Update seeds from previous iteration
                 seed_indices = torch.topk(iteration_scores, self.n_branches).indices
                 z_seeds = [iteration_samples[int(seed)] for seed in seed_indices]
-                clip_seeds = [slerp(c_i, iteration_clips[int(seed)], momentum) for seed in seed_indices]
                 if not best_image not in z_seeds:
                     z_seeds.append(best_image)
-                    clip_seeds.append(c_i)
                 
                 # Make image batches
-                tqdm.write("Strength: {}, Momentum: {}, N: {}".format(strength, momentum, n_i))
-                iteration_samples, iteration_clips, iteration_scores, = [], [], []
+                tqdm.write("Strength: {}, N: {}".format(strength, n_i))
+                iteration_samples, iteration_scores, iteration_vars = [], [], []
                 best_batch_score = -1
                 for b in range(len(z_seeds)):
-                    #Generate and save batch clip
-                    branch_clip = slerp(c_i, clip_seeds[b], momentum)
                     batch_path = "{}/batch_{}/".format(iter_path, b)
                     if(self.log):
                         os.makedirs(batch_path, exist_ok=True)
-                        torch.save(branch_clip, batch_path+"batch_clip.pt")
                         z_seeds[b].save(batch_path+"z_img.png")
                         
                     #Generate batch samples
                     batch_samples = self.generateNSamples(image=z_seeds[b], 
-                                                            c_i=branch_clip,  
+                                                            c_i=c_i,  
                                                             n=n_i,  
                                                             strength=strength)
                     #Score batch samples
-                    batch_scores, batch_clips, batch_beta_primes = self.score_samples(beta, batch_samples, batch_path)
+                    batch_scores, batch_beta_primes = self.score_samples(beta, batch_samples, batch_path)
                     
                     # Keep track of best batch for logging
                     
@@ -272,30 +249,34 @@ class StochasticSearch():
                     # Keep track of all batches in iteration for updating seeds
                     iteration_samples += batch_samples
                     iteration_scores.append(batch_scores)
-                    iteration_clips.append(batch_clips)
-                    
+                    bp_var = bootstrap_variance(batch_beta_primes)
+                    iteration_vars.append(bp_var)
                     #Update best image and iteration images
                     if torch.mean(batch_scores) > best_distribution_score:
                         best_distribution_score = torch.mean(batch_scores)
                         best_image = batch_samples[int(torch.argmax(batch_scores))]
-                        best_clip = clip_seeds[b]
                         best_distribution_params = {
                                         "images":batch_samples,
                                         "beta_primes": batch_beta_primes,
-                                        "clip":branch_clip,
                                         "z_img": z_seeds[b],
                                         "strength": strength}
                 
-                # Concatenate scores and clips from each batch to be sorted for seeding the next iteration
+                # Concatenate scores from each batch to be sorted for seeding the next iteration
                 iteration_scores = torch.concat(iteration_scores, dim=0)
-                iteration_clips = torch.concat(iteration_clips, dim=0)
-                c_i = slerp(c_i, best_clip, momentum)
-                iter_scores.append(best_distribution_score)
+                iteration_var = np.mean(np.array(iteration_vars))
+                iter_scores.append(float(best_distribution_score))
                 iter_images.append(best_image)
+                
+                
+                var_scores.append(iteration_var)
+                tqdm.write("SEARCH VARIANCE BP: {:.10f}".format(bp_var))
                 pbar.update(1)
-                tqdm.write("BC: {}".format(best_distribution_score))
+                # Target condition, our variance is lower than the target so our distribution is the right width
+                if iteration_var < target_variance:
+                    print("SEARCH BELOW VARIANCE TARGET, EXITING...")
+                    break
             pbar.close()
-        return best_image, best_distribution_params, iter_images, iter_scores
+        return best_image, best_distribution_params, iter_images, iter_scores, var_scores
 
 
     
