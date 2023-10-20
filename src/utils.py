@@ -141,22 +141,23 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     
     # Prune down to specific experimental mode/stimuli type
     x = x[cond_idx[mode+stimtype]]
-
+    averaged_x, sample_count = condition_average(x, cond_im_idx[mode+stimtype])
+    trial_count = int(x.shape[0]/sample_count)
     # Average across trials
     if average:
-        x = condition_average(x, cond_im_idx[mode+stimtype])
+        x =  averaged_x
         x = x.reshape((x.shape[0], 1, x.shape[1]))
     elif nest:
-        x_new = torch.zeros((12, 8, x.shape[1]))
-        for i in range(12):
-            x_new[i] = x[i*8: i*8 + 8]
+        x_new = torch.zeros((sample_count, trial_count, x.shape[1]))
+        for i in range(sample_count):
+            x_new[i] = x[i*trial_count: i*trial_count + trial_count]
         x = x_new
 
 
     if stimtype == "simple":
-        y = y[:6]
+        y = y[:sample_count]
     elif stimtype == "complex":
-        y = y[6:]
+        y = y[sample_count:]
     print(x.shape, y.shape)
     return x, y
 
@@ -510,4 +511,40 @@ def condition_average(data, cond):
     avg_data = torch.zeros((len(idx),data.shape[1]), dtype=torch.float32)
     for i,m in enumerate(idx_list):
         avg_data[i] = torch.mean(data[m], axis=0)
-    return avg_data
+    return avg_data, len(idx_count)
+
+def bootstrap_variance(data, n_iterations=1000):
+    """
+    Estimate the variance of an array of 3 values using bootstrapping.
+
+    Parameters:
+    - data: List or array-like object containing the data to get the variance of.
+    - n_iterations: Number of bootstrap samples to generate.
+
+    Returns:
+    - variance_distribution: List of variances from each bootstrap sample.
+    """
+    if(isinstance(data, torch.Tensor)):
+        data = data.cpu().numpy()
+        
+    rng = np.random.default_rng()
+    variance_distribution = []
+    
+    if len(data.shape) == 1:
+        n = len(data)
+        for _ in range(n_iterations):
+            sample = rng.choice(data, size=n, replace=True)
+            # print(sample)
+            variance_distribution.append(np.var(sample))
+
+    elif len(data.shape) == 2:
+        n_rows = data.shape[0]
+        for _ in range(n_iterations):
+            sampled_rows = data[rng.choice(n_rows, n_rows, replace=True)]
+            variance_distribution.append(np.var(sampled_rows, axis=0).mean())
+
+    else:
+        raise ValueError("Input data must be either one-dimensional or two-dimensional.")
+
+    
+    return float(np.mean(variance_distribution))
