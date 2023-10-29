@@ -81,26 +81,31 @@ if __name__ == "__main__":
         ae = True
     print("AE: ", ae)
     
-    experiment_type = "nsd_vision"
-    mindeye_seeds_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/".format(experiment_type)
     for subject in subject_list:
         with torch.no_grad():
             subject_path = "{}subject{}/".format(args.output, subject)
             os.makedirs(subject_path, exist_ok=True)
             # Load data and targets
             if args.mi:
-                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
-                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
-                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="imagery", stimtype="all", average=True, nest=True)
+                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
+                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
+                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
+                experiment_type = "mi_imagery"
+                mindeye_path = "output/mindeye_imagery"
             elif args.mivis:
-                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
-                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
-                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="vision", stimtype="all", average=True, nest=True)
+                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
+                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
+                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
+                experiment_type = "mi_vision"
+                mindeye_path = "output/mindeye_vision"
             else:
                 _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
                 _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
                 x_test = x_test[idx_list]
-    
+                experiment_type = "nsd_vision"
+                mindeye_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/reconstructions/nsd_vision/"
+                
+            mindeye_seeds_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/".format(experiment_type)
             SCS = StochasticSearch(modelParams=["gnet"],
                                     subject=subject,
                                     device=args.device,
@@ -130,7 +135,7 @@ if __name__ == "__main__":
                 beta = prepare_betas(x_test[i])
                 ae_beta = AEModel.predict(beta).detach().cpu()
                 target_variance = bootstrap_variance(ae_beta)
-                
+                beta = torch.mean(beta, axis=0).reshape((1, beta.shape[1]))
                 # Perform search
                 scs_reconstruction, best_distribution_params, image_list, score_list, var_list = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip, target_variance=target_variance, init_img=init_img)
                 
@@ -154,7 +159,7 @@ if __name__ == "__main__":
                     ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 else:
                     ground_truth = Image.fromarray(targets_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
-                mindeye = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/reconstructions/{}/subject{}/{}/mindeye.png".format(experiment_type, subject, val))
+                mindeye = Image.open("{}/subject{}/{}/mindeye.png".format(mindeye_path, subject, val))
                 # THIS NEEDS TO BE FIXED TO WORK WITH BOTH METHODS
                 images = [ground_truth, scs_reconstruction, init_img, mindeye]
                 rows = int(math.ceil(len(image_list)/2 + len(images)/2))

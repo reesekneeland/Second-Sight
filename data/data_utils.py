@@ -146,7 +146,7 @@ def create_whole_region_normalized(subject = 1):
     if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
         os.remove("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
 
-def create_whole_region_imagery_unnormalized(subject = 1):
+def create_whole_region_imagery_unnormalized(subject = 1, mask=True):
     
     nsd_general = nib.load("data/nsddata/ppdata/subj0{}/func1pt8mm/roi/nsdgeneral.nii.gz".format(subject)).get_fdata()
     nsd_general = np.nan_to_num(nsd_general)
@@ -166,13 +166,17 @@ def create_whole_region_imagery_unnormalized(subject = 1):
     imagery_betas = nib.load(beta_file).get_fdata()
 
     imagery_betas = imagery_betas.transpose((3,0,1,2))
-
-    whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1))[:,nsd_general.flatten()].astype(np.float32) / 300.)
-    file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject)
+    if mask:
+        whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1))[:,nsd_general.flatten()].astype(np.float32))
+        file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject)
+    else:
+        whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1)).astype(np.float32))
+        file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized_unmasked.pt".format(subject)
+    
     torch.save(whole_region, file)
     return whole_region
 
-def create_whole_region_imagery_normalized(subject = 1):
+def create_whole_region_imagery_normalized(subject = 1, mask=True):
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
     ex_file = open(img_stim_file, 'rb')
     imagery_dict = pickle.load(ex_file)
@@ -187,8 +191,11 @@ def create_whole_region_imagery_normalized(subject = 1):
         'imgB_1': np.arange(len(exps))[exps=='imgB_1'],
         'imgB_2': np.arange(len(exps))[exps=='imgB_2']
     }
-
-    whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    if mask:
+        whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    else:
+        whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized_unmasked.pt".format(subject))
+    whole_region = whole_region / 300.
     whole_region_norm = torch.zeros_like(whole_region)
             
     # Normalize the data using Z scoring method for each voxel
@@ -196,11 +203,18 @@ def create_whole_region_imagery_normalized(subject = 1):
         whole_region_norm[idx] = zscore(whole_region[idx])
 
     # Save the tensor of normalized data
-    torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject))
+    if mask:
+        torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject))
+        # Delete NSD unnormalized file after the normalized data is created. 
+        if(os.path.exists("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))):
+            os.remove("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    else:
+        torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_imagery_unmasked.pt".format(subject))
+        # Delete NSD unnormalized file after the normalized data is created. 
+        if(os.path.exists("data/preprocessed_data/subject{}/nsd_imagery_unnormalized_unmasked.pt".format(subject))):
+            os.remove("data/preprocessed_data/subject{}/nsd_imagery_unnormalized_unmasked.pt".format(subject))
     
-    # Delete NSD unnormalized file after the normalized data is created. 
-    if(os.path.exists("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))):
-        os.remove("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
+    
     
 
 def process_masks(subject=1):
