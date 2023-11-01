@@ -89,18 +89,15 @@ if __name__ == "__main__":
             if args.mi:
                 x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
                 _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
-                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
                 experiment_type = "mi_imagery"
                 mindeye_path = "output/mindeye_imagery"
             elif args.mivis:
                 x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
                 _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
-                _, targets_vdvae = load_nsd_mental_imagery(vector = "z_vdvae", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
                 experiment_type = "mi_vision"
                 mindeye_path = "output/mindeye_vision"
             else:
                 _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
-                _, _, _, _, _, targets_vdvae, _ = load_nsd(vector="z_vdvae", subject=subject, loader=False, average=True, nest=False)
                 x_test = x_test[idx_list]
                 experiment_type = "nsd_vision"
                 mindeye_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/reconstructions/nsd_vision/"
@@ -132,12 +129,13 @@ if __name__ == "__main__":
                 
                 init_img = Image.open("{}subject{}/{}/low_level.png".format(mindeye_seeds_path, subject, val))
                 decoded_clip = torch.load("{}subject{}/{}/clip_best.pt".format(mindeye_seeds_path, subject, val), map_location=args.device)
-                beta = prepare_betas(x_test[i])
-                ae_beta = AEModel.predict(beta).detach().cpu()
+                # beta = prepare_betas(x_test[i])
+                ae_beta = AEModel.predict(x_test[i]).detach().cpu()
                 target_variance = bootstrap_variance(ae_beta)
-                beta = torch.mean(beta, axis=0).reshape((1, beta.shape[1]))
+                beta = torch.mean(x_test[i], axis=0)
+                mindeye = Image.open("{}/subject{}/{}/mindeye.png".format(mindeye_path, subject, val))
                 # Perform search
-                scs_reconstruction, best_distribution_params, image_list, score_list, var_list = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip, target_variance=target_variance, init_img=init_img)
+                scs_reconstruction, best_distribution_params, image_list, score_list, var_list, mindeye_bc = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip, target_variance=target_variance, init_img=init_img, mindeye=mindeye)
                 
                 # Save final distribution parameters for search
                 f = open("{}strength.txt".format(best_dist_path), "w")
@@ -159,12 +157,12 @@ if __name__ == "__main__":
                     ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 else:
                     ground_truth = Image.fromarray(targets_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
-                mindeye = Image.open("{}/subject{}/{}/mindeye.png".format(mindeye_path, subject, val))
+                
                 # THIS NEEDS TO BE FIXED TO WORK WITH BOTH METHODS
                 images = [ground_truth, scs_reconstruction, init_img, mindeye]
                 rows = int(math.ceil(len(image_list)/2 + len(images)/2))
                 columns = 2
-                captions = ["Ground Truth", "search_reconstruction", "MindEye blurry", "MindEye"]
+                captions = ["Ground Truth", "search_reconstruction", "MindEye blurry", f"MindEye: {mindeye_bc}"]
                 for j in range(len(image_list)):
                     images.append(image_list[j])
                     captions.append("BC: {:.3f}, Var: {:.5f}".format(float(score_list[j]), var_list[j]))
@@ -178,8 +176,10 @@ if __name__ == "__main__":
                     if("BC" in captions[j]):
                         images[j].save("{}/iter_{}.png".format(sample_path, count))
                         count +=1
+                    elif("MindEye:" in captions[j]):
+                        images[j].save("{}/{}.png".format(sample_path, "MindEye"))
                     else:
                         images[j].save("{}/{}.png".format(sample_path, captions[j]))
                         
-                extra_beta_primes = SCS.predict([ground_truth])
+                extra_beta_primes = SCS.EncModels[0].predict([ground_truth])
                 torch.save(extra_beta_primes[0], "{}/ground_truth_beta_prime.pt".format(sample_path))

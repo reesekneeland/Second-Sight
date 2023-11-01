@@ -11,7 +11,10 @@ import h5py
 import matplotlib.pyplot as plt
 import json
 import scipy as sp
+from scipy.stats import pearsonr,binom,linregress
+from scipy.spatial import distance
 import pickle
+
 
 def read_images(image_index):
 
@@ -409,79 +412,7 @@ def column_string_to_list(df):
         df_new.at[index, 'EffNet-B']        = json.loads(row['EffNet-B'])
         df_new.at[index, 'SwAV']            = json.loads(row['SwAV'])
         
-    return df_new
-
-# Input: Dataframe containing the samples one type of image
-def create_cnn_numpy_array(df):
-    cnn_dict = {}
-    df = df.reset_index()
-    
-    alexnet_2       = []
-    alexnet_5       = []
-    alexnet_7       = []
-    clip_two_way    = []
-    inception_v3    = []
-    effnet_b        = []
-    swav            = []
-    
-    for index, row in df.iterrows():
-        
-        alexnet_2.append(row['AlexNet 2'])
-        alexnet_5.append(np.array(row['AlexNet 5']))
-        alexnet_7.append(np.array(row['AlexNet 7']))
-        clip_two_way.append(np.array(row['CLIP Two-way']))
-        inception_v3.append(np.array(row['Inception V3']))
-        effnet_b.append(np.array(row['EffNet-B']))
-        swav.append(np.array(row['SwAV']))
-    
-    cnn_dict['AlexNet 2']      = np.concatenate([alexnet_2])
-    cnn_dict['AlexNet 5']      = np.concatenate([alexnet_5])
-    cnn_dict['AlexNet 7']      = np.concatenate([alexnet_7])
-    cnn_dict['CLIP Two-way']   = np.concatenate([clip_two_way])
-    cnn_dict['Inception V3']   = np.concatenate([inception_v3])
-    cnn_dict['EffNet-B']       = np.concatenate([effnet_b])
-    cnn_dict['SwAV']           = np.concatenate([swav])
-    
-    return cnn_dict
-
-def pairwise_corr_all(ground_truth, predictions):
-    r = np.corrcoef(ground_truth, predictions)      #cosine_similarity(ground_truth, predictions)#
-    r = r[:len(ground_truth), len(ground_truth):]   # rows: groundtruth, columns: predicitons
-    
-    # congruent pairs are on diagonal
-    congruents = np.diag(r)
-    
-    # for each column (predicition) we should count the number of rows (groundtruth) 
-    # that the value is lower than the congruent (e.g. success).
-    success = r < congruents
-    success_cnt = np.sum(success, 0)
-    
-    # note: diagonal of 'success' is always zero so we can discard it. That's why we divide by len-1
-    perf = np.mean(success_cnt) / (len(ground_truth)-1)
-    p = 1 - binom.cdf(perf*len(ground_truth)*(len(ground_truth)-1), len(ground_truth)*(len(ground_truth)-1), 0.5)
-    
-    return perf, p
-
-def compute_cnn_metrics(cnn_metrics_ground_truth, cnn_metrics_reconstructions):
-    
-    distance_fn = sp.spatial.distance.correlation
-    pairwise_corrs = []
-    cnn_metrics = {}
-    
-    for net_name, predictions_np in cnn_metrics_reconstructions.items():
-        
-        gt_feat = cnn_metrics_ground_truth[net_name]
-        
-        eval_feat = predictions_np
-        num_test = predictions_np.shape[0]
-        
-        if net_name == 'EffNet-B' or net_name == 'SwAV':
-            cnn_metrics[net_name] = np.array([distance_fn(gt_feat[i],eval_feat[i]) for i in range(num_test)]).mean()
-            
-        else:
-            cnn_metrics[net_name] = pairwise_corr_all(gt_feat[:num_test],eval_feat[:num_test])[0]
-            
-    return cnn_metrics  
+    return df_new 
 
 def remove_symlink(symlink):
     """Remove a symlink from the file system.
@@ -557,3 +488,140 @@ def bootstrap_variance(data, n_iterations=1000):
 
     
     return float(np.mean(variance_distribution))
+
+
+
+def create_cnn_numpy_array_shared1000(method, subject, low=False):
+    if low:
+        feature_path = "output/second_sight_paper/dataframes/{method}/subject{subject}/features_low/"
+        cnn_dict_path = "Second-Sight/output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}_low.pkl"
+    else:
+        feature_path = "output/second_sight_paper/dataframes/{method}/subject{subject}/features/"
+        cnn_dict_path = "Second-Sight/output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}.pkl"
+    cnn_dict = {}
+    
+    net_list = [
+        'Inception V3',
+        'CLIP Two-way',
+        'AlexNet 2',
+        'AlexNet 5',
+        'AlexNet 7']
+    
+    if os.path.isfile(cnn_dict_path):
+        print(f'Now Loading cnn_dict for... {method}, subject{subject}, low={low}')
+        with open(cnn_dict_path, 'rb') as f:
+            cnn_dict = pickle.load(f)
+    else:
+        for index in range(982):
+            if not cnn_dict:
+                for net_name in net_list:
+                    cnn_dict[net_name] = [np.load(f"{feature_path}{index}/{net_name}.npy")]
+            else:
+                for net_name in net_list:
+                    cnn_dict[net_name].append(np.load(f"{feature_path}{index}/{net_name}.npy"))
+        for key, value in cnn_dict.items():
+            stacked_array = np.stack(value)
+            cnn_dict[key] = stacked_array
+        with open(cnn_dict_path,"wb") as f:
+            pickle.dump(cnn_dict,f)
+    return cnn_dict
+
+def compute_similarity_percentage(ground_truth_features, reconstructed_features, background_features):
+    percentages = np.zeros(ground_truth_features.shape[0])  # This will hold the percentage for each feature
+
+    # Compute the base similarity scores between ground truth and reconstructed features
+    base_similarities = 1 - distance.cdist(ground_truth_features, reconstructed_features, 'cosine').diagonal()
+
+    # Iterate over each reconstructed feature and corresponding base similarity score
+    for i, (feature_reconstructed, base_similarity) in enumerate(zip(reconstructed_features, base_similarities)):
+        
+        # Compute similarity between the reconstructed feature and background dataset
+        similarities = 1 - distance.cdist([feature_reconstructed], background_features, 'cosine')[0]
+
+        # Count how many background samples have a lower similarity score than the base similarity
+        count_lower_similarity = np.sum(similarities < base_similarity)
+
+        # Compute the percentage
+        percentages[i] = (count_lower_similarity / len(background_features))
+
+    return percentages
+
+# 'percentages' contains the percentage of background samples for each feature in array2
+# that have a lower similarity score compared to the base similarity score with array1.
+
+def compute_cnn_metrics_shared1000(cnn_metrics_ground_truth, cnn_metrics_reconstructions, method, subject, low=False):
+    cnn_metrics = {}
+    # print(cnn_metrics_reconstructions)
+    
+    background_feat_dict = create_cnn_numpy_array_shared1000(method, subject, low)
+    for net_name, predictions_np in cnn_metrics_reconstructions.items():
+        
+        gt_feat = cnn_metrics_ground_truth[net_name]
+        
+        eval_feat = predictions_np
+        num_test = predictions_np.shape[0]
+        background_feat = background_feat_dict[net_name]
+        percent_success = compute_similarity_percentage(gt_feat, eval_feat, background_feat)
+        cnn_metrics[net_name] = percent_success
+    return cnn_metrics
+
+def pairwise_corr_all(ground_truth, predictions):
+    r = np.corrcoef(ground_truth, predictions)      #cosine_similarity(ground_truth, predictions)#
+    r = r[:len(ground_truth), len(ground_truth):]   # rows: groundtruth, columns: predicitons
+    
+    # congruent pairs are on diagonal
+    congruents = np.diag(r)
+    
+    # for each column (predicition) we should count the number of rows (groundtruth) 
+    # that the value is lower than the congruent (e.g. success).
+    success = r < congruents
+    success_cnt = np.sum(success, 0)
+    
+    # note: diagonal of 'success' is always zero so we can discard it. That's why we divide by len-1
+    perf = np.mean(success_cnt) / (len(ground_truth)-1)
+    p = 1 - binom.cdf(perf*len(ground_truth)*(len(ground_truth)-1), len(ground_truth)*(len(ground_truth)-1), 0.5)
+    
+    return perf, p, success_cnt / (len(ground_truth)-1)
+
+def compute_cnn_metrics(cnn_metrics_ground_truth, cnn_metrics_reconstructions):
+    distance_fn = sp.spatial.distance.correlation
+    pairwise_corrs = []
+    cnn_metrics = {}
+    # print(cnn_metrics_reconstructions)
+    for net_name, predictions_np in cnn_metrics_reconstructions.items():
+        
+        gt_feat = cnn_metrics_ground_truth[net_name]
+        
+        eval_feat = predictions_np
+        num_test = predictions_np.shape[0]
+        # print(net_name, predictions_np.shape)
+        if net_name == 'EffNet-B' or net_name == 'SwAV':
+            cnn_metrics[net_name] = np.array([distance_fn(gt_feat[i],eval_feat[i]) for i in range(num_test)])
+            
+        else:
+            _, _, success_cnt = pairwise_corr_all(gt_feat[:num_test],eval_feat[:num_test])
+            cnn_metrics[net_name] = success_cnt
+    return cnn_metrics
+
+def create_cnn_numpy_array(df, feature_path):
+    cnn_dict = {}
+    net_list = [
+        'Inception V3',
+        'CLIP Two-way',
+        'AlexNet 2',
+        'AlexNet 5',
+        'AlexNet 7',
+        'EffNet-B',
+        'SwAV']
+    
+    for index, _ in df.iterrows():
+        if not cnn_dict:
+            for net_name in net_list:
+                cnn_dict[net_name] = [np.load(f"{feature_path}{index}/{net_name}.npy")]
+        else:
+            for net_name in net_list:
+                cnn_dict[net_name].append(np.load(f"{feature_path}{index}/{net_name}.npy"))
+    for key, value in cnn_dict.items():
+        stacked_array = np.stack(value)
+        cnn_dict[key] = stacked_array
+    return cnn_dict

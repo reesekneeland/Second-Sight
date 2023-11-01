@@ -67,23 +67,23 @@ class StochasticSearch():
                                                     device=self.device))
 
     # Hybrid encoder implementation, predict beta primes using the ensemble of encoding models in the SCS config
-    def predict(self, x, mask=None):
+    # def predict(self, x, mask=None):
         
-        if(isinstance(x, list)):
-            img_tensor = torch.zeros((len(x), 425, 425, 3))
-            for i, sample in enumerate(x):
-                image = sample.resize((425, 425))
-                img_tensor[i] = torch.from_numpy(np.array(image)).reshape((425, 425, 3))
-            x = img_tensor
-        elif(isinstance(x, torch.Tensor)):
-            assert 425 in x.shape or 541875 in x.shape,"Tensor of wrong size"
-            x = x.reshape((x.shape[0], 425, 425, 3))
-        else:
-            raise TypeError
+    #     if(isinstance(x, list)):
+    #         img_tensor = torch.zeros((len(x), 425, 425, 3))
+    #         for i, sample in enumerate(x):
+    #             image = sample.resize((425, 425))
+    #             img_tensor[i] = torch.from_numpy(np.array(image)).reshape((425, 425, 3))
+    #         x = img_tensor
+    #     elif(isinstance(x, torch.Tensor)):
+    #         assert 425 in x.shape or 541875 in x.shape,"Tensor of wrong size"
+    #         x = x.reshape((x.shape[0], 425, 425, 3))
+    #     else:
+    #         raise TypeError
 
-        combined_preds = self.EncModels[0].predict(x, mask).cpu()
+    #     combined_preds = self.EncModels[0].predict(x, mask).cpu()
         
-        return combined_preds
+    #     return combined_preds
 
     def benchmark_config(self, average=True):
         with torch.no_grad():
@@ -133,7 +133,7 @@ class StochasticSearch():
 
 
     def score_samples(self, beta, images, save_path):
-        beta_primes = self.predict(images)
+        beta_primes = self.EncModels[0].predict(images)
         if(self.log):
             os.makedirs(save_path + "beta_primes/", exist_ok=True)
             os.makedirs(save_path + "images/", exist_ok=True)
@@ -143,11 +143,8 @@ class StochasticSearch():
                 torch.save(beta_primes[i], "{}/beta_primes/{}.pt".format(save_path, i))
         scores = []
         PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[0]).to(self.device) 
-        for i in range(beta.shape[0]):
-            xDup = beta[i].repeat(beta_primes.shape[0], 1).moveaxis(0, 1).to(self.device)
-            score = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
-            scores.append(score)
-        scores = torch.mean(torch.stack(scores), dim=0)
+        xDup = beta.repeat(beta_primes.shape[0], 1).moveaxis(0, 1).to(self.device)
+        scores = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
         return scores, beta_primes
     
     
@@ -155,8 +152,10 @@ class StochasticSearch():
     # Main search method
     # beta is a 3*x_size tensor of brain data to use as guidance targets
     # init_img is a pil image to serve as a low level strcutral guesscur_iter
-    def search(self, sample_path, beta, c_i, target_variance, init_img=None):
+    def search(self, sample_path, beta, c_i, target_variance, init_img=None, mindeye=None):
         with torch.no_grad():
+            mindeye_score, mindeye_beta_primes = self.score_samples(beta, [mindeye], save_path=sample_path)
+            print(mindeye_score)
             # Initialize search variables
             best_image, best_distribution_score = init_img, -1
             iter_images, iter_scores, var_scores = [], [], []
@@ -174,11 +173,13 @@ class StochasticSearch():
             best_batch_path = "{}best_batch".format(iter_path)
             if(self.log):
                 os.makedirs(iter_path, exist_ok=True)
+                torch.save(torch.tensor(0.92), iter_path+"iter_strength.pt")
                 if os.path.islink(os.path.abspath(best_batch_path)):
                     remove_symlink(os.path.abspath(best_batch_path))
                 os.symlink(os.path.abspath(iter_path), os.path.abspath(best_batch_path), target_is_directory=True)
             # Score iteration 0
             iteration_scores, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
+            
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -188,7 +189,7 @@ class StochasticSearch():
             iter_images.append(best_image)
             bp_var = bootstrap_variance(iteration_beta_primes)
             var_scores.append(bp_var)
-            tqdm.write("SEARCH VARIANCE BP: {:.10f}".format(bp_var))
+            tqdm.write("SEARCH VARIANCE BP: {:.10f}, BRAIN CORRELATION: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
             best_distribution_params = {
                                         "images":iteration_samples,
                                         "beta_primes": iteration_beta_primes,
@@ -198,7 +199,7 @@ class StochasticSearch():
             # Target condition, our variance is lower than the target so our distribution is the right width
             if bp_var < target_variance:
                 pbar.close()
-                return best_image, best_distribution_params, iter_images, iter_scores, var_scores
+                return best_image, best_distribution_params, iter_images, iter_scores, var_scores, mindeye_score
         
             # Iteration >0 loop
             for i in range(1, self.n_iter):
@@ -269,14 +270,14 @@ class StochasticSearch():
                 
                 
                 var_scores.append(iteration_var)
-                tqdm.write("SEARCH VARIANCE BP: {:.10f}".format(bp_var))
+                tqdm.write("SEARCH VARIANCE BP: {:.10f}, BRAIN CORRELATION: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
                 pbar.update(1)
                 # Target condition, our variance is lower than the target so our distribution is the right width
                 if iteration_var < target_variance:
                     print("SEARCH BELOW VARIANCE TARGET, EXITING...")
                     break
             pbar.close()
-        return best_image, best_distribution_params, iter_images, iter_scores, var_scores
+        return best_image, best_distribution_params, iter_images, iter_scores, var_scores, mindeye_score
 
 
     
