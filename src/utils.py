@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 from scipy.special import erf
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
@@ -14,6 +15,7 @@ import scipy as sp
 from scipy.stats import pearsonr,binom,linregress
 from scipy.spatial import distance
 import pickle
+from itertools import product
 
 
 def read_images(image_index):
@@ -141,6 +143,7 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
     # Load files for subject
     x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
+    print(x.shape)
     y = torch.load("data/preprocessed_data/{}_12.pt".format(vector)).requires_grad_(False).to("cpu")
     
     # Prune down to specific experimental mode/stimuli type
@@ -165,10 +168,11 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     print(x.shape, y.shape)
     return x, y
 
+# useTitle = 3 means title uses the captions list for a row wise title
 # This function is used to assemble the iteration diagrams and other collages of images
-#useTitle = 0 means no title at all
-#useTitle = 1 means normal centered title at the top
-#useTitle = 2 means title uses the captions list for a column wise title
+# useTitle = 0 means no title at all
+# useTitle = 1 means normal centered title at the top
+# useTitle = 2 means title uses the captions list for a column wise title
 def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=True, rowCaptions=True, background_color='white', buffer=0, redCol=False):
     imW, imH = images[0].size
     bigW = (imW + buffer) * w
@@ -212,13 +216,143 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
                 canvas.paste(images[count].resize((imH, imW), resample=Image.Resampling.LANCZOS), (i,j))
                 if(rowCaptions):
                     canvas.paste(label, (i, j+imH))
-                    textLabeler.text((i+16, j+imH+8), captions[count], font=font, fill='black')
+                    textLabeler.text((i+16, j+imH+8), captions[j], font=font, fill='black')
                 count+=1
     if redCol:
         sub_col = canvas.crop((cStep + buffer, 0, bigW, height))
         buf = Image.new('RGB', (buffer, height), color='white')
         canvas.paste(sub_col, (cStep + buffer + buffer, 0))
         canvas.paste(buf, (cStep + buffer, 0))
+    return canvas
+
+def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffer=10, mode=0, title=None):
+    """
+    Assembles a tiled figure of images with optional captions and a red background behind a specified column or row.
+
+    :param images: List of PIL Image objects, ordered row-wise.
+    :param captions: List of captions, length and usage depends on mode.
+    :param rows: Number of rows in the image grid.
+    :param cols: Number of columns in the image grid.
+    :param red_line_index: Index of the row or column to highlight with a red background (0-indexed).
+    :param buffer: Buffer value in pixels for space between images.
+    :param mode: Mode of the figure assembly.
+    :param title: Title of the figure, used in mode 1 and mode 3.
+    :return: PIL Image object of the assembled figure.
+    """
+    
+    # Find the smallest width and height among all images
+    min_width, min_height = min(img.size for img in images)
+
+    # Resize all images to the smallest dimensions
+    images = [img.resize((min_width, min_height), Image.ANTIALIAS) for img in images]
+
+    # Font setup
+    font_size = 60  # Base font size for readability
+    row_caption_font_size = font_size  
+    title_font_size = int(1.3 * font_size) 
+    title_font = ImageFont.truetype("arial.ttf", title_font_size)
+    row_caption_font = ImageFont.truetype("arial.ttf", row_caption_font_size)
+
+    # Calculate dimensions for the entire canvas
+    caption_height = row_caption_font_size if mode in [0, 1] else 0
+    title_height = int(title_font_size * 1.5) if mode in [1, 3] else 0  # Adjusted to include mode 3
+    row_title_width = int(row_caption_font_size * 1.5) if mode == 3 else 0
+    extra_buffer_w = buffer if (red_line_index is not None and mode in [0, 1, 2]) else 0
+    extra_buffer_h = buffer if (red_line_index is not None and mode == 3) else 0
+
+    # Calculate the total canvas width and height
+    total_width = cols * (min_width + buffer) + row_title_width + buffer + extra_buffer_w
+    total_height = rows * (min_height + buffer) + title_height + rows * caption_height + buffer + extra_buffer_h
+
+    # Create a new image with a white background
+    canvas = Image.new('RGB', (total_width, total_height), color='white')
+
+    # Prepare the drawing context
+    draw = ImageDraw.Draw(canvas)
+
+    # Draw the title for modes 1 and 3
+    if mode in [1, 3] and title is not None:  # Adjusted to include mode 3
+        text_width, text_height = draw.textsize(title, font=title_font)
+        draw.text(((total_width - text_width) // 2, (title_height - text_height) // 2), title, font=title_font, fill='black')
+
+    # Draw red background before placing images if a red line index is specified
+    if red_line_index is not None:
+        if mode in [0, 1, 2]:  # Red column
+            red_x = row_title_width + red_line_index * (min_width + buffer)
+            red_y = title_height
+            red_width = min_width + buffer * 2
+            red_height = total_height - title_height
+            canvas.paste(Image.new('RGB', (red_width, red_height), color='red'), (red_x, red_y))
+        elif mode == 3:  # Red row
+            red_x = row_title_width
+            red_y = title_height + red_line_index * (min_height + buffer)
+            red_width = total_width - row_title_width
+            red_height = min_height + buffer * 2
+            canvas.paste(Image.new('RGB', (red_width, red_height), color='red'), (red_x, red_y))
+
+    # Insert images into the canvas
+    for row in range(rows):
+        for col in range(cols):
+            idx = row * cols + col
+            if idx >= len(images):
+                continue
+
+            img = images[idx]
+            x = col * (min_width + buffer) + row_title_width + buffer
+            y = row * (min_height + buffer) + title_height + buffer
+
+            # Adjust the x position if there is a red column
+            if mode in [0, 1, 2] and red_line_index is not None and col > red_line_index:
+                x += extra_buffer_w
+
+            # Adjust the y position if there is a red row
+            if mode == 3 and red_line_index is not None and row > red_line_index:
+                y += extra_buffer_h
+
+            # Paste the image
+            canvas.paste(img, (x, y))
+    # Draw the vertical text for row titles if mode is 3
+    if mode == 3:
+        for row, caption in enumerate(captions):
+            # Calculate the caption size using the default font
+            width, height = row_caption_font.getsize(caption)
+
+            text_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(text_image)
+            draw.text((0, 0), text=caption, font=row_caption_font, fill='black')
+
+            # Rotate the text image to be vertical
+            text_image = text_image.rotate(90, expand=1)
+
+            # Calculate the y position for the vertical text
+            y = row * (min_height + buffer) + (min_width - width )//2 + title_height
+            if row > 0:
+                y += buffer
+
+            # Calculate the x position, accounting for the increased text size
+            x = 0
+
+            # Paste the rotated text image onto the canvas
+            canvas.paste(text_image, (x, y), text_image)
+
+    # Draw captions for each image for modes 0 and 1
+    if mode in [0, 1]:
+        for idx, caption in enumerate(captions):
+            col = idx % cols
+            row = idx // cols
+            text_width, text_height = draw.textsize(caption, font=row_caption_font)
+            x = col * (min_width + buffer) + row_title_width + buffer + (min_width - text_width) // 2
+            y = (row + 1) * (min_height + buffer) + title_height - text_height // 2
+            draw.text((x, y), caption, font=row_caption_font, fill='black')
+
+    # Draw column titles if mode is 2
+    if mode == 2:
+        for col, caption in enumerate(captions):
+            text_width, text_height = draw.textsize(caption, font=row_caption_font)
+            x = col * (min_width + buffer) + row_title_width + buffer + (min_width - text_width) // 2
+            y = buffer
+            draw.text((x, y), caption, font=row_caption_font, fill='black')
+
     return canvas
 
 #  Numpy Utility 
@@ -493,11 +627,11 @@ def bootstrap_variance(data, n_iterations=1000):
 
 def create_cnn_numpy_array_shared1000(method, subject, low=False):
     if low:
-        feature_path = "output/second_sight_paper/dataframes/{method}/subject{subject}/features_low/"
-        cnn_dict_path = "Second-Sight/output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}_low.pkl"
+        feature_path = f"output/second_sight_paper/dataframes/{method}/subject{subject}/features_low/"
+        cnn_dict_path = f"output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}_low.pkl"
     else:
-        feature_path = "output/second_sight_paper/dataframes/{method}/subject{subject}/features/"
-        cnn_dict_path = "Second-Sight/output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}.pkl"
+        feature_path = f"output/second_sight_paper/dataframes/{method}/subject{subject}/features/"
+        cnn_dict_path = f"output/second_sight_paper/dataframes/cnn_dict_{method}_subject{subject}.pkl"
     cnn_dict = {}
     
     net_list = [
@@ -551,15 +685,19 @@ def compute_similarity_percentage(ground_truth_features, reconstructed_features,
 
 def compute_cnn_metrics_shared1000(cnn_metrics_ground_truth, cnn_metrics_reconstructions, method, subject, low=False):
     cnn_metrics = {}
-    # print(cnn_metrics_reconstructions)
+    net_list = [
+        'Inception V3',
+        'CLIP Two-way',
+        'AlexNet 2',
+        'AlexNet 5',
+        'AlexNet 7']
     
     background_feat_dict = create_cnn_numpy_array_shared1000(method, subject, low)
-    for net_name, predictions_np in cnn_metrics_reconstructions.items():
-        
+    
+    for net_name in net_list:
         gt_feat = cnn_metrics_ground_truth[net_name]
-        
-        eval_feat = predictions_np
-        num_test = predictions_np.shape[0]
+        eval_feat = cnn_metrics_reconstructions[net_name]
+        num_test = eval_feat.shape[0]
         background_feat = background_feat_dict[net_name]
         percent_success = compute_similarity_percentage(gt_feat, eval_feat, background_feat)
         cnn_metrics[net_name] = percent_success
@@ -625,3 +763,42 @@ def create_cnn_numpy_array(df, feature_path):
         stacked_array = np.stack(value)
         cnn_dict[key] = stacked_array
     return cnn_dict
+
+def get_iter_variance(iter_path, masks):
+    var_dict_path = os.path.join(iter_path, 'variance.pkl')
+    
+    # Check if the variance dictionary file exists
+    # if os.path.exists(var_dict_path):
+    #     # Load and return the existing variance dictionary
+    #     with open(var_dict_path, 'rb') as f:
+    #         var_dict = pickle.load(f)
+    #     return var_dict
+
+    beta_primes = []
+    var_dict = {}
+    start = time.time()
+    if "iter_0" in iter_path:
+        for file in os.listdir(iter_path + "beta_primes/"):
+            beta_primes.append(torch.load(f"{iter_path}beta_primes/{file}"))
+        beta_primes = torch.stack(beta_primes)
+        for mask_name, mask in masks.items():
+            var_dict[mask_name] = bootstrap_variance(beta_primes[:, mask], n_iterations=100)
+    else:
+        for mask_name in masks:
+            var_dict[mask_name] = []
+        for folder in os.listdir(iter_path):
+            if not("best_batch" in folder) and os.path.isdir(iter_path + folder):
+                beta_primes = []
+                for file in os.listdir(iter_path + folder + "/beta_primes/"):
+                    beta_primes.append(torch.load(f"{iter_path}{folder}/beta_primes/{file}"))
+                beta_primes = torch.stack(beta_primes)
+                for mask_name, mask in masks.items():
+                    var_dict[mask_name].append(bootstrap_variance(beta_primes[:, mask], n_iterations=100))
+        for mask_name in masks:
+            var_dict[mask_name] = np.mean(var_dict[mask_name])
+    
+    # Save the variance dictionary to a file
+    with open(var_dict_path, 'wb') as f:
+        pickle.dump(var_dict, f)
+    # print(f"Variance calculation took {time.time() - start} seconds")
+    return var_dict
