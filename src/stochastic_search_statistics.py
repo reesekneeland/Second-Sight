@@ -42,8 +42,12 @@ def initialize_net_metrics(device):
     net_list = [
         ('Inception V3','avgpool'),
         ('CLIP Two-way','final'),
+        ('AlexNet 1',1),
         ('AlexNet 2',2),
+        ('AlexNet 3',3),
+        ('AlexNet 4',4),
         ('AlexNet 5',5),
+        ('AlexNet 6',6),
         ('AlexNet 7',7),
         ('EffNet-B','avgpool'),
         ('SwAV','avgpool')
@@ -60,10 +64,22 @@ def initialize_net_metrics(device):
                 
         elif 'AlexNet' in net_name:
             net_models[f'{net_name}{layer}'] = tvmodels.alexnet(pretrained=True)
-            if layer==2:
+            # for i in range(13):
+            #     print("features", i, net_models[f'{net_name}{layer}'].features[i])
+            # for i in range(7):
+            #     print("classifier", i, net_models[f'{net_name}{layer}'].classifier[i])
+            if layer==1:
+                net_models[f'{net_name}{layer}'].features[1].register_forward_hook(fn)
+            elif layer==2:
                 net_models[f'{net_name}{layer}'].features[4].register_forward_hook(fn)
+            elif layer==3:
+                net_models[f'{net_name}{layer}'].features[7].register_forward_hook(fn)
+            elif layer==4:
+                net_models[f'{net_name}{layer}'].features[9].register_forward_hook(fn)
             elif layer==5:
                 net_models[f'{net_name}{layer}'].features[11].register_forward_hook(fn)
+            elif layer==6:
+                net_models[f'{net_name}{layer}'].classifier[2].register_forward_hook(fn)
             elif layer==7:
                 net_models[f'{net_name}{layer}'].classifier[5].register_forward_hook(fn)
                 
@@ -254,8 +270,12 @@ class Stochastic_Search_Statistics():
         net_list = [
             ('Inception V3','avgpool'),
             ('CLIP Two-way','final'),
+            ('AlexNet 1',1),
             ('AlexNet 2',2),
+            ('AlexNet 3',3),
+            ('AlexNet 4',4),
             ('AlexNet 5',5),
+            ('AlexNet 6',6),
             ('AlexNet 7',7),
             ('EffNet-B','avgpool'),
             ('SwAV','avgpool')
@@ -393,7 +413,7 @@ class Stochastic_Search_Statistics():
     #           - low_level.png
     #           - ground_truth.png
     
-    def create_dataframe_mi(self, method, mode):
+    def create_dataframe_mi(self, method, mode, make_beta_primes=False):
         # Path to the folder
         if mode == "nsd_vision":
             directory_path = f"output/{method}_{mode}/subject{self.subject}/"
@@ -407,7 +427,8 @@ class Stochastic_Search_Statistics():
         os.makedirs(f"{dataframe_path}features/", exist_ok=True)
         
         # Create betas if needed
-        self.create_beta_primes_mi(directory_path)
+        if make_beta_primes:
+            self.create_beta_primes_mi(directory_path)
         
         # List of image numbers created. 
         idx = self.image_indices(directory_path)
@@ -422,9 +443,9 @@ class Stochastic_Search_Statistics():
             #   13 --> best_selected_image
         df = pd.DataFrame(columns = ['ID', 'Subject', 'Method', 'Mode', 'Sample Count', 'Batch Number', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
-                                     'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 2', 
-                                     'AlexNet 5', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV', 'CLIP Two-way 1000', 'AlexNet 2 1000', 
-                                     'AlexNet 5 1000', 'AlexNet 7 1000', 'Inception V3 1000'])
+                                     'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 1', 'AlexNet 2', 
+                                     'AlexNet 2', 'AlexNet 4', 'AlexNet 5', 'AlexNet 6', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV', 'CLIP Two-way 1000', 'AlexNet 1 1000','AlexNet 2 1000', 
+                                     'AlexNet 3 1000', 'AlexNet 4 1000', 'AlexNet 5 1000', 'AlexNet 6 1000', 'AlexNet 7 1000', 'Inception V3 1000'])
         
         # Dataframe index count. 
         df_row_num = 0
@@ -518,8 +539,12 @@ class Stochastic_Search_Statistics():
         net_list = [
             'Inception V3',
             'CLIP Two-way',
+            'AlexNet 1',
             'AlexNet 2',
+            'AlexNet 3',
+            'AlexNet 4',
             'AlexNet 5',
+            'AlexNet 6',
             'AlexNet 7',
             'EffNet-B',
             'SwAV']
@@ -545,9 +570,13 @@ class Stochastic_Search_Statistics():
         net_list = [
             'Inception V3',
             'CLIP Two-way',
+            'AlexNet 1',
             'AlexNet 2',
+            'AlexNet 3',
+            'AlexNet 4',
             'AlexNet 5',
-            'AlexNet 7']
+            'AlexNet 6',
+            'AlexNet 7',]
         for index, row in df.iterrows():
             sample_id = row['ID']
             if method != "secondsight" and row['Sample Indicator'] == 11:
@@ -562,7 +591,7 @@ class Stochastic_Search_Statistics():
         print(df)
         df.to_csv(f"{dataframe_path}subject{self.subject}_statistics_{len(idx)}.csv")
         
-    def create_dataframe_SS(self, experiment_name, logging = False, mode = "nsd_vision", make_beta_primes=True):
+    def create_dataframe_SS(self, experiment_name, logging = True, mode = "nsd_vision", make_beta_primes=True):
         # Path to the folder
         # directory_path = "/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight-Archive/reconstructions/subject{}/{}/".format(self.subject, experiment_name)
         # dataframe_path = "Second-Sight-Archive/reconstructions/subject{}/dataframes/".format(self.subject)
@@ -615,8 +644,9 @@ class Stochastic_Search_Statistics():
                                      'Target Variance', 'Beta Prime Variance V1', 'Beta Prime Variance V2', 'Beta Prime Variance V3' # Brain variance metrics
                                      'Beta Prime Variance V4', 'Beta Prime Variance Early Visual', 'Beta Prime Variance Higher Visual', 'Beta Prime Variance NSD General'
                                      
-                                     'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 2', #Feature metrics
-                                     'AlexNet 5', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV' ])
+                                     'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 1', 'AlexNet 2', 'AlexNet 2', 'AlexNet 4', 
+                                     'AlexNet 5', 'AlexNet 6', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV', 'CLIP Two-way 1000', 'AlexNet 1 1000','AlexNet 2 1000', 
+                                     'AlexNet 3 1000', 'AlexNet 4 1000', 'AlexNet 5 1000', 'AlexNet 6 1000', 'AlexNet 7 1000', 'Inception V3 1000'])
         
         # Dataframe index count. 
         df_row_num = 0
@@ -786,8 +816,12 @@ class Stochastic_Search_Statistics():
         net_list = [
             'Inception V3',
             'CLIP Two-way',
+            'AlexNet 1',
             'AlexNet 2',
+            'AlexNet 3',
+            'AlexNet 4',
             'AlexNet 5',
+            'AlexNet 6',
             'AlexNet 7',
             'EffNet-B',
             'SwAV']
@@ -814,71 +848,103 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    # SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", logging = True, mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", logging = True, mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:2")
+    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
     
 
-    # SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", logging = True, mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", logging = True, mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:2")
+    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    # SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", logging = True, mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", logging = True, mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:2")
+    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    # SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", logging = True, mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", logging = True, mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:2")
+    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
-    # SSS.create_dataframe_SS("mindeye_extension_v6", logging = True, make_beta_primes=False)
-    SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:2")
+    # SSS.generate_features_nsd_vision(method="mindeye")
+    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
+    # SSS.generate_features_nsd_vision(method="secondsight")
+    # SSS.generate_features_nsd_vision(method="braindiffuser")
+    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
+    # SSS.generate_features_nsd_vision(method="tagaki")
+    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
+    # SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
     
 
-    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:1")
-    SSS.create_dataframe_SS("mindeye_extension_v6", logging = True, make_beta_primes=False)
-    SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:2")
+    # SSS.generate_features_nsd_vision(method="mindeye")
+    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
+    # SSS.generate_features_nsd_vision(method="secondsight")
+    # SSS.generate_features_nsd_vision(method="braindiffuser")
+    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
+    # SSS.generate_features_nsd_vision(method="tagaki")
+    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
+    # SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
     SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:1")
-    SSS.create_dataframe_SS("mindeye_extension_v6", logging = True)
-    SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    # SSS.generate_features_nsd_vision(method="mindeye")
+    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
+    # SSS.generate_features_nsd_vision(method="secondsight")
+    # SSS.generate_features_nsd_vision(method="braindiffuser")
+    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
+    # SSS.generate_features_nsd_vision(method="tagaki")
+    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
+    # SSS.create_dataframe_SS("mindeye_extension_v6")
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
-    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:1")
-    SSS.create_dataframe_SS("mindeye_extension_v6", logging = True)
-    SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:2")
+    # SSS.generate_features_nsd_vision(method="mindeye")
+    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
+    # SSS.generate_features_nsd_vision(method="secondsight")
+    # SSS.generate_features_nsd_vision(method="braindiffuser")
+    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
+    # SSS.generate_features_nsd_vision(method="tagaki")
+    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
+    # SSS.create_dataframe_SS("mindeye_extension_v6")
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
+    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
 if __name__ == "__main__":
     main()

@@ -637,11 +637,15 @@ def create_cnn_numpy_array_shared1000(method, subject, low=False):
     net_list = [
         'Inception V3',
         'CLIP Two-way',
+        'AlexNet 1',
         'AlexNet 2',
+        'AlexNet 3',
+        'AlexNet 4',
         'AlexNet 5',
+        'AlexNet 6',
         'AlexNet 7']
-    
-    if os.path.isfile(cnn_dict_path):
+    if False:
+    # if os.path.isfile(cnn_dict_path):
         print(f'Now Loading cnn_dict for... {method}, subject{subject}, low={low}')
         with open(cnn_dict_path, 'rb') as f:
             cnn_dict = pickle.load(f)
@@ -688,8 +692,12 @@ def compute_cnn_metrics_shared1000(cnn_metrics_ground_truth, cnn_metrics_reconst
     net_list = [
         'Inception V3',
         'CLIP Two-way',
+        'AlexNet 1',
         'AlexNet 2',
+        'AlexNet 3',
+        'AlexNet 4',
         'AlexNet 5',
+        'AlexNet 6',
         'AlexNet 7']
     
     background_feat_dict = create_cnn_numpy_array_shared1000(method, subject, low)
@@ -746,8 +754,12 @@ def create_cnn_numpy_array(df, feature_path):
     net_list = [
         'Inception V3',
         'CLIP Two-way',
+        'AlexNet 1',
         'AlexNet 2',
+        'AlexNet 3',
+        'AlexNet 4',
         'AlexNet 5',
+        'AlexNet 6',
         'AlexNet 7',
         'EffNet-B',
         'SwAV']
