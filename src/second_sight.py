@@ -28,10 +28,6 @@ if __name__ == "__main__":
                         '--log', 
                         help="boolean flag, if passed, will save all intermediate images for each iteration of the algorithm, as well as intermediate encoded brain scans. WARNING: This saves a lot of data, only enable if you have terabytes of disk space to throw at it.",
                         action='store_true')
-    
-    parser.add_argument('--noae', 
-                        help="boolean flag, if passed, will use original betas instead of the denoised betas passed through an autoencoder as the search target",
-                        action='store_true')
 
     parser.add_argument('--mi', 
                         help="boolean flag, if passed, will use mental imagery betas instead of the vision betas as the search target",
@@ -39,6 +35,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--mivis', 
                         help="boolean flag, if passed, will use mental imagery betas instead of the vision betas as the search target",
+                        action='store_true')
+    
+    parser.add_argument('--concepts', 
+                        help="boolean flag, if passed, will reconstruct concept stims instead of image stims",
                         action='store_true')
     
     parser.add_argument('-s',
@@ -75,11 +75,12 @@ if __name__ == "__main__":
     subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
     idx_list = [int(sub) for sub in args.idx.strip().split(",")]
     print(idx_list)
-    if(args.noae):
-        ae = False
+    ae = False
+    if args.concepts:
+        stimtype = "concepts"
     else:
-        ae = True
-    print("AE: ", ae)
+        stimtype = "all"
+    
     
     for subject in subject_list:
         with torch.no_grad():
@@ -87,21 +88,20 @@ if __name__ == "__main__":
             os.makedirs(subject_path, exist_ok=True)
             # Load data and targets
             if args.mi:
-                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
-                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype="all", average=False, nest=True)
+                x_test, _ = load_nsd_mental_imagery(vector = "c", subject=subject, mode="imagery", stimtype=stimtype, average=False, nest=True)
+                _, target_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="imagery", stimtype=stimtype, average=False, nest=True)
                 experiment_type = "mi_imagery"
-                mindeye_path = "output/mindeye_imagery"
+                mindeye_path = "output/mental_imagery_paper/imagery/mindeye/"
             elif args.mivis:
-                x_test, targets_clips = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
-                _, targets_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype="all", average=False, nest=True)
+                x_test, _ = load_nsd_mental_imagery(vector = "c", subject=subject, mode="vision", stimtype=stimtype, average=False, nest=True)
+                _, target_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode="vision", stimtype=stimtype, average=False, nest=True)
                 experiment_type = "mi_vision"
-                mindeye_path = "output/mindeye_vision"
+                mindeye_path = "output/mental_imagery_paper/vision/mindeye/"
             else:
-                _, _, x_test, _, _, targets_clips, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
+                _, _, x_test, _, _, _, trials = load_nsd(vector="c", subject=subject, loader=False, average=False, nest=True)
                 x_test = x_test[idx_list]
                 experiment_type = "nsd_vision"
                 mindeye_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/reconstructions/nsd_vision/"
-                
             mindeye_seeds_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/".format(experiment_type)
             SCS = StochasticSearch(modelParams=["gnet"],
                                     subject=subject,
@@ -133,7 +133,7 @@ if __name__ == "__main__":
                 ae_beta = AEModel.predict(x_test[i]).detach().cpu()
                 target_variance = bootstrap_variance(ae_beta)
                 beta = torch.mean(x_test[i], axis=0)
-                mindeye = Image.open("{}/subject{}/{}/mindeye.png".format(mindeye_path, subject, val))
+                mindeye = Image.open("{}/subject{}/{}/0.png".format(mindeye_path, subject, val))
                 # Perform search
                 scs_reconstruction, best_distribution_params, image_list, score_list, var_list, mindeye_bc = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip, target_variance=target_variance, init_img=init_img, mindeye=mindeye)
                 
@@ -155,9 +155,10 @@ if __name__ == "__main__":
                 if not (args.mi or args.mivis):
                     nsdId = trials[val]
                     ground_truth = Image.fromarray(read_images(image_index=[nsdId])[0]).resize((768, 768), resample=Image.Resampling.LANCZOS)
+                elif stimtype == "all":
+                    ground_truth = Image.fromarray(target_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 else:
-                    ground_truth = Image.fromarray(targets_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
-                
+                    ground_truth = create_word_image(target_images[val-12])
                 # THIS NEEDS TO BE FIXED TO WORK WITH BOTH METHODS
                 images = [ground_truth, scs_reconstruction, init_img, mindeye]
                 rows = int(math.ceil(len(image_list)/2 + len(images)/2))
@@ -166,6 +167,7 @@ if __name__ == "__main__":
                 for j in range(len(image_list)):
                     images.append(image_list[j])
                     captions.append("BC: {:.3f}, Var: {:.5f}".format(float(score_list[j]), var_list[j]))
+                print(len(captions), len(images), rows, columns, captions)
                 figure = tileImages("index: {}, target var: {:.5f}".format(val, target_variance), images, captions, rows, columns)
                 
                 # Save relevant output images for evaluation

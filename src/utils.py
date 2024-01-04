@@ -34,7 +34,7 @@ def read_images(image_index):
 # nest: if loader is False, changes the shape of the data structure to keep sample repetitions together
 # batch_size: only used if loader is True, determines dataloader batch size
 # num_workers: only used if loader is True, determines num_workers for dataloader
-def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4):
+def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4, return_sessions=False):
     # If loading autoencoded data, load raw x as brain data (beta) and raw y as encoded brain data (beta prime)
     if(ae):
         assert encoderModel is not None
@@ -51,6 +51,7 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
+    test_sessions = []
     pbar = tqdm(desc="loading samples", total=27749)
     split_point = int(subj_train.shape[0]*0.85)
     # Collect 85% of the non-test data for the training set
@@ -75,13 +76,16 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
         nsdId = subj_test.iloc[i]['nsdId']
         avx = []
         avy = []
+        test_sesh = []
         x_row = torch.zeros((3, x.shape[1]))
+        x_row_sesh = torch.zeros((3, x.shape[1]))
         for j in range(3):
             scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)]
             if(scanId < x.shape[0]):
                 if average or nest:
                     avx.append(x[scanId-1])
                     avy.append(y[scanId-1])
+                    test_sesh.append(scanId % 750)
                 else:
                     x_test.append(x[scanId-1])
                     y_test.append(y[scanId-1])
@@ -92,10 +96,13 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
             if average:
                 avx = torch.stack(avx)
                 x_test.append(torch.mean(avx, dim=0))
+                
             else:
                 for j in range(len(avx)):
                     x_row[j] = avx[j]
+                    x_row_sesh[j] = test_sesh[j]
                 x_test.append(x_row)
+                test_sessions.append(x_row_sesh)
             y_test.append(avy[0])
             test_trials.append(nsdId)
     # Concatenate data into tensors
@@ -105,6 +112,8 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     y_train = torch.stack(y_train).to("cpu")
     y_val = torch.stack(y_val).to("cpu")
     y_test = torch.stack(y_test).to("cpu")
+    if return_sessions:
+        test_sessions = torch.stack(test_sessions).to("cpu")
     #Flag to make compatible with existing SS architectures that expect multiple trials
     tqdm.write("Data Shapes... x_train: {}, x_val: {}, x_test: {}, y_train: {}, y_val: {}, y_test: {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
     if(loader):
@@ -116,6 +125,8 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
         valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
         return trainloader, valloader, testloader
+    elif(return_sessions):
+        return x_train, x_val, x_test, y_train, y_val, y_test, test_sessions
     else:
         return x_train, x_val, x_test, y_train, y_val, y_test, test_trials
 
@@ -123,7 +134,6 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
 #mode: vision, imagery
 
 def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False):
-    
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
     ex_file = open(img_stim_file, 'rb')
     imagery_dict = pickle.load(ex_file)
@@ -140,20 +150,31 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     'imagerycomplex': np.arange(len(exps))[np.logical_or(exps=='imgB_1', exps=='imgB_2')],
     'imageryall': np.arange(len(exps))[np.logical_or(np.logical_or(exps=='imgA_1', exps=='imgA_2'), np.logical_or(exps=='imgB_1', exps=='imgB_2'))]
     }
-    cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
-    # Load files for subject
+    cond_idx_concepts = {'visionconcepts': np.arange(len(exps))[exps=='visC'],
+                         'imageryconcepts': np.arange(len(exps))[np.logical_or(exps=='imgC_1', exps=='imgC_2')]}
     x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
-    print(x.shape)
-    y = torch.load("data/preprocessed_data/{}_12.pt".format(vector)).requires_grad_(False).to("cpu")
-    
+    if stimtype != "concepts":
+        cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
+        y = torch.load("data/preprocessed_data/{}_12.pt".format(vector)).requires_grad_(False).to("cpu")
+        x = x[cond_idx[mode+stimtype]]
+    else:
+        cond_im_idx = {n: list(cues[idx]) for n,idx in cond_idx_concepts.items()}
+        x = x[cond_idx_concepts[mode+stimtype]]
+        y = ["stripes", "zebra", "mammal", "yellow", "banana", "fruit"]
+
     # Prune down to specific experimental mode/stimuli type
-    x = x[cond_idx[mode+stimtype]]
+    
     averaged_x, sample_count = condition_average(x, cond_im_idx[mode+stimtype])
+    # Letter cues get sorted out of order, so we need to fix the order
     trial_count = int(x.shape[0]/sample_count)
     # Average across trials
     if average:
         x =  averaged_x
+        if stimtype == "concepts":
+            order = [3, 5, 1, 4, 2, 0]
+            x = x[order]
         x = x.reshape((x.shape[0], 1, x.shape[1]))
+        
     elif nest:
         x_new = torch.zeros((sample_count, trial_count, x.shape[1]))
         for i in range(sample_count):
@@ -165,7 +186,6 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
         y = y[:sample_count]
     elif stimtype == "complex":
         y = y[sample_count:]
-    print(x.shape, y.shape)
     return x, y
 
 # useTitle = 3 means title uses the captions list for a row wise title
@@ -216,7 +236,7 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
                 canvas.paste(images[count].resize((imH, imW), resample=Image.Resampling.LANCZOS), (i,j))
                 if(rowCaptions):
                     canvas.paste(label, (i, j+imH))
-                    textLabeler.text((i+16, j+imH+8), captions[j], font=font, fill='black')
+                    textLabeler.text((i+16, j+imH+8), captions[count], font=font, fill='black')
                 count+=1
     if redCol:
         sub_col = canvas.crop((cStep + buffer, 0, bigW, height))
@@ -255,7 +275,7 @@ def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffe
 
     # Calculate dimensions for the entire canvas
     caption_height = row_caption_font_size if mode in [0, 1] else 0
-    title_height = int(title_font_size * 1.5) if mode in [1, 3] else 0  # Adjusted to include mode 3
+    title_height = int(title_font_size * 1.3) if mode in [1, 3] and title is not None or mode in [2] and captions is not None else 0  # Adjusted to include mode 3
     row_title_width = int(row_caption_font_size * 1.5) if mode == 3 else 0
     extra_buffer_w = buffer if (red_line_index is not None and mode in [0, 1, 2]) else 0
     extra_buffer_h = buffer if (red_line_index is not None and mode == 3) else 0
@@ -573,7 +593,7 @@ def remove_symlink(symlink):
         
 def condition_average(data, cond):
     idx, idx_count = np.unique(cond, return_counts=True)
-    idx_list = [cond==i for i in np.sort(idx)]
+    idx_list = [np.array(cond)==i for i in np.sort(idx)]
     avg_data = torch.zeros((len(idx),data.shape[1]), dtype=torch.float32)
     for i,m in enumerate(idx_list):
         avg_data[i] = torch.mean(data[m], axis=0)
@@ -814,3 +834,22 @@ def get_iter_variance(iter_path, masks):
         pickle.dump(var_dict, f)
     # print(f"Variance calculation took {time.time() - start} seconds")
     return var_dict
+
+def create_word_image(word):
+    # Create an image with white background
+    image = Image.new('RGB', (768, 768), color='white')
+    draw = ImageDraw.Draw(image)
+
+    # Set a fixed, reasonable font size
+    font_size = 180
+    font = ImageFont.truetype("arial.ttf", font_size)
+
+    # Calculate the position for the text to be centered
+    text_size = draw.textsize(word, font=font)
+    text_x = (image.width - text_size[0]) / 2
+    text_y = (image.height - text_size[1]) / 2
+
+    # Draw the text in black
+    draw.text((text_x, text_y), word, fill='black', font=font)
+
+    return image

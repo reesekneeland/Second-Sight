@@ -186,10 +186,13 @@ def create_whole_region_imagery_normalized(subject = 1, mask=True):
     meta_cond_idx = {
         'visA': np.arange(len(exps))[exps=='visA'],
         'visB': np.arange(len(exps))[exps=='visB'],
+        'visC': np.arange(len(exps))[exps=='visC'],
         'imgA_1': np.arange(len(exps))[exps=='imgA_1'],
         'imgA_2': np.arange(len(exps))[exps=='imgA_2'],
         'imgB_1': np.arange(len(exps))[exps=='imgB_1'],
-        'imgB_2': np.arange(len(exps))[exps=='imgB_2']
+        'imgB_2': np.arange(len(exps))[exps=='imgB_2'],
+        'imgC_1': np.arange(len(exps))[exps=='imgC_1'],
+        'imgC_2': np.arange(len(exps))[exps=='imgC_2']
     }
     if mask:
         whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))

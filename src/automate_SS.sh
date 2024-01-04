@@ -18,6 +18,8 @@
 # Mental Imagery, Imagery Trials
 
 # python src/second_sight.py --idx "0,1,2,3,4,5,6,7,8,9,10,11" --device cuda:2 --output output/ss_mi_imagery/ --noae --log --mi
+python src/second_sight.py --idx "12, 13, 14, 15, 16, 17" --device cuda:1 --output output/mental_imagery_paper/imagery/secondsight/ --concepts --log --mi
+# python src/second_sight.py --idx "12, 13, 14, 15, 16, 17" --device cuda:2 --output output/mental_imagery_paper/vision/secondsight/ --concepts --log --mivis
 
 # Mental Imagery Vision Trials
 

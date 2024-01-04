@@ -166,6 +166,16 @@ class Stochastic_Search_Statistics():
             masked_brain_correlations[name] = scores
         
         return masked_brain_correlations
+    
+    # Calcaulate the pearson correlation for each region of the brain.
+    def calculate_brain_variance(self, beta):
+        masked_brain_variance = {}
+        # Calculate brain predictions
+        for name, mask in self.masks.items():
+            variance = bootstrap_variance(beta[:,mask])
+            masked_brain_variance[name] = variance
+        
+        return masked_brain_variance
         
     # SSIM metric calculation
     def calculate_ssim(self, ground_truth, reconstruction):
@@ -431,8 +441,8 @@ class Stochastic_Search_Statistics():
             self.create_beta_primes_mi(directory_path)
         
         # List of image numbers created. 
-        idx = self.image_indices(directory_path)
-        
+        # idx = self.image_indices(directory_path)
+        idx = range(982)
         print("IDX: ", len(idx), idx)
         # Create an Empty DataFrame
         # Object With column names only
@@ -604,9 +614,9 @@ class Stochastic_Search_Statistics():
             self.create_beta_primes_ss(directory_path)
         
         # List of image numbers created. 
-        # idx = [i for i in range(982)]
+        idx = [i for i in range(982)]
         # idx = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
-        idx = self.image_indices(directory_path)
+        # idx = self.image_indices(directory_path)
         # idx = self.paper_image_indices
         print("IDX: ", len(idx), idx)
         # Autoencoded avearged brain samples 
@@ -641,8 +651,11 @@ class Stochastic_Search_Statistics():
                                      'Brain Correlation V1', 'Brain Correlation V2', 'Brain Correlation V3', 'Brain Correlation V4', #Brain correlation scores
                                      'Brain Correlation Early Visual', 'Brain Correlation Higher Visual','Brain Correlation NSD General', 
                                      
-                                     'Target Variance', 'Beta Prime Variance V1', 'Beta Prime Variance V2', 'Beta Prime Variance V3' # Brain variance metrics
-                                     'Beta Prime Variance V4', 'Beta Prime Variance Early Visual', 'Beta Prime Variance Higher Visual', 'Beta Prime Variance NSD General'
+                                     'Target Variance V1', 'Target Variance V2', 'Target Variance V3', # Brain variance targets
+                                     'Target Variance V4', 'Target Variance Early Visual', 'Target Variance Higher Visual', 'Target Variance NSD General',
+                                     
+                                     'Beta Prime Variance V1', 'Beta Prime Variance V2', 'Beta Prime Variance V3', # Brain variance metrics
+                                     'Beta Prime Variance V4', 'Beta Prime Variance Early Visual', 'Beta Prime Variance Higher Visual', 'Beta Prime Variance NSD General',
                                      
                                      'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 1', 'AlexNet 2', 'AlexNet 2', 'AlexNet 4', 
                                      'AlexNet 5', 'AlexNet 6', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV', 'CLIP Two-way 1000', 'AlexNet 1 1000','AlexNet 2 1000', 
@@ -664,12 +677,11 @@ class Stochastic_Search_Statistics():
         # Append rows to an empty DataFrame
         for i in tqdm(idx, desc="creating dataframe rows"):
             sample_path = f"{directory_path}{i}/"
-            # var_list = np.load(sample_path + "var_list.npy")
-            # print(f"{i}: Variance List: {var_list}")
+            var_list = np.load(sample_path + "var_list.npy")
+            print(f"{i}: Variance List: {var_list}")
             ae_beta = self.AEModel.predict(prepare_betas(beta_samples[i])).detach().cpu()
-            target_variance = bootstrap_variance(ae_beta)
-
-
+            target_brain_variance = self.calculate_brain_variance(ae_beta)
+            print(f"{i}: Target Brain Variance: {target_brain_variance}")
             # Ground Truth Image
             ground_truth = Image.open(f'{sample_path}Ground Truth.png')
             clip_cosine_sim_gt = self.calculate_clip_cosine_sim(ground_truth, ground_truth)
@@ -678,14 +690,20 @@ class Stochastic_Search_Statistics():
             
             beta_prime = torch.load(f"{sample_path}ground_truth_beta_prime.pt")
             brain_correlations = self.calculate_brain_correlations(averaged_beta_samples[i], beta_prime)
+            
             folder_images.append(ground_truth)
             
-            df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode,'Sample Indicator' : 10, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
-                        'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
-                        'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
-                        'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
-                        'Target Variance' : target_variance,
-                        'SSIM' : ssim_gt, 'Pixel Correlation' : pix_corr_gt, 'CLIP Cosine' : clip_cosine_sim_gt}
+            df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode,'Sample Indicator' : 10, 'Strength' : np.nan, 
+                                  
+                                'Brain Correlation V1' : brain_correlations["V1"],'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
+                                'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
+                                'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
+                                
+                                'Target Variance V1' : target_brain_variance["V1"], 'Target Variance V2' : target_brain_variance["V2"], 'Target Variance V3' : target_brain_variance["V3"],
+                                'Target Variance V4' : target_brain_variance["V4"], 'Target Variance Early Visual' : target_brain_variance["early_vis"], 
+                                'Target Variance Higher Visual' : target_brain_variance["higher_vis"],'Target Variance NSD General' : target_brain_variance["nsd_general"],
+                                
+                                'SSIM' : ssim_gt, 'Pixel Correlation' : pix_corr_gt, 'CLIP Cosine' : clip_cosine_sim_gt}
             df_row_num += 1
 
             # Low Level Image
@@ -699,11 +717,16 @@ class Stochastic_Search_Statistics():
             folder_images.append(low_level)
             
             df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode, 'Sample Indicator' : 11, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
-                        'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
-                        'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
-                        'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
-                        'Target Variance' : target_variance,
-                        'SSIM' : ssim_low, 'Pixel Correlation' : pix_corr_low, 'CLIP Cosine' : clip_cosine_sim_low}
+                        
+                                'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
+                                'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
+                                'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
+                                
+                                'Target Variance V1' : target_brain_variance["V1"], 'Target Variance V2' : target_brain_variance["V2"], 'Target Variance V3' : target_brain_variance["V3"],
+                                'Target Variance V4' : target_brain_variance["V4"], 'Target Variance Early Visual' : target_brain_variance["early_vis"], 
+                                'Target Variance Higher Visual' : target_brain_variance["higher_vis"],'Target Variance NSD General' : target_brain_variance["nsd_general"],
+                                        
+                                'SSIM' : ssim_low, 'Pixel Correlation' : pix_corr_low, 'CLIP Cosine' : clip_cosine_sim_low}
             df_row_num += 1
 
             # MindEye Reconstruction Image
@@ -717,11 +740,16 @@ class Stochastic_Search_Statistics():
             folder_images.append(mindeye)
             
             df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode, 'Sample Indicator' : 14, 'Strength' : 0.85, 'Brain Correlation V1' : brain_correlations["V1"],
-                        'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
-                        'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
-                        'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
-                        'Target Variance' : target_variance,
-                        'SSIM' : ssim_me, 'Pixel Correlation' : pix_corr_me, 'CLIP Cosine' : clip_cosine_sim_me}
+                                
+                                'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
+                                'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
+                                'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
+                        
+                                'Target Variance V1' : target_brain_variance["V1"], 'Target Variance V2' : target_brain_variance["V2"], 'Target Variance V3' : target_brain_variance["V3"],
+                                'Target Variance V4' : target_brain_variance["V4"], 'Target Variance Early Visual' : target_brain_variance["early_vis"], 
+                                'Target Variance Higher Visual' : target_brain_variance["higher_vis"],'Target Variance NSD General' : target_brain_variance["nsd_general"],
+                                    
+                                'SSIM' : ssim_me, 'Pixel Correlation' : pix_corr_me, 'CLIP Cosine' : clip_cosine_sim_me}
             df_row_num += 1
             
             # Search Reconstruction Image
@@ -735,11 +763,16 @@ class Stochastic_Search_Statistics():
             folder_images.append(search_reconstruction)
             
             df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode, 'Sample Indicator' : 13, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
-                        'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
-                        'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
-                        'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
-                        'Target Variance' : target_variance,
-                        'SSIM' : ssim_sr, 'Pixel Correlation' : pix_corr_sr, 'CLIP Cosine' : clip_cosine_sim_sr}
+                                
+                                'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
+                                'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
+                                'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
+                                
+                                'Target Variance V1' : target_brain_variance["V1"], 'Target Variance V2' : target_brain_variance["V2"], 'Target Variance V3' : target_brain_variance["V3"],
+                                'Target Variance V4' : target_brain_variance["V4"], 'Target Variance Early Visual' : target_brain_variance["early_vis"], 
+                                'Target Variance Higher Visual' : target_brain_variance["higher_vis"],'Target Variance NSD General' : target_brain_variance["nsd_general"],
+                                    
+                                'SSIM' : ssim_sr, 'Pixel Correlation' : pix_corr_sr, 'CLIP Cosine' : clip_cosine_sim_sr}
             df_row_num += 1
 
             for folder, sample_number in folders.items():
@@ -771,12 +804,19 @@ class Stochastic_Search_Statistics():
                         folder_images.append(reconstruction)
                         
                         df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : experiment_name, 'Mode' : mode, 'Sample Count': rep, 'Sample Indicator' : sample_number, 'Strength' : strength, 
-                                              'Brain Correlation V1' : brain_correlations["V1"],'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
+                                            
+                                            'Brain Correlation V1' : brain_correlations["V1"],'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
                                             'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
                                             'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
-                                            'Target Variance' : target_variance, 'Beta Prime Variance V1' : iter_variance_dict["V1"], 'Beta Prime Variance V2' : iter_variance_dict["V2"],
+                                        
+                                            'Target Variance V1' : target_brain_variance["V1"], 'Target Variance V2' : target_brain_variance["V2"], 'Target Variance V3' : target_brain_variance["V3"],
+                                            'Target Variance V4' : target_brain_variance["V4"], 'Target Variance Early Visual' : target_brain_variance["early_vis"], 
+                                            'Target Variance Higher Visual' : target_brain_variance["higher_vis"],'Target Variance NSD General' : target_brain_variance["nsd_general"],
+                                    
+                                            'Beta Prime Variance V1' : iter_variance_dict["V1"], 'Beta Prime Variance V2' : iter_variance_dict["V2"],
                                             'Beta Prime Variance V3' : iter_variance_dict["V3"], 'Beta Prime Variance V4' : iter_variance_dict["V4"], 'Beta Prime Variance Early Visual' : iter_variance_dict["early_vis"],
                                             'Beta Prime Variance Higher Visual' : iter_variance_dict["higher_vis"], 'Beta Prime Variance NSD General' : iter_variance_dict["nsd_general"],
+                                            
                                             'SSIM' : ssim_rep, 'Pixel Correlation' : pix_corr_rep, 'CLIP Cosine' : clip_cosine_sim_rep}
                         df_row_num += 1
                     
@@ -843,61 +883,61 @@ class Stochastic_Search_Statistics():
                                            
         print(df.shape)
         print(df)
-        df.to_csv(dataframe_path + "statistics_df_" + experiment_name + "_" + str(len(idx)) +  ".csv")
+        df.to_csv(f"{dataframe_path}statistics_df_{experiment_name}_{len(idx)}_v2.csv")
     
     
 def main():
     
-    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:2")
-    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    # SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
+    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
     
 
-    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:2")
-    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    # SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:1")
+    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:2")
-    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    # SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:1")
+    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:2")
-    # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    SSS.create_dataframe_mi(mode="imagery", method="secondsight")
+    # SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:1")
+    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
+    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
+    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
+    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
+    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
+    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
+    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
+    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
+    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
 
-    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:2")
+    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:3")
     # SSS.generate_features_nsd_vision(method="mindeye")
     # SSS.generate_features_nsd_vision(method="mindeye", low=True)
     # SSS.generate_features_nsd_vision(method="secondsight")
@@ -905,12 +945,13 @@ def main():
     # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
     # SSS.generate_features_nsd_vision(method="tagaki")
     # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    # SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
     # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
     
 
-    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:2")
+    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:3")
     # SSS.generate_features_nsd_vision(method="mindeye")
     # SSS.generate_features_nsd_vision(method="mindeye", low=True)
     # SSS.generate_features_nsd_vision(method="secondsight")
@@ -918,11 +959,12 @@ def main():
     # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
     # SSS.generate_features_nsd_vision(method="tagaki")
     # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    # SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
     # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
-    SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:1")
+    SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:3")
     # SSS.generate_features_nsd_vision(method="mindeye")
     # SSS.generate_features_nsd_vision(method="mindeye", low=True)
     # SSS.generate_features_nsd_vision(method="secondsight")
@@ -930,11 +972,12 @@ def main():
     # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
     # SSS.generate_features_nsd_vision(method="tagaki")
     # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    # SSS.create_dataframe_SS("mindeye_extension_v6")
+    SSS.create_dataframe_SS("mindeye_extension_v6")
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
     # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
-    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:2")
+    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:3")
     # SSS.generate_features_nsd_vision(method="mindeye")
     # SSS.generate_features_nsd_vision(method="mindeye", low=True)
     # SSS.generate_features_nsd_vision(method="secondsight")
@@ -942,9 +985,10 @@ def main():
     # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
     # SSS.generate_features_nsd_vision(method="tagaki")
     # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    # SSS.create_dataframe_SS("mindeye_extension_v6")
+    SSS.create_dataframe_SS("mindeye_extension_v6")
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
     # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
+    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
 if __name__ == "__main__":
     main()
