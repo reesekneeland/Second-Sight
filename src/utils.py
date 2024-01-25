@@ -34,15 +34,23 @@ def read_images(image_index):
 # nest: if loader is False, changes the shape of the data structure to keep sample repetitions together
 # batch_size: only used if loader is True, determines dataloader batch size
 # num_workers: only used if loader is True, determines num_workers for dataloader
-def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4, return_sessions=False):
+def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=False, nest=False, batch_size=64, num_workers=4, return_sessions=False, normalized=True, split_val=True, include_heldout=False):
+    if normalized and include_heldout:
+        beta_file = "data/preprocessed_data/subject{}/nsd_general_large.pt".format(subject)
+    elif normalized:
+        beta_file = "data/preprocessed_data/subject{}/nsd_general.pt".format(subject)
+    elif include_heldout:
+        beta_file = "data/preprocessed_data/subject{}/nsd_general_unnormalized_large.pt".format(subject)
+    else:
+        beta_file = "data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject)
+    x = torch.load(beta_file).requires_grad_(False).to("cpu")
+    print(x.shape)
     # If loading autoencoded data, load raw x as brain data (beta) and raw y as encoded brain data (beta prime)
     if(ae):
         assert encoderModel is not None
-        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
         y = torch.load("data/preprocessed_data/subject{}/{}_ae_beta_primes.pt".format(subject, encoderModel)).requires_grad_(False).to("cpu")
     # Load raw x as brain data and raw y as the provided vector, either c for a CLIP vector or images 
     else:
-        x = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).requires_grad_(False).to("cpu")
         y = torch.load("data/preprocessed_data/subject{}/{}.pt".format(subject, vector)).requires_grad_(False).to("cpu")
     x_train, x_val, x_test = [], [], []
     y_train, y_val, y_test = [], [], []
@@ -52,24 +60,27 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
     subj_test = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == True)]
     test_trials = []
     test_sessions = []
-    pbar = tqdm(desc="loading samples", total=27749)
-    split_point = int(subj_train.shape[0]*0.85)
+    pbar = tqdm(desc="loading samples", total=x.shape[0])
+    if split_val:
+        split_point = int(subj_train.shape[0]*0.85)
+    else:
+        split_point = subj_train.shape[0]
     # Collect 85% of the non-test data for the training set
     for i in range(split_point):
         for j in range(3):
-            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)] - 1
             # tqdm.write(str(scanId))
             if(scanId < x.shape[0]):
-                x_train.append(x[scanId-1])
-                y_train.append(y[scanId-1])
+                x_train.append(x[scanId])
+                y_train.append(y[scanId])
                 pbar.update() 
     # Collect 15% of the non-test data for the validation set
     for i in range(split_point, subj_train.shape[0]):
         for j in range(3):
-            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            scanId = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)] - 1
             if(scanId < x.shape[0]):
-                x_val.append(x[scanId-1])
-                y_val.append(y[scanId-1])
+                x_val.append(x[scanId])
+                y_val.append(y[scanId])
                 pbar.update() 
     # Collect test data
     for i in range(subj_test.shape[0]):
@@ -80,15 +91,15 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
         x_row = torch.zeros((3, x.shape[1]))
         x_row_sesh = torch.zeros((3, x.shape[1]))
         for j in range(3):
-            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)]
+            scanId = subj_test.iloc[i]['subject{}_rep{}'.format(subject, j)] - 1
             if(scanId < x.shape[0]):
                 if average or nest:
-                    avx.append(x[scanId-1])
-                    avy.append(y[scanId-1])
+                    avx.append(x[scanId])
+                    avy.append(y[scanId])
                     test_sesh.append(scanId % 750)
                 else:
-                    x_test.append(x[scanId-1])
-                    y_test.append(y[scanId-1])
+                    x_test.append(x[scanId])
+                    y_test.append(y[scanId])
                     test_trials.append(nsdId)
                 pbar.update() 
         # Setup nested or averaged data structure if flags are passed
@@ -107,13 +118,18 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
             test_trials.append(nsdId)
     # Concatenate data into tensors
     x_train = torch.stack(x_train).to("cpu")
-    x_val = torch.stack(x_val).to("cpu")
     x_test = torch.stack(x_test).to("cpu")
     y_train = torch.stack(y_train).to("cpu")
-    y_val = torch.stack(y_val).to("cpu")
     y_test = torch.stack(y_test).to("cpu")
+    if split_val:
+        x_val = torch.stack(x_val).to("cpu")
+        y_val = torch.stack(y_val).to("cpu")
+    else:
+        x_val = torch.empty(0).to("cpu")
+        y_val = torch.empty(0).to("cpu")
     if return_sessions:
         test_sessions = torch.stack(test_sessions).to("cpu")
+        
     #Flag to make compatible with existing SS architectures that expect multiple trials
     tqdm.write("Data Shapes... x_train: {}, x_val: {}, x_test: {}, y_train: {}, y_val: {}, y_test: {}".format(x_train.shape, x_val.shape, x_test.shape, y_train.shape, y_val.shape, y_test.shape))
     if(loader):
@@ -132,9 +148,10 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
 
 #stimtype: all, simple, complex
 #mode: vision, imagery
-
-def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False):
+#epoch is for attention data, epoch 0 is the first beta associated with a trial (presumably the cue period), 1 is the second (barrage period), 2 returns both epochs
+def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False, epoch=0):
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
+    imagery_data_path = "/export/raid1/home/tsaharoy/NSD_Imagery/everything_NSD_imagery"
     ex_file = open(img_stim_file, 'rb')
     imagery_dict = pickle.load(ex_file)
     ex_file.close()
@@ -145,47 +162,115 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     cond_idx = {
     'visionsimple': np.arange(len(exps))[exps=='visA'],
     'visioncomplex': np.arange(len(exps))[exps=='visB'],
-    'visionall': np.arange(len(exps))[np.logical_or(exps=='visA', exps=='visB')],
+    'visionconcepts': np.arange(len(exps))[exps=='visC'],
+    'visionall': np.arange(len(exps))[np.logical_or(np.logical_or(exps=='visA', exps=='visB'), exps=='visC')],
     'imagerysimple': np.arange(len(exps))[np.logical_or(exps=='imgA_1', exps=='imgA_2')],
     'imagerycomplex': np.arange(len(exps))[np.logical_or(exps=='imgB_1', exps=='imgB_2')],
-    'imageryall': np.arange(len(exps))[np.logical_or(np.logical_or(exps=='imgA_1', exps=='imgA_2'), np.logical_or(exps=='imgB_1', exps=='imgB_2'))]
-    }
-    cond_idx_concepts = {'visionconcepts': np.arange(len(exps))[exps=='visC'],
-                         'imageryconcepts': np.arange(len(exps))[np.logical_or(exps=='imgC_1', exps=='imgC_2')]}
-    x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
-    if stimtype != "concepts":
-        cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
-        y = torch.load("data/preprocessed_data/{}_12.pt".format(vector)).requires_grad_(False).to("cpu")
-        x = x[cond_idx[mode+stimtype]]
-    else:
-        cond_im_idx = {n: list(cues[idx]) for n,idx in cond_idx_concepts.items()}
-        x = x[cond_idx_concepts[mode+stimtype]]
-        y = ["stripes", "zebra", "mammal", "yellow", "banana", "fruit"]
-
-    # Prune down to specific experimental mode/stimuli type
+    'imageryconcepts': np.arange(len(exps))[np.logical_or(exps=='imgC_1', exps=='imgC_2')],
+    'imageryall': np.arange(len(exps))[np.logical_or(
+                                        np.logical_or(
+                                            np.logical_or(exps=='imgA_1', exps=='imgA_2'), 
+                                            np.logical_or(exps=='imgB_1', exps=='imgB_2')), 
+                                        np.logical_or(exps=='imgC_1', exps=='imgC_2'))],
+    'attentionsimple': np.arange(len(exps))[exps=='attA'],
+    'attentioncomplex': np.arange(len(exps))[exps=='attB'],
+    'attentionconcepts': np.arange(len(exps))[exps=='attC'],
+    'attentionall': np.arange(len(exps))[np.logical_or(
+                                            np.logical_or(exps=='attA', exps=='attB'), 
+                                            exps=='attC')]}
     
-    averaged_x, sample_count = condition_average(x, cond_im_idx[mode+stimtype])
-    # Letter cues get sorted out of order, so we need to fix the order
-    trial_count = int(x.shape[0]/sample_count)
+    x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
+    cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
+    y = torch.load("data/preprocessed_data/{}_18.pt".format(vector)).requires_grad_(False).to("cpu")
+    # Prune down to specific experimental mode/stimuli type
+    x = x[cond_idx[mode+stimtype]]
+    conditionals = cond_im_idx[mode+stimtype]
+    if stimtype == "simple":
+        y = y[:6]
+    elif stimtype == "complex":
+        y = y[6:12]
+    elif stimtype == "concepts":
+        y = y[12:]
+        
+    if mode == "attention":
+        if epoch == 0:
+            x = x[::2]
+            conditionals = conditionals[::2]
+        elif epoch == 1:
+            x = x[1::2]
+            conditionals = conditionals[1::2]
+        
+        if stimtype == "simple":
+            identifiers = ["attA"]
+        elif stimtype == "complex":
+            identifiers = ["attB"]
+        elif stimtype == "concepts":
+            identifiers = ['attC']
+        else:
+            identifiers = ["attA", "attB", "attC"]
+        dfs = []
+        for identifier in identifiers:
+            task_framefile = f"{imagery_data_path}/experiment/runs/{identifier}/{identifier}_framefile.csv"
+            assert os.path.exists(task_framefile)
+            df = pd.read_csv(task_framefile)
+            dfs.append(df)
+        concatenated_df = pd.concat(dfs)
+        run_data = []
+        current_cue = None
+        current_trial = {"trial": None, "cue" : None, "stimulus" : None, "barrage" : [], "stim_present" : None, "voxels" : None}
+        trial = -1
+        # iterate through frames of the experiment to collect the data presented in each trial
+        for index, row in concatenated_df.iterrows():
+            cue = row[1]
+            letter = cue.split("cue")[1][0]
+            # check if this frame is a new cue frame
+            if letter != current_cue and letter != "X" and "blank" in row[1]:
+                # if it is a cue frame and not our first, add the previous trial to the data structure
+                if trial != -1:
+                    run_data.append(current_trial)
+                trial +=1
+                stim_img = Image.open(f"data/nsddata_stimuli/stimuli/imagery_images/{image_map[letter]}.png")
+                current_trial = {"trial": trial, 
+                                 "cue" : letter, 
+                                 "stimid" : image_map[letter], 
+                                 "stimulus" : stim_img, 
+                                 "barrage" : [], 
+                                 "barrage_stim" : [], 
+                                 "stim_present" : row[0] != 0, 
+                                 "voxels" : x[trial]}
+                current_cue = letter
+            # If it is a frame with a stimulus, add it to the barrage data
+            elif letter == "X" and "blank" not in row[1]:
+                # img_identifier = row[1].split("cue")[0][5:-1] + ".png"
+                img_identifier = row[1].split("/")[1]
+                image = search_and_open_image("data/nsddata_stimuli/stimuli/attention_images", img_identifier)
+                if row[0] == 2:
+                    current_trial["barrage_stim"].append(image)
+                else:
+                    current_trial["barrage"].append(image)
+            # If it is a cue frame that we have already seen, skip it
+            elif letter == current_cue and "blank" in row[1]:
+                pass
+        run_data.append(current_trial)
+        y = run_data
+    
+    # For vision and imagery, we can average across trials
+    
+    # trial_count = int(x.shape[0]/sample_count)
     # Average across trials
-    if average:
-        x =  averaged_x
-        if stimtype == "concepts":
-            order = [3, 5, 1, 4, 2, 0]
-            x = x[order]
+    if average or nest:
+        x, y, sample_count = condition_average(x, y, conditionals, nest=nest)
+    else:
         x = x.reshape((x.shape[0], 1, x.shape[1]))
         
-    elif nest:
-        x_new = torch.zeros((sample_count, trial_count, x.shape[1]))
-        for i in range(sample_count):
-            x_new[i] = x[i*trial_count: i*trial_count + trial_count]
-        x = x_new
-
-
-    if stimtype == "simple":
-        y = y[:sample_count]
-    elif stimtype == "complex":
-        y = y[sample_count:]
+    # elif nest:
+    #     x_new = torch.zeros((sample_count, trial_count, x.shape[1]))
+    #     for i in range(sample_count):
+    #         x_new[i] = x[i*trial_count: i*trial_count + trial_count]
+    #         print([i*trial_count, i*trial_count + trial_count])
+    #     x = x_new
+    
+    print(x.shape)
     return x, y
 
 # useTitle = 3 means title uses the captions list for a row wise title
@@ -591,13 +676,26 @@ def remove_symlink(symlink):
     else:
         os.unlink(symlink) 
         
-def condition_average(data, cond):
+def condition_average(x, y, cond, nest=False):
     idx, idx_count = np.unique(cond, return_counts=True)
     idx_list = [np.array(cond)==i for i in np.sort(idx)]
-    avg_data = torch.zeros((len(idx),data.shape[1]), dtype=torch.float32)
-    for i,m in enumerate(idx_list):
-        avg_data[i] = torch.mean(data[m], axis=0)
-    return avg_data, len(idx_count)
+    if nest:
+        avg_x = torch.zeros((len(idx), idx_count.max(), x.shape[1]), dtype=torch.float32)
+    else:
+        avg_x = torch.zeros((len(idx), 1, x.shape[1]), dtype=torch.float32)
+    for i, m in enumerate(idx_list):
+        if nest:
+            avg_x[i] = x[m]
+        else:
+            avg_x[i] = torch.mean(x[m], axis=0)
+    if isinstance(y, list):
+        nested_y = []
+        for i, m in enumerate(idx_list):
+            indexed_y = [y[j] for j in range(len(y)) if m[j]]
+            nested_y.append(indexed_y)
+        y = nested_y
+        
+    return avg_x, y, len(idx_count)
 
 # Preprocess beta, remove empty trials
 def prepare_betas(beta):
@@ -853,3 +951,13 @@ def create_word_image(word):
     draw.text((text_x, text_y), word, fill='black', font=font)
 
     return image
+
+def search_and_open_image(directory, img_identifier):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if img_identifier in file:
+                image_path = os.path.join(root, file)
+                image = Image.open(image_path)
+                return image
+    print(f"Image {img_identifier} not found in {directory}")
+    return None

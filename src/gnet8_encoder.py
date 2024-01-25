@@ -10,68 +10,6 @@ from torchmetrics import PearsonCorrCoef
 from model_zoo import Encoder, Torch_LayerwiseFWRF
 
 
-def subject_pred_pass(_pred_fn, _ext, _con, x, batch_size):
-    pred = _pred_fn(_ext, _con, x[:batch_size]) # this is just to get the shape
-    pred = np.zeros(shape=(len(x), pred.shape[1]), dtype=np.float32) # allocate
-    for rb,_ in iterate_range(0, len(x), batch_size):
-        pred[rb] = get_value(_pred_fn(_ext, _con, x[rb]))
-    return pred
-
-
-
-def gnet8j_predictions(image_data, _pred_fn, trunk_width, pass_through, checkpoint, mask, batch_size, device=torch.device("cuda:0")):
-    
-    subjects = list(image_data.keys())
-
-    if(mask is None):
-        subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()} 
-    else:
-        subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()}    
-        subject_nv[subjects[0]] = int(torch.sum(mask == True)) 
-
-    # allocate
-    subject_image_pred = {s: np.zeros(shape=(len(image_data[s]), subject_nv[s]), dtype=np.float32) for s in subjects}
-    # print(subject_image_pred)
-    _log_act_fn = lambda _x: T.log(1 + T.abs(_x))*T.tanh(_x)
-     
-    best_params = checkpoint['best_params']
-    # print(best_params)
-    shared_model = Encoder(np.array(checkpoint['input_mean']).astype(np.float32), trunk_width=trunk_width, pass_through=pass_through).to(device)
-    shared_model.load_state_dict(best_params['enc'])
-    shared_model.eval() 
-
-    # example fmaps
-    rec, fmaps, h = shared_model(T.from_numpy(image_data[list(image_data.keys())[0]][:20]).to(device))                                     
-    for s in subjects:
-        sd = Torch_LayerwiseFWRF(fmaps, nv=subject_nv[s], pre_nl=_log_act_fn, post_nl=_log_act_fn, dtype=np.float32).to(device) 
-        params = best_params['fwrfs'][s]
-        
-        if(mask is None):
-            sd.load_state_dict(params)
-        
-        else:
-            masked_params = {}
-            for key, value in params.items():
-                masked_params[key] = value[mask]
-                
-            sd.load_state_dict(masked_params)
-            
-        # print(params['w'].shape)
-        # print(params['b'].shape)
-        # sd.load_state_dict(best_params['fwrfs'][s])
-        sd.eval() 
-        # print(sd)
-        
-        subject_image_pred[s] = subject_pred_pass(_pred_fn, shared_model, sd, image_data[s], batch_size)
-
-    return subject_image_pred
-
-
-
-
-#######################################
-
-
 class GNet8_Encoder():
     
     def __init__(self, subject = 1, device = "cuda"):
@@ -87,7 +25,7 @@ class GNet8_Encoder():
         self.vector = "images"
         
         # x size
-        subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
+        subject_sizes = [0, 15724, 14278, 15226, 13153, 13039, 17907, 12682, 14386]
         self.x_size = subject_sizes[self.subject]
         
         # Reload joined GNet model files
@@ -121,6 +59,59 @@ class GNet8_Encoder():
     def _pred_fn(self, _ext, _con, xb):
         return self._model_fn(_ext, _con, torch.from_numpy(xb).to(self.device))  
                     
+    def subject_pred_pass(self, _pred_fn, _ext, _con, x, batch_size):
+        pred = _pred_fn(_ext, _con, x[:batch_size]) # this is just to get the shape
+        pred = np.zeros(shape=(len(x), pred.shape[1]), dtype=np.float32) # allocate
+        for rb,_ in iterate_range(0, len(x), batch_size):
+            pred[rb] = get_value(_pred_fn(_ext, _con, x[rb]))
+        return pred
+
+    def gnet8j_predictions(self, image_data, _pred_fn, trunk_width, pass_through, checkpoint, mask, batch_size, device=torch.device("cuda:0")):
+        
+        subjects = list(image_data.keys())
+
+        if(mask is None):
+            subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()} 
+        else:
+            subject_nv = {s: len(v) for s,v in checkpoint['val_cc'].items()}    
+            subject_nv[subjects[0]] = int(torch.sum(mask == True)) 
+
+        # allocate
+        subject_image_pred = {s: np.zeros(shape=(len(image_data[s]), subject_nv[s]), dtype=np.float32) for s in subjects}
+        # print(subject_image_pred)
+        _log_act_fn = lambda _x: T.log(1 + T.abs(_x))*T.tanh(_x)
+        
+        best_params = checkpoint['best_params']
+        # print(best_params)
+        shared_model = Encoder(np.array(checkpoint['input_mean']).astype(np.float32), trunk_width=trunk_width, pass_through=pass_through).to(device)
+        shared_model.load_state_dict(best_params['enc'])
+        shared_model.eval() 
+
+        # example fmaps
+        rec, fmaps, h = shared_model(T.from_numpy(image_data[list(image_data.keys())[0]][:20]).to(device))                                     
+        for s in subjects:
+            sd = Torch_LayerwiseFWRF(fmaps, nv=subject_nv[s], pre_nl=_log_act_fn, post_nl=_log_act_fn, dtype=np.float32).to(device) 
+            params = best_params['fwrfs'][s]
+            
+            if(mask is None):
+                sd.load_state_dict(params)
+            
+            else:
+                masked_params = {}
+                for key, value in params.items():
+                    masked_params[key] = value[mask]
+                    
+                sd.load_state_dict(masked_params)
+                
+            # print(params['w'].shape)
+            # print(params['b'].shape)
+            # sd.load_state_dict(best_params['fwrfs'][s])
+            sd.eval() 
+            # print(sd)
+            
+            subject_image_pred[s] = self.subject_pred_pass(_pred_fn, shared_model, sd, image_data[s], batch_size)
+
+        return subject_image_pred
 
     def predict(self, images, mask = None):
         self.stim_data = {}
@@ -130,7 +121,7 @@ class GNet8_Encoder():
         if(isinstance(images, list)):
             for i in range(len(images)):
                 
-                imagePil = images[i].resize((w, h), resample=Image.Resampling.LANCZOS)
+                imagePil = images[i].convert("RGB").resize((w, h), resample=Image.Resampling.LANCZOS)
                 image = np.array(imagePil).astype(np.float32) / 255.0
                 data.append(image)
             
@@ -144,7 +135,7 @@ class GNet8_Encoder():
         
         self.stim_data[self.subject] = np.moveaxis(np.array(data), 3, 1)
 
-        gnet8j_image_pred = gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, mask, batch_size=100, device=self.device)
+        gnet8j_image_pred = self.gnet8j_predictions(self.stim_data, self._pred_fn, 64, 192, self.joined_checkpoint, mask, batch_size=100, device=self.device)
 
         return torch.from_numpy(gnet8j_image_pred[self.subject])
       

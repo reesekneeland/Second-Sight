@@ -41,7 +41,7 @@ class StochasticSearch():
             self.n_branches = n_branches
             self.vector = "images"
             if not disable_SD:
-                self.R = Reconstructor(which='v1.0', fp16=True, device=self.device)
+                self.R = Reconstructor(which='v1.0', fp16=True, device=self.device)     
             
             
             # Configure AutoEncoders
@@ -204,7 +204,7 @@ class StochasticSearch():
             # Iteration >0 loop
             for i in range(1, self.n_iter):
                 # Initalize parameters for iteration
-                strength = 0.92-0.92*(i/self.n_iter)
+                strength = 0.92-0.92*(i/self.n_iter) 
                 n_i = max(5, int((self.n_samples/self.n_branches)*strength))
                 # Save
                 iter_path = "{}iter_{}/".format(sample_path, i)

@@ -76,19 +76,13 @@ def read_betas(subject, session_index, trial_index=[], data_type='betas_fithrf_G
 
         return out_data[..., trial_index]
 
-def create_whole_region_unnormalized(subject = 1):
-    
-    #  Subject #1
-    #   - NSD General = 11838
-    #   - Brain shape = (81, 104, 83)
-    #   - Flatten Brain Shape = 699192
-    # 
-    #  Subject #2
-    #   - NSD General = 10325
-    #   - Brain Shape = (82, 106, 84)
-    #   - Flatten Brain Shape = 730128
-    #
-    numScans = {1: 37, 2: 37, 3:32, 4: 30, 5:37, 6:32, 7:37, 8:30}
+def create_whole_region_unnormalized(subject = 1, include_heldout=False):
+    if include_heldout:
+        file = "data/preprocessed_data/subject{}/nsd_general_unnormalized_large.pt".format(subject)
+        numScans = {1: 40, 2: 40, 3:32, 4: 30, 5:40, 6:32, 7:40, 8:30}
+    else:
+        file = "data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject)
+        numScans = {1: 37, 2: 37, 3:32, 4: 30, 5:37, 6:32, 7:37, 8:30}
     nsd_general = nib.load("data/nsddata/ppdata/subj0{}/func1pt8mm/roi/nsdgeneral.nii.gz".format(subject)).get_fdata()
     nsd_general = np.nan_to_num(nsd_general)
     nsd_general = np.where(nsd_general==1.0, True, False)
@@ -97,7 +91,6 @@ def create_whole_region_unnormalized(subject = 1):
     os.makedirs("data/preprocessed_data/subject{}/".format(subject), exist_ok=True)
     
     data = numScans[subject]
-    file = "data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject)
     whole_region = torch.zeros((750*data, layer_size))
 
     nsd_general_mask = np.nan_to_num(nsd_general)
@@ -108,7 +101,7 @@ def create_whole_region_unnormalized(subject = 1):
         beta = read_betas(subject="subj0" + str(subject), 
                                 session_index=i, 
                                 trial_index=[], # Empty list as index means get all 750 scans for this session (trial --> scan)
-                                data_type='betas_fithrf_GLMdenoise_RR',
+                                data_type="betas_fithrf_GLMdenoise_RR",
                                 data_format='func1pt8mm')
             
         # Reshape the beta trails to be flattened. 
@@ -128,23 +121,43 @@ def create_whole_region_unnormalized(subject = 1):
     # Save the tensor into the data directory. 
     torch.save(whole_region, file)
 
-def create_whole_region_normalized(subject = 1):
+def create_whole_region_normalized(subject = 1, include_heldout=False):
+    if include_heldout:
+        file = "data/preprocessed_data/subject{}/nsd_general_large.pt".format(subject)
+        whole_region = torch.load("data/preprocessed_data/subject{}/nsd_general_unnormalized_large.pt".format(subject))
+        numScans = {1: 40, 2: 40, 3:32, 4: 30, 5:40, 6:32, 7:40, 8:30}
+    else:
+        file = "data/preprocessed_data/subject{}/nsd_general.pt".format(subject)
+        whole_region = torch.load("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
+        numScans = {1: 37, 2: 37, 3:32, 4: 30, 5:37, 6:32, 7:37, 8:30}
     
-    whole_region = torch.load("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
     whole_region_norm = torch.zeros_like(whole_region)
-            
+    
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    subj_train = stim_descriptions[(stim_descriptions['subject{}'.format(subject)] != 0) & (stim_descriptions['shared1000'] == False)]
+    train_ids = []
+    for i in range(subj_train.shape[0]):
+        for j in range(3):
+            scanID = subj_train.iloc[i]['subject{}_rep{}'.format(subject, j)] - 1
+            if scanID < numScans[subject]*750:
+                train_ids.append(scanID)
+    normalizing_data = whole_region[torch.tensor(train_ids)]
+    print(normalizing_data.shape, whole_region.shape)
     # Normalize the data using Z scoring method for each voxel
-    for i in range(whole_region.shape[1]):
-        voxel_mean, voxel_std = torch.mean(whole_region[:, i]), torch.std(whole_region[:, i])  
+    for i in range(normalizing_data.shape[1]):
+        voxel_mean, voxel_std = torch.mean(normalizing_data[:, i]), torch.std(normalizing_data[:, i])  
         normalized_voxel = (whole_region[:, i] - voxel_mean) / voxel_std
         whole_region_norm[:, i] = normalized_voxel
 
     # Save the tensor of normalized data
-    torch.save(whole_region_norm, "data/preprocessed_data/subject{}/nsd_general.pt".format(subject))
+    torch.save(whole_region_norm, file)
+    #save to mindeye folder
+    with h5py.File(f"/home/naxos2-raid25/kneel027/home/kneel027/MindEyeV2/new_betas/betas_all_subj0{subject}_fp32_renorm.hdf5", "w") as f:
+        f.create_dataset("betas", data=whole_region_norm.numpy())
     
-    # Delete NSD unnormalized file after the normalized data is created. 
-    if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
-        os.remove("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
+    # # Delete NSD unnormalized file after the normalized data is created. 
+    # if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
+    #     os.remove("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
 
 def create_whole_region_imagery_unnormalized(subject = 1, mask=True):
     
@@ -192,7 +205,10 @@ def create_whole_region_imagery_normalized(subject = 1, mask=True):
         'imgB_1': np.arange(len(exps))[exps=='imgB_1'],
         'imgB_2': np.arange(len(exps))[exps=='imgB_2'],
         'imgC_1': np.arange(len(exps))[exps=='imgC_1'],
-        'imgC_2': np.arange(len(exps))[exps=='imgC_2']
+        'imgC_2': np.arange(len(exps))[exps=='imgC_2'],
+        'attA': np.arange(len(exps))[exps=='attA'],
+        'attB': np.arange(len(exps))[exps=='attB'],
+        'attC': np.arange(len(exps))[exps=='attC'],
     }
     if mask:
         whole_region = torch.load("data/preprocessed_data/subject{}/nsd_imagery_unnormalized.pt".format(subject))
@@ -250,33 +266,37 @@ def process_masks(subject=1):
     torch.save(higher_vis,"data/preprocessed_data/subject{}/masks/higher_vis.pt".format(subject))
 
     
-def process_data(vector="c", subject = 1):
-    
-    vecLength = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).shape[0]
-    
-    if(vector == "images"):
-        vec_target = torch.zeros((vecLength, 541875))
-        datashape = (1, 541875)
-        
-    elif(vector == "c"):
-        vec_target = torch.zeros((vecLength, 1024))
-        datashape = (1,1024)
-        
-    elif(vector == "z_vdvae"):
-        vec_target = torch.zeros((vecLength, 91168))
-        datashape = (1, 91168)
-    
-    # Loading the description object for subejcts
-    subj = "subject" + str(subject)
-    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
-    subjx = stim_descriptions[stim_descriptions[subj] != 0]
+def process_data(vector="c", include_heldout=False):
     full_vec = torch.load("data/preprocessed_data/{}_73k.pt".format(vector))
-    
-    for i in tqdm(range(0,vecLength), desc="arranging {} training data for subject{}".format(vector, subject)):
-        index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
-        vec_target[i] = full_vec[index].reshape(datashape)
-    
-    torch.save(vec_target, "data/preprocessed_data/subject{}/{}.pt".format(subject, vector))
+    stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
+    for subject in tqdm(range(1,9), desc="processing data"):
+        if include_heldout:
+            vecLength = torch.load("data/preprocessed_data/subject{}/nsd_general_large.pt".format(subject)).shape[0]
+        else:
+            vecLength = torch.load("data/preprocessed_data/subject{}/nsd_general.pt".format(subject)).shape[0]
+        
+        if(vector == "images"):
+            vec_target = torch.zeros((vecLength, 541875))
+            datashape = (1, 541875)
+            
+        elif(vector == "c"):
+            vec_target = torch.zeros((vecLength, 1024))
+            datashape = (1,1024)
+            
+        elif(vector == "z_vdvae"):
+            vec_target = torch.zeros((vecLength, 91168))
+            datashape = (1, 91168)
+        
+        # Loading the description object for subejcts
+        subj = "subject" + str(subject)
+        
+        subjx = stim_descriptions[stim_descriptions[subj] != 0]
+        
+        for i in tqdm(range(0,vecLength), desc="arranging {} training data for subject{}".format(vector, subject)):
+            index = int(subjx.loc[(subjx[subj + "_rep0"] == i+1) | (subjx[subj + "_rep1"] == i+1) | (subjx[subj + "_rep2"] == i+1)].nsdId)
+            vec_target[i] = full_vec[index].reshape(datashape)
+        
+        torch.save(vec_target, "data/preprocessed_data/subject{}/{}.pt".format(subject, vector))
     
     
 def process_raw_tensors(vector):
@@ -330,10 +350,19 @@ def zscore(x, mean=None, stddev=None, return_stats=False):
 
 def format_imagery_stimuli():
     path  = "data/nsddata_stimuli/stimuli/imagery_images/"
-    img_tensor = torch.zeros((12, 541875))
-    for i in range(12):
+    img_tensor = torch.zeros((18, 541875))
+    for i in range(18):
         im = Image.open(path + "{}.png".format(i))
         im = im.resize((425, 425))
         im = np.array(im).flatten()
         img_tensor[i] = torch.from_numpy(im)
     return img_tensor
+
+def search_and_open_image(directory, img_identifier):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if img_identifier in file:
+                image_path = os.path.join(root, file)
+                image = Image.open(image_path)
+                return image
+    return None

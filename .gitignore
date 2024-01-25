@@ -8,3 +8,6 @@ vdvae/__pycache__
 /output
 /scripts
 /experiments/
+test.log
+.gitignore
+cufile.log
