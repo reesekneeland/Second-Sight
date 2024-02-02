@@ -768,7 +768,7 @@ def create_cnn_numpy_array_shared1000(method, subject, low=False):
         with open(cnn_dict_path, 'rb') as f:
             cnn_dict = pickle.load(f)
     else:
-        for index in range(982):
+        for index in range(1000):
             if not cnn_dict:
                 for net_name in net_list:
                     cnn_dict[net_name] = [np.load(f"{feature_path}{index}/{net_name}.npy")]

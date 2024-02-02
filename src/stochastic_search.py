@@ -122,11 +122,12 @@ class StochasticSearch():
             plt.hist(r, bins=50, log=True)
             plt.savefig("data/charts/subject{}_hybrid_encoder_pearson_correlation.png".format(self.subject))
 
-    def generateNSamples(self, image, c_i, n, strength=1.0):
+    def generateNSamples(self, image, c_i, c_t, n, strength=1.0):
         images = []
         for i in range(n):
             im = self.R.reconstruct(image=image,
                                     c_i=c_i, 
+                                    c_t=c_t,
                                     strength=strength)
             images.append(im)
         return images
@@ -152,20 +153,21 @@ class StochasticSearch():
     # Main search method
     # beta is a 3*x_size tensor of brain data to use as guidance targets
     # init_img is a pil image to serve as a low level strcutral guesscur_iter
-    def search(self, sample_path, beta, c_i, target_variance, init_img=None, mindeye=None):
+    def search(self, sample_path, beta, c_i, c_t=None, init_img=None, target_variance=None, basemodel_recon=None):
         with torch.no_grad():
-            mindeye_score, mindeye_beta_primes = self.score_samples(beta, [mindeye], save_path=sample_path)
-            print(mindeye_score)
+            basemodel_recon_score, basemodel_recon_beta_primes = self.score_samples(beta, [basemodel_recon], save_path=f"{sample_path}basemodel_recon/")
+            print(basemodel_recon_score)
             # Initialize search variables
             best_image, best_distribution_score = init_img, -1
             iter_images, iter_scores, var_scores = [], [], []
             pbar = tqdm(total=self.n_iter, desc="Search iterations")
-            # Prepare beta as search target
-            print("TARGET VARIANCE AE: {:.10f}".format(target_variance))
+            if target_variance is not None:
+                print("TARGET VARIANCE AE: {:.10f}".format(target_variance))
             
             # Generate iteration 0
             iteration_samples = self.generateNSamples(image=init_img, 
-                                                    c_i=c_i,  
+                                                    c_i=c_i,
+                                                    c_t=c_t,  
                                                     n=self.n_samples,  
                                                     strength=0.92)
             
@@ -179,7 +181,6 @@ class StochasticSearch():
                 os.symlink(os.path.abspath(iter_path), os.path.abspath(best_batch_path), target_is_directory=True)
             # Score iteration 0
             iteration_scores, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
-            
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -197,9 +198,10 @@ class StochasticSearch():
                                         "strength": 0.92}
             pbar.update(1)
             # Target condition, our variance is lower than the target so our distribution is the right width
-            if bp_var < target_variance:
-                pbar.close()
-                return best_image, best_distribution_params, iter_images, iter_scores, var_scores, mindeye_score
+            if target_variance is not None:
+                if bp_var < target_variance:
+                    pbar.close()
+                    return best_image, best_distribution_params, iter_images, iter_scores, var_scores, mindeye_score
         
             # Iteration >0 loop
             for i in range(1, self.n_iter):
@@ -231,7 +233,8 @@ class StochasticSearch():
                         
                     #Generate batch samples
                     batch_samples = self.generateNSamples(image=z_seeds[b], 
-                                                            c_i=c_i,  
+                                                            c_i=c_i, 
+                                                            c_t=c_t,  
                                                             n=n_i,  
                                                             strength=strength)
                     #Score batch samples
@@ -273,11 +276,12 @@ class StochasticSearch():
                 tqdm.write("SEARCH VARIANCE BP: {:.10f}, BRAIN CORRELATION: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
                 pbar.update(1)
                 # Target condition, our variance is lower than the target so our distribution is the right width
-                if iteration_var < target_variance:
-                    print("SEARCH BELOW VARIANCE TARGET, EXITING...")
-                    break
+                if target_variance is not None:
+                    if iteration_var < target_variance:
+                        print("SEARCH BELOW VARIANCE TARGET, EXITING...")
+                        break
             pbar.close()
-        return best_image, best_distribution_params, iter_images, iter_scores, var_scores, mindeye_score
+        return best_image, best_distribution_params, iter_images, iter_scores, var_scores, basemodel_recon_score
 
 
     

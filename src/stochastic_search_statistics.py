@@ -11,7 +11,7 @@ from torchmetrics import PearsonCorrCoef
 from stochastic_search import StochasticSearch
 import cv2
 import random
-from transformers import AutoProcessor, CLIPVisionModelWithProjection
+from transformers import AutoProcessor, AutoTokenizer, CLIPVisionModelWithProjection, CLIPTextModelWithProjection
 from gnet8_encoder import GNet8_Encoder
 import math
 import json
@@ -138,7 +138,9 @@ class Stochastic_Search_Statistics():
         # model_id = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
         model_id = "openai/clip-vit-large-patch14"
         self.processor = AutoProcessor.from_pretrained(model_id)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.visionmodel = CLIPVisionModelWithProjection.from_pretrained(model_id).to(self.device)
+        self.textmodel = CLIPTextModelWithProjection.from_pretrained(model_id).to(self.device)
         self.AEModel = AutoEncoder(config="gnet",
                                     inference=True,
                                     subject=self.subject,
@@ -197,52 +199,18 @@ class Stochastic_Search_Statistics():
         
         return pixel_correlation(ground_truth, reconstruction)
         
-    
-    #two_way_prob is the two way identification experiment between the given image and a random search reconstruction of a different sample with respect to the ground truth
-    #clip_pearson is the pearson correlation score between the clips of the two given images
-    #Sample type controls which of the types of image to pick a random sample between
-        #   0 --> 0.png
-        #   1 --> 1.png
-        #   2 --> 2.png
-        #   3 --> 3.png
-        #   4 --> 4.png
-        #   5 --> Ground Truth
-    def calculate_clip_similarity_papaer(self, experiment_name, sample, sampleType=1, subject = 1):
-        with torch.no_grad():
-            exp_path = "/export/raid1/home/ojeda040/Second-Sight/reconstructions/subject{}/{}/".format(subject, experiment_name)
-            
-            folders = sorted([int(f.name) for f in os.scandir(exp_path) if f.is_dir() and f.name != 'results'])
-            rand_list = [i for i in range(len(folders)) if folders[i] != sample and os.listdir(exp_path + str(folders[i]) + "/")]
-            rand_index = random.choice(rand_list)
-            sampleTypes = {0: "0.png", 1: "1.png", 2: "2.png", 3: "3.png", 4: "4.png", 5: "Ground Truth.png"}
-            random_image = Image.open(exp_path + str(folders[rand_index]) + "/" + sampleTypes[sampleType])
-            image = Image.open(exp_path + str(sample) + "/" + sampleTypes[sampleType])
-            ground_truth = Image.open(exp_path + str(sample) + "/Ground Truth.png")
-            
-            inputs = self.processor(images=[ground_truth, image, random_image], return_tensors="pt", padding=True).to(self.device)
-            outputs = self.visionmodel(**inputs)
-            
-            gt_feature = outputs.image_embeds[0].reshape((768))
-            reconstruct_feature = outputs.image_embeds[1].reshape((768))
-            clip_cosine_sim = torch.nn.functional.cosine_similarity(gt_feature, reconstruct_feature, dim=0)
-            rand_image_feature = outputs.image_embeds[2].reshape((768))
-            rand_image_feature /= rand_image_feature.norm(dim=-1, keepdim=True)
-            gt_feature /= gt_feature.norm(dim=-1, keepdim=True)
-            reconstruct_feature /= reconstruct_feature.norm(dim=-1, keepdim=True)
-            
-            loss = (torch.stack([gt_feature @ reconstruct_feature, gt_feature @ rand_image_feature]) *100)
-            two_way_prob = loss.softmax(dim=0)[0]
-            clip_pearson = self.PeC(gt_feature.flatten(), reconstruct_feature.flatten())
-        return float(two_way_prob), float(clip_pearson), float(clip_cosine_sim)
         
-    # clip_pearson is the pearson correlation score between the clips of the two given images
     def calculate_clip_cosine_sim(self, ground_truth, prediction):
         with torch.no_grad():
-            inputs = self.processor(images=[ground_truth, prediction], return_tensors="pt", padding=True).to(self.device)
-            outputs = self.visionmodel(**inputs)
+            inputs_pred = self.processor(images=[prediction], return_tensors="pt", padding=True).to(self.device)
+            reconstruct_feature = self.visionmodel(**inputs).image_embeds[0].reshape((768))
+            if isinstance(ground_truth, str):
+                inputs_gt = self.tokenizer([ground_truth], padding=True, return_tensors="pt").to(self.device)
+                gt_feature = self.textmodel(**inputs_gt).text_embeds[0].reshape((768))
+            else:
+                inputs_gt = self.processor([ground_truth], padding=True, return_tensors="pt").to(self.device)
+                gt_feature = self.visionmodel(**inputs_gt).image_embeds[0].reshape((768))
             
-            gt_feature = outputs.image_embeds[0].reshape((768))
-            reconstruct_feature = outputs.image_embeds[1].reshape((768))
             clip_cosine_sim = torch.nn.functional.cosine_similarity(gt_feature, reconstruct_feature, dim=0)
         return float(clip_cosine_sim)
     
@@ -467,10 +435,16 @@ class Stochastic_Search_Statistics():
         for i in tqdm(idx, desc="creating dataframe rows"):
             sample_path = f"{directory_path}{i}/"
             # Ground Truth Image
-            ground_truth = Image.open(f'{sample_path}ground_truth.png')
-            clip_cosine_sim_gt = self.calculate_clip_cosine_sim(ground_truth, ground_truth)
-            pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
-            ssim_gt = self.calculate_ssim(ground_truth, ground_truth)
+            if i < 12:
+                ground_truth = Image.open(f'{sample_path}ground_truth.png')
+                pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
+                ssim_gt = self.calculate_ssim(ground_truth, ground_truth)
+                clip_cosine_sim_gt = self.calculate_clip_cosine_sim(ground_truth, ground_truth)
+            else:
+                ground_truth = ["stripes", "zebra", "mammal", "yellow", "banana", "fruit"][i-12]
+                pix_corr_gt = None
+                ssim_gt = None
+                clip_cosine_sim_gt = None
             
             beta_prime = torch.load(f"{sample_path}ground_truth_beta_prime.pt")
             brain_correlations = self.calculate_brain_correlations(beta_samples[i], beta_prime)
@@ -486,9 +460,13 @@ class Stochastic_Search_Statistics():
                 # Low Level Image
                 low_level = Image.open(f'{sample_path}low_level.png')
                 clip_cosine_sim_low = self.calculate_clip_cosine_sim(ground_truth, low_level)
-                pix_corr_low = self.calculate_pixel_correlation(ground_truth, low_level)
-                ssim_low = self.calculate_ssim(ground_truth, low_level)
-                
+                if i < 12:
+                    pix_corr_low = self.calculate_pixel_correlation(ground_truth, low_level)
+                    ssim_low = self.calculate_ssim(ground_truth, low_level)
+                else:
+                    pix_corr_low = None
+                    ssim_low = None
+                    
                 beta_prime = torch.load(f"{sample_path}low_level_beta_prime.pt")
                 brain_correlations = self.calculate_brain_correlations(beta_samples[i], beta_prime)
                 folder_images.append(low_level)
@@ -502,8 +480,12 @@ class Stochastic_Search_Statistics():
             for j in range(5):
                 rep = Image.open(f'{sample_path}{j}.png')       
                 # Make dataframe row for rep of reconstruction
-                pix_corr_rep = self.calculate_pixel_correlation(ground_truth, rep)
-                ssim_rep = self.calculate_ssim(ground_truth, rep)
+                if i < 12:
+                    pix_corr_rep = self.calculate_pixel_correlation(ground_truth, rep)
+                    ssim_rep = self.calculate_ssim(ground_truth, rep)
+                else:
+                    pix_corr_rep = None
+                    ssim_rep = None
                 clip_cosine_sim_rep = self.calculate_clip_cosine_sim(ground_truth, rep)
                 # Pearson correlation for each region of the brain. 
                 beta_prime = torch.load(f"{sample_path}{j}_beta_prime.pt")
@@ -529,14 +511,14 @@ class Stochastic_Search_Statistics():
             folder_images = []
         
         # Computing CNN metrics for whole dataframe
-        df_ground_truth     = df.loc[(df['Sample Indicator'] == 10)]
-        df_low_level        = df.loc[(df['Sample Indicator'] == 11)]
-        df_final_samples    = df.loc[(df['Sample Indicator'] == 12)]
-        df_final_samples_0  = df_final_samples.loc[(df_final_samples['Sample Count'] == 0)]
-        df_final_samples_1  = df_final_samples.loc[(df_final_samples['Sample Count'] == 1)]
-        df_final_samples_2  = df_final_samples.loc[(df_final_samples['Sample Count'] == 2)]
-        df_final_samples_3  = df_final_samples.loc[(df_final_samples['Sample Count'] == 3)]
-        df_final_samples_4  = df_final_samples.loc[(df_final_samples['Sample Count'] == 4)]
+        df_ground_truth     = df.loc[(df['Sample Indicator'] == 10) & (df['ID'] < 12)]
+        df_low_level        = df.loc[(df['Sample Indicator'] == 11) & (df['ID'] < 12)]
+        df_final_samples    = df.loc[(df['Sample Indicator'] == 12) & (df['ID'] < 12)]
+        df_final_samples_0  = df_final_samples.loc[(df_final_samples['Sample Count'] == 0) & (df['ID'] < 12)]
+        df_final_samples_1  = df_final_samples.loc[(df_final_samples['Sample Count'] == 1) & (df['ID'] < 12)]
+        df_final_samples_2  = df_final_samples.loc[(df_final_samples['Sample Count'] == 2) & (df['ID'] < 12)]
+        df_final_samples_3  = df_final_samples.loc[(df_final_samples['Sample Count'] == 3) & (df['ID'] < 12)]
+        df_final_samples_4  = df_final_samples.loc[(df_final_samples['Sample Count'] == 4) & (df['ID'] < 12)]
 
         # Compute CNN Metrics and Two-Way comparisons WITHIN dataframe
         cnn_metrics_low_level = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_low_level, f"{dataframe_path}features/"))
@@ -560,13 +542,14 @@ class Stochastic_Search_Statistics():
             'SwAV']
         for index, row in df.iterrows():
             sample_id = row['ID']
-            if row['Sample Indicator'] == 11:
-                for net_name in net_list:
-                    df.at[index, net_name] = cnn_metrics_low_level[net_name][sample_id]
-            elif row['Sample Indicator'] == 12:
-                sample_count = int(row['Sample Count'])
-                for net_name in net_list:
-                    df.at[index, net_name] = sample_rep_metrics[sample_count][net_name][sample_id]          
+            if sample_id < 12:
+                if row['Sample Indicator'] == 11:
+                    for net_name in net_list:
+                        df.at[index, net_name] = cnn_metrics_low_level[net_name][sample_id]
+                elif row['Sample Indicator'] == 12:
+                    sample_count = int(row['Sample Count'])
+                    for net_name in net_list:
+                        df.at[index, net_name] = sample_rep_metrics[sample_count][net_name][sample_id]          
                  
         # Compute Two-Way metrics against shared1000 samples
         if method != "secondsight":
