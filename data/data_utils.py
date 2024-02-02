@@ -151,9 +151,6 @@ def create_whole_region_normalized(subject = 1, include_heldout=False):
 
     # Save the tensor of normalized data
     torch.save(whole_region_norm, file)
-    #save to mindeye folder
-    with h5py.File(f"/home/naxos2-raid25/kneel027/home/kneel027/MindEyeV2/new_betas/betas_all_subj0{subject}_fp32_renorm.hdf5", "w") as f:
-        f.create_dataset("betas", data=whole_region_norm.numpy())
     
     # # Delete NSD unnormalized file after the normalized data is created. 
     # if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
@@ -266,10 +263,10 @@ def process_masks(subject=1):
     torch.save(higher_vis,"data/preprocessed_data/subject{}/masks/higher_vis.pt".format(subject))
 
     
-def process_data(vector="c", include_heldout=False):
+def process_data(vector="c", include_heldout=False, subjects=[1,2,3,4,5,6,7,8]):
     full_vec = torch.load("data/preprocessed_data/{}_73k.pt".format(vector))
     stim_descriptions = pd.read_csv('data/nsddata/experiments/nsd/nsd_stim_info_merged.csv', index_col=0)
-    for subject in tqdm(range(1,9), desc="processing data"):
+    for subject in tqdm(subjects, desc="processing data"):
         if include_heldout:
             vecLength = torch.load("data/preprocessed_data/subject{}/nsd_general_large.pt".format(subject)).shape[0]
         else:
@@ -289,7 +286,6 @@ def process_data(vector="c", include_heldout=False):
         
         # Loading the description object for subejcts
         subj = "subject" + str(subject)
-        
         subjx = stim_descriptions[stim_descriptions[subj] != 0]
         
         for i in tqdm(range(0,vecLength), desc="arranging {} training data for subject{}".format(vector, subject)):
