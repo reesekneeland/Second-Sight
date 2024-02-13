@@ -139,7 +139,7 @@ if __name__ == "__main__":
                 beta = prepare_betas(x_test[val])
                 beta = torch.mean(beta, axis=0)
                 # Perform search
-                scs_reconstruction, best_distribution_params, image_list, score_list, var_list, basemodel_recon_bc = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip_vision, c_t= decoded_clip_text, init_img=init_img, , target_variance=target_variance, basemodel_recon=basemodel_recon)
+                scs_reconstruction, best_distribution_params, image_list, score_list, var_list, basemodel_recon_bc = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip_vision, c_t= decoded_clip_text, init_img=init_img, target_variance=target_variance, basemodel_recon=basemodel_recon)
                 
                 # Save final distribution parameters for search
                 f = open("{}strength.txt".format(best_dist_path), "w")
