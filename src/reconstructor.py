@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchvision.transforms as tvtrans
 sys.path.append('Versatile-Diffusion')
+sys.path.append('../Versatile-Diffusion')
 from lib.cfg_helper import model_cfg_bank
 from lib.model_zoo import get_model
 n_sample_image = 1

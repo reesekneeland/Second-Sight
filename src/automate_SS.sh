@@ -19,7 +19,7 @@
 
 python src/second_sight.py \
 --idx "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17" \
---subjects "1" \
+--subjects "2,5,7" \
 --device cuda:2 \
 --output output/mental_imagery_paper/imagery/brain-optimized-inference-v2.2/ \
 --mode "imagery" \
@@ -30,16 +30,27 @@ python src/second_sight.py \
 
 # Mental Imagery Vision Trials
 
-python src/second_sight.py \
---idx "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17" \
---subjects "1" \
---device cuda:2 \
---output output/mental_imagery_paper/vision/brain-optimized-inference-v2.2/ \
---mode "vision" \
---log \
---num_samples 64 \
---iterations 6 \
---basemodel "braindiffuser"
+# python src/second_sight.py \
+# --idx "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17" \
+# --subjects "2,5,7" \
+# --device cuda:3 \
+# --output output/mental_imagery_paper/vision/brain-optimized-inference-v2.2/ \
+# --mode "vision" \
+# --log \
+# --num_samples 64 \
+# --iterations 6 \
+# --basemodel "braindiffuser"
+
+# python src/second_sight.py \
+# --idx "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17" \
+# --subjects "2,5,7" \
+# --device cuda:3 \
+# --output output/mental_imagery_paper/vision/brain-optimized-inference-v2.2/ \
+# --mode "vision" \
+# --log \
+# --num_samples 64 \
+# --iterations 6 \
+# --basemodel "mindeye"
 
 # python src/second_sight.py --idx "0,1,2,3,4,5,6,7,8,9,10,11" --device cuda:2 --output output/ss_mi_vision/ --noae --log --mivis
 # python src/second_sight.py --idx "10,11" --subjects 2 --device cuda:3 --output output/mi_vision/ --noae --log --mivis
