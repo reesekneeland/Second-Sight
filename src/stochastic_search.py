@@ -12,7 +12,6 @@ import yaml
 from clip_encoder import CLIPEncoder
 from gnet8_encoder import GNet8_Encoder
 from autoencoder import AutoEncoder
-from reconstructor import Reconstructor
 from torchvision.transforms.functional import pil_to_tensor
 
 
@@ -26,7 +25,8 @@ class StochasticSearch():
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
-                disable_SD=False):
+                disable_SD=False,
+                basemodel="mindeye"):
         with torch.no_grad():
             self.subject = subject
             subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
@@ -41,7 +41,11 @@ class StochasticSearch():
             self.n_branches = n_branches
             self.vector = "images"
             if not disable_SD:
-                self.R = Reconstructor(which='v1.0', fp16=True, device=self.device)     
+                if basemodel=="mindeye":
+                    from reconstructor import Reconstructor
+                elif basemodel=="braindiffuser":
+                    from reconstructor_bd import Reconstructor
+                self.R = Reconstructor(device=self.device)     
             
             
             # Configure AutoEncoders
@@ -156,7 +160,7 @@ class StochasticSearch():
     def search(self, sample_path, beta, c_i, c_t=None, init_img=None, basemodel_recon=None):
         with torch.no_grad():
             basemodel_recon_score, basemodel_recon_beta_primes = self.score_samples(beta, [basemodel_recon], save_path=f"{sample_path}basemodel_recon/")
-            print(basemodel_recon_score)
+            print(f"Basemodel recon_score: {basemodel_recon_score}")
             # Initialize search variables
             best_image, best_distribution_score = init_img, -1
             iter_images, iter_scores, var_scores = [], [], []
@@ -199,7 +203,7 @@ class StochasticSearch():
             for i in range(1, self.n_iter):
                 # Initalize parameters for iteration
                 strength = 0.92-0.40*(math.pow((i+1)/self.n_iter, 2))
-                n_i = max(5, int((self.n_samples/self.n_branches)*strength))
+                n_i = max(10, int((self.n_samples/self.n_branches)*strength))
                 # Save
                 iter_path = "{}iter_{}/".format(sample_path, i)
                 best_batch_path = "{}best_batch".format(iter_path)

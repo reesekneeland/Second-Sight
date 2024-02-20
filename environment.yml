@@ -9,7 +9,7 @@ dependencies:
   - pip
   - pytorch::pytorch==2.0.0
   - pytorch::torchvision
-  - pytorch-cuda=11.7
+  - pytorch-cuda
   - pip:
       - setuptools==58
       - huggingface-hub==0.13.3

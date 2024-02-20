@@ -352,7 +352,7 @@ def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffe
     images = [img.resize((min_width, min_height), Image.ANTIALIAS) for img in images]
 
     # Font setup
-    font_size = 60  # Base font size for readability
+    font_size = 30  # Base font size for readability
     row_caption_font_size = font_size  
     title_font_size = int(1.3 * font_size) 
     title_font = ImageFont.truetype("arial.ttf", title_font_size)

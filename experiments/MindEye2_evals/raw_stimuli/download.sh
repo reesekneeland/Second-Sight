@@ -1,0 +1,11 @@
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj01_pretrained_1sess_24bs/final_subj01_pretrained_1sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj01_pretrained_40sess_24bs/final_subj01_pretrained_40sess_24bs_all_recons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj02_pretrained_1sess_24bs/final_subj02_pretrained_1sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj02_pretrained_40sess_24bs/final_subj02_pretrained_40sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj02_pretrained_40sess_24bs/final_subj02_pretrained_40sess_24bs_all_recons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj05_pretrained_1sess_24bs/final_subj05_pretrained_1sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj05_pretrained_40sess_24bs/final_subj05_pretrained_40sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj05_pretrained_40sess_24bs/final_subj05_pretrained_40sess_24bs_all_recons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj07_pretrained_1sess_24bs/final_subj07_pretrained_1sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj07_pretrained_40sess_24bs/final_subj07_pretrained_40sess_24bs_all_enhancedrecons.pt
+wget https://huggingface.co/datasets/pscotti/mindeyev2/resolve/main/evals/final_subj07_pretrained_40sess_24bs/final_subj07_pretrained_40sess_24bs_all_recons.pt

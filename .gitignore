@@ -7,7 +7,14 @@ vdvae/__pycache__
 /models_trained/
 /output
 /scripts
-/experiments/
 test.log
 .gitignore
 cufile.log
+versatile_diffusion/
+/experiments/**/*.csv
+/experiments/**/*.tsv
+/experiments/**/*.png
+/experiments/**/*.pt
+/experiments/**/*.zip
+/experiments/**/*.json
+

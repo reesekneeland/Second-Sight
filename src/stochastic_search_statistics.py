@@ -31,7 +31,7 @@ import clip
 
 # CNN Metrics
 def initialize_net_metrics(device):
-    print("initalizing net metrics")
+    print("initalizing net metrics on device: ", device)
     # print(len(images))
     net_models = {}
     global feat_list
@@ -203,12 +203,12 @@ class Stochastic_Search_Statistics():
     def calculate_clip_cosine_sim(self, ground_truth, prediction):
         with torch.no_grad():
             inputs_pred = self.processor(images=[prediction], return_tensors="pt", padding=True).to(self.device)
-            reconstruct_feature = self.visionmodel(**inputs).image_embeds[0].reshape((768))
+            reconstruct_feature = self.visionmodel(**inputs_pred).image_embeds[0].reshape((768))
             if isinstance(ground_truth, str):
                 inputs_gt = self.tokenizer([ground_truth], padding=True, return_tensors="pt").to(self.device)
                 gt_feature = self.textmodel(**inputs_gt).text_embeds[0].reshape((768))
             else:
-                inputs_gt = self.processor([ground_truth], padding=True, return_tensors="pt").to(self.device)
+                inputs_gt = self.processor(images=[ground_truth], padding=True, return_tensors="pt").to(self.device)
                 gt_feature = self.visionmodel(**inputs_gt).image_embeds[0].reshape((768))
             
             clip_cosine_sim = torch.nn.functional.cosine_similarity(gt_feature, reconstruct_feature, dim=0)
@@ -310,7 +310,7 @@ class Stochastic_Search_Statistics():
             sample_path = f"{experiment_folder}{i}/"
             images = []
             names = []
-            for j in range(5):
+            for j in range(10):
                 image = Image.open(f"{sample_path}{j}.png")
                 images.append(image)
                 names.append(j)
@@ -400,7 +400,7 @@ class Stochastic_Search_Statistics():
         else:
             directory_path = f"output/mental_imagery_paper/{mode}/{method}/subject{self.subject}/"
             dataframe_path = f"output/mental_imagery_paper/{mode}/{method}/"
-            beta_samples, _ = load_nsd_mental_imagery(vector = "c", subject=self.subject, mode=mode, stimtype="all", average=True, nest=True)
+            beta_samples, _ = load_nsd_mental_imagery(vector = "images", subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
         os.makedirs(dataframe_path, exist_ok=True)
         os.makedirs(f"{dataframe_path}features/", exist_ok=True)
         
@@ -410,7 +410,7 @@ class Stochastic_Search_Statistics():
         
         # List of image numbers created. 
         # idx = self.image_indices(directory_path)
-        idx = range(982)
+        idx = range(18)
         print("IDX: ", len(idx), idx)
         # Create an Empty DataFrame
         # Object With column names only
@@ -435,8 +435,9 @@ class Stochastic_Search_Statistics():
         for i in tqdm(idx, desc="creating dataframe rows"):
             sample_path = f"{directory_path}{i}/"
             # Ground Truth Image
+            ground_truth_image = Image.open(f'{sample_path}ground_truth.png')
             if i < 12:
-                ground_truth = Image.open(f'{sample_path}ground_truth.png')
+                ground_truth = ground_truth_image
                 pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
                 ssim_gt = self.calculate_ssim(ground_truth, ground_truth)
                 clip_cosine_sim_gt = self.calculate_clip_cosine_sim(ground_truth, ground_truth)
@@ -448,7 +449,7 @@ class Stochastic_Search_Statistics():
             
             beta_prime = torch.load(f"{sample_path}ground_truth_beta_prime.pt")
             brain_correlations = self.calculate_brain_correlations(beta_samples[i], beta_prime)
-            folder_images.append(ground_truth)
+            folder_images.append(ground_truth_image)
             
             df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : method, 'Mode' : mode, 'Sample Indicator' : 10, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
                         'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
@@ -477,7 +478,7 @@ class Stochastic_Search_Statistics():
                             'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
                             'SSIM' : ssim_low, 'Pixel Correlation' : pix_corr_low, 'CLIP Cosine' : clip_cosine_sim_low}
                 df_row_num += 1
-            for j in range(5):
+            for j in range(10):
                 rep = Image.open(f'{sample_path}{j}.png')       
                 # Make dataframe row for rep of reconstruction
                 if i < 12:
@@ -519,6 +520,12 @@ class Stochastic_Search_Statistics():
         df_final_samples_2  = df_final_samples.loc[(df_final_samples['Sample Count'] == 2) & (df['ID'] < 12)]
         df_final_samples_3  = df_final_samples.loc[(df_final_samples['Sample Count'] == 3) & (df['ID'] < 12)]
         df_final_samples_4  = df_final_samples.loc[(df_final_samples['Sample Count'] == 4) & (df['ID'] < 12)]
+        df_final_samples_5  = df_final_samples.loc[(df_final_samples['Sample Count'] == 5) & (df['ID'] < 12)]
+        df_final_samples_6  = df_final_samples.loc[(df_final_samples['Sample Count'] == 6) & (df['ID'] < 12)]
+        df_final_samples_7  = df_final_samples.loc[(df_final_samples['Sample Count'] == 7) & (df['ID'] < 12)]
+        df_final_samples_8  = df_final_samples.loc[(df_final_samples['Sample Count'] == 8) & (df['ID'] < 12)]
+        df_final_samples_9  = df_final_samples.loc[(df_final_samples['Sample Count'] == 9) & (df['ID'] < 12)]
+        
 
         # Compute CNN Metrics and Two-Way comparisons WITHIN dataframe
         cnn_metrics_low_level = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_low_level, f"{dataframe_path}features/"))
@@ -527,7 +534,12 @@ class Stochastic_Search_Statistics():
         cnn_metrics_2 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_2, f"{dataframe_path}features/"))
         cnn_metrics_3 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_3, f"{dataframe_path}features/"))
         cnn_metrics_4 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_4, f"{dataframe_path}features/"))
-        sample_rep_metrics = [cnn_metrics_0, cnn_metrics_1, cnn_metrics_2, cnn_metrics_3, cnn_metrics_4]
+        cnn_metrics_5 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_5, f"{dataframe_path}features/"))
+        cnn_metrics_6 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_6, f"{dataframe_path}features/"))
+        cnn_metrics_7 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_7, f"{dataframe_path}features/"))
+        cnn_metrics_8 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_8, f"{dataframe_path}features/"))
+        cnn_metrics_9 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_9, f"{dataframe_path}features/"))
+        sample_rep_metrics = [cnn_metrics_0, cnn_metrics_1, cnn_metrics_2, cnn_metrics_3, cnn_metrics_4, cnn_metrics_5, cnn_metrics_6, cnn_metrics_7, cnn_metrics_8, cnn_metrics_9]
         net_list = [
             'Inception V3',
             'CLIP Two-way',
@@ -551,34 +563,34 @@ class Stochastic_Search_Statistics():
                     for net_name in net_list:
                         df.at[index, net_name] = sample_rep_metrics[sample_count][net_name][sample_id]          
                  
-        # Compute Two-Way metrics against shared1000 samples
-        if method != "secondsight":
-            cnn_metrics_low_level = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_low_level, f"{dataframe_path}features/"), method, self.subject, low=True)
-        cnn_metrics_0 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_0, f"{dataframe_path}features/"), method, self.subject)
-        cnn_metrics_1 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_1, f"{dataframe_path}features/"), method, self.subject)
-        cnn_metrics_2 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_2, f"{dataframe_path}features/"), method, self.subject)
-        cnn_metrics_3 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_3, f"{dataframe_path}features/"), method, self.subject)
-        cnn_metrics_4 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_4, f"{dataframe_path}features/"), method, self.subject)
-        sample_rep_metrics = [cnn_metrics_0, cnn_metrics_1, cnn_metrics_2, cnn_metrics_3, cnn_metrics_4]
-        net_list = [
-            'Inception V3',
-            'CLIP Two-way',
-            'AlexNet 1',
-            'AlexNet 2',
-            'AlexNet 3',
-            'AlexNet 4',
-            'AlexNet 5',
-            'AlexNet 6',
-            'AlexNet 7',]
-        for index, row in df.iterrows():
-            sample_id = row['ID']
-            if method != "secondsight" and row['Sample Indicator'] == 11:
-                for net_name in net_list:
-                    df.at[index, f"{net_name} 1000"] = cnn_metrics_low_level[net_name][sample_id]
-            elif row['Sample Indicator'] == 12:
-                sample_count = int(row['Sample Count'])
-                for net_name in net_list:
-                    df.at[index, f"{net_name} 1000"] = sample_rep_metrics[sample_count][net_name][sample_id]       
+        # # Compute Two-Way metrics against shared1000 samples
+        # if method != "secondsight":
+        #     cnn_metrics_low_level = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_low_level, f"{dataframe_path}features/"), method, self.subject, low=True)
+        # cnn_metrics_0 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_0, f"{dataframe_path}features/"), method, self.subject)
+        # cnn_metrics_1 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_1, f"{dataframe_path}features/"), method, self.subject)
+        # cnn_metrics_2 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_2, f"{dataframe_path}features/"), method, self.subject)
+        # cnn_metrics_3 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_3, f"{dataframe_path}features/"), method, self.subject)
+        # cnn_metrics_4 = compute_cnn_metrics_shared1000(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_4, f"{dataframe_path}features/"), method, self.subject)
+        # sample_rep_metrics = [cnn_metrics_0, cnn_metrics_1, cnn_metrics_2, cnn_metrics_3, cnn_metrics_4]
+        # net_list = [
+        #     'Inception V3',
+        #     'CLIP Two-way',
+        #     'AlexNet 1',
+        #     'AlexNet 2',
+        #     'AlexNet 3',
+        #     'AlexNet 4',
+        #     'AlexNet 5',
+        #     'AlexNet 6',
+        #     'AlexNet 7',]
+        # for index, row in df.iterrows():
+        #     sample_id = row['ID']
+        #     if method != "secondsight" and row['Sample Indicator'] == 11:
+        #         for net_name in net_list:
+        #             df.at[index, f"{net_name} 1000"] = cnn_metrics_low_level[net_name][sample_id]
+        #     elif row['Sample Indicator'] == 12:
+        #         sample_count = int(row['Sample Count'])
+        #         for net_name in net_list:
+        #             df.at[index, f"{net_name} 1000"] = sample_rep_metrics[sample_count][net_name][sample_id]       
                         
         print(df.shape)
         print(df)
@@ -870,108 +882,12 @@ class Stochastic_Search_Statistics():
     
     
 def main():
-    
-    # SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
-    
+    for subject in tqdm([1,2,5,7], desc="Subjects"):
+        SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:3")
+        for mode in tqdm(["vision", "imagery"], desc="Modes"):
+            for method in tqdm(["mindeye", "mindeye2", "tagaki", "braindiffuser", "brain-optimized-inference-v2.1", "brain-optimized-inference-v2.3"], desc="Methods"):
+                SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
 
-    # SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
-
-    # SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
-
-    # SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:1")
-    # # SSS.create_dataframe_SS("ss_mi_vision", mode="vision")
-    # # SSS.create_dataframe_SS("ss_mi_imagery", mode="imagery")
-    # SSS.create_dataframe_mi(mode="vision", method="mindeye")
-    # SSS.create_dataframe_mi(mode="vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="vision", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="imagery", method="mindeye")
-    # SSS.create_dataframe_mi(mode="imagery", method="tagaki")
-    # SSS.create_dataframe_mi(mode="imagery", method="braindiffuser")
-    # SSS.create_dataframe_mi(mode="vision", method="secondsight")
-    # SSS.create_dataframe_mi(mode="imagery", method="secondsight")
-
-    SSS = Stochastic_Search_Statistics(subject = 1, device="cuda:3")
-    # SSS.generate_features_nsd_vision(method="mindeye")
-    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
-    # SSS.generate_features_nsd_vision(method="secondsight")
-    # SSS.generate_features_nsd_vision(method="braindiffuser")
-    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
-    # SSS.generate_features_nsd_vision(method="tagaki")
-    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
-    
-
-    SSS = Stochastic_Search_Statistics(subject = 2, device="cuda:3")
-    # SSS.generate_features_nsd_vision(method="mindeye")
-    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
-    # SSS.generate_features_nsd_vision(method="secondsight")
-    # SSS.generate_features_nsd_vision(method="braindiffuser")
-    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
-    # SSS.generate_features_nsd_vision(method="tagaki")
-    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    SSS.create_dataframe_SS("mindeye_extension_v6", make_beta_primes=False)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
-
-    SSS = Stochastic_Search_Statistics(subject = 5, device="cuda:3")
-    # SSS.generate_features_nsd_vision(method="mindeye")
-    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
-    # SSS.generate_features_nsd_vision(method="secondsight")
-    # SSS.generate_features_nsd_vision(method="braindiffuser")
-    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
-    # SSS.generate_features_nsd_vision(method="tagaki")
-    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    SSS.create_dataframe_SS("mindeye_extension_v6")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
-
-    SSS = Stochastic_Search_Statistics(subject = 7, device="cuda:3")
-    # SSS.generate_features_nsd_vision(method="mindeye")
-    # SSS.generate_features_nsd_vision(method="mindeye", low=True)
-    # SSS.generate_features_nsd_vision(method="secondsight")
-    # SSS.generate_features_nsd_vision(method="braindiffuser")
-    # SSS.generate_features_nsd_vision(method="braindiffuser", low=True)
-    # SSS.generate_features_nsd_vision(method="tagaki")
-    # SSS.generate_features_nsd_vision(method="tagaki", low=True)
-    SSS.create_dataframe_SS("mindeye_extension_v6")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="mindeye", make_beta_primes=True)
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="tagaki")
-    # SSS.create_dataframe_mi(mode="nsd_vision", method="braindiffuser", make_beta_primes=True)
 
 if __name__ == "__main__":
     main()

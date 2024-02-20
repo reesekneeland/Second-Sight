@@ -5,7 +5,7 @@ import numpy as np
 
 import torch
 import torchvision.transforms as tvtrans
-sys.path.append('Versatile-Diffusion')
+sys.path.append(os.getcwd() + '/Versatile-Diffusion/')
 from lib.cfg_helper import model_cfg_bank
 from lib.model_zoo import get_model
 n_sample_image = 1
@@ -125,6 +125,7 @@ class Reconstructor(object):
         if self.which == 'v1.0':
             if fp16:
                 sd = torch.load('pretrained/vd-four-flow-v1-0-fp16.pth', map_location='cpu')
+                # sd = torch.load('pretrained/vd-four-flow-v1-0-fp16-deprecated.pth', map_location='cpu')
             else:
                 sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
             # from huggingface_hub import hf_hub_download
@@ -156,6 +157,7 @@ class Reconstructor(object):
             self.scale_imgto = 3.5
             self.disentanglement_noglobal = True
         os.chdir("../")
+        print('Reconstructor initialized')
     def encode_text(self, prompt):
         text_encoding = self.net.ctx_encode([prompt], which='text')
         return text_encoding
@@ -197,12 +199,12 @@ class Reconstructor(object):
             c_info_list = []
             scale = self.scale_imgto*(1-textstrength) + self.scale_textto*textstrength
             if c_t is not None and textstrength != 0:
-                c_t = c_t.reshape((77,768)).to(dtype=torch.float16, device=self.device)
+                c_t = c_t.reshape((77,768)).to(dtype=self.dtype, device=self.device)
                 ut = self.net.ctx_encode([""], which='text').repeat(n_samples, 1, 1)
                 ct = c_t.repeat(n_samples, 1, 1)
                 c_info_list.append({
                     'type':'text', 
-                    'conditioning':ct.to(torch.float16), 
+                    'conditioning':ct.to(self.dtype), 
                     'unconditional_conditioning':ut,
                     'unconditional_guidance_scale':scale,
                     'ratio': textstrength, })
@@ -211,7 +213,7 @@ class Reconstructor(object):
                 textstrength=0
 
             if c_i is not None and textstrength != 1:
-                c_i = c_i.reshape((257,768)).to(dtype=torch.float16, device=self.device)
+                c_i = c_i.reshape((257,768)).to(dtype=self.dtype, device=self.device)
                 ci = c_i
 
                 if self.disentanglement_noglobal:
@@ -224,7 +226,7 @@ class Reconstructor(object):
 
                 c_info_list.append({
                     'type':'image', 
-                    'conditioning':ci.to(torch.float16), 
+                    'conditioning':ci.to(self.dtype), 
                     'unconditional_conditioning':torch.zeros_like(ci),
                     'unconditional_guidance_scale':scale,
                     'ratio': (1-textstrength), })
