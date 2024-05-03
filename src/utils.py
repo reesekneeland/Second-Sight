@@ -330,7 +330,7 @@ def tileImages(title=None, images=None, captions=None, h=None, w=None, useTitle=
         canvas.paste(buf, (cStep + buffer, 0))
     return canvas
 
-def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffer=10, mode=0, title=None):
+def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffer=10, mode=0, title=None, font_size=60):
     """
     Assembles a tiled figure of images with optional captions and a red background behind a specified column or row.
 
@@ -352,7 +352,7 @@ def format_tiled_figure(images, captions, rows, cols, red_line_index=None, buffe
     images = [img.resize((min_width, min_height), Image.ANTIALIAS) for img in images]
 
     # Font setup
-    font_size = 30  # Base font size for readability
+    # font_size = 60  # Base font size for readability
     row_caption_font_size = font_size  
     title_font_size = int(1.3 * font_size) 
     title_font = ImageFont.truetype("arial.ttf", title_font_size)

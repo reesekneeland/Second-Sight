@@ -305,6 +305,7 @@ class Stochastic_Search_Statistics():
         GNet = GNet8_Encoder(device=self.device, subject=self.subject)
         # List of image numbers created. 
         idx = self.image_indices(experiment_folder)
+        # idx = range(12)
         # Append rows to an empty DataFrame
         for i in tqdm(idx, desc="creating beta primes"):
             sample_path = f"{experiment_folder}{i}/"
@@ -398,8 +399,8 @@ class Stochastic_Search_Statistics():
             dataframe_path = f"output/dataframes/{method}_{mode}/subject{self.subject}/"
             _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=True, nest=False)
         else:
-            directory_path = f"output/mental_imagery_paper/{mode}/{method}/subject{self.subject}/"
-            dataframe_path = f"output/mental_imagery_paper/{mode}/{method}/"
+            directory_path = f"output/mental_imagery_paper_b3/{mode}/{method}/subject{self.subject}/"
+            dataframe_path = f"output/mental_imagery_paper_b3/{mode}/{method}/"
             beta_samples, _ = load_nsd_mental_imagery(vector = "images", subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
         os.makedirs(dataframe_path, exist_ok=True)
         os.makedirs(f"{dataframe_path}features/", exist_ok=True)
@@ -435,7 +436,7 @@ class Stochastic_Search_Statistics():
         for i in tqdm(idx, desc="creating dataframe rows"):
             sample_path = f"{directory_path}{i}/"
             # Ground Truth Image
-            ground_truth_image = Image.open(f'{sample_path}ground_truth.png')
+            ground_truth_image = Image.open(f'{sample_path}ground_truth.png').convert("RGB")
             if i < 12:
                 ground_truth = ground_truth_image
                 pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
@@ -882,11 +883,17 @@ class Stochastic_Search_Statistics():
     
     
 def main():
-    for subject in tqdm([1,2,5,7], desc="Subjects"):
+    # for subject in tqdm([1,2,5,7], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for mode in tqdm(["vision", "imagery"], desc="Modes"):
+    #         for method in tqdm(["mindeye", "mindeye2", "tagaki", "braindiffuser", "boi-v2.1", "boi-v2.3"], desc="Methods"):
+    #             SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
+    
+    for subject in tqdm([1], desc="Subjects"):
         SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:3")
         for mode in tqdm(["vision", "imagery"], desc="Modes"):
-            for method in tqdm(["mindeye", "mindeye2", "tagaki", "braindiffuser", "brain-optimized-inference-v2.1", "brain-optimized-inference-v2.3"], desc="Methods"):
-                SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
+            for trials in tqdm([375, 750, 1500, 2250, 3750, 7500, 15000, 27750, 30000], desc="Trials"):
+                SSS.create_dataframe_mi(mode=mode, method=f"braindiffuser_{trials}", make_beta_primes=True)
 
 
 if __name__ == "__main__":

@@ -17,4 +17,6 @@ versatile_diffusion/
 /experiments/**/*.pt
 /experiments/**/*.zip
 /experiments/**/*.json
-
+/data
+stable-diffusion
+*.zip

@@ -45,6 +45,8 @@ class StochasticSearch():
                     from reconstructor import Reconstructor
                 elif basemodel=="braindiffuser":
                     from reconstructor_bd import Reconstructor
+                elif basemodel=="tagaki":
+                    from reconstructor_sd import Reconstructor
                 self.R = Reconstructor(device=self.device)     
             
             

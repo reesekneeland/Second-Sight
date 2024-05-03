@@ -92,8 +92,6 @@ if __name__ == "__main__":
 
             else:
                 x_test, target_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode=mode, stimtype="all", average=True, nest=False)
-                # basemodel_path = f"output/mental_imagery_paper/{mode}/mindeye/"
-                # basemodel_z_path = "/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/".format(mode)
             SCS = StochasticSearch(modelParams=["gnet"],
                                     subject=subject,
                                     device=args.device,
@@ -110,8 +108,8 @@ if __name__ == "__main__":
                     decoded_clip_vision_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features_mi/subj0{subject}/nsd_clipvision_predtest_nsdgeneral_{mode}.npy"))
                     decoded_clip_text_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features_mi/subj0{subject}/nsd_cliptext_predtest_nsdgeneral_{mode}.npy"))
                 else:
-                    decoded_clip_vision_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_clipvision_predtest_nsdgeneral_30000_trials.npy"))
-                    decoded_clip_text_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_cliptext_predtest_nsdgeneral_30000_trials.npy"))
+                    decoded_clip_vision_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_clipvision_predtest_nsdgeneral_40.npy"))
+                    decoded_clip_text_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_cliptext_predtest_nsdgeneral_40.npy"))
                     
             for i, val in enumerate(tqdm(idx_list, desc="Reconstructing samples")):
                 sample_path = "{}{}/".format(subject_path, val)
@@ -126,10 +124,10 @@ if __name__ == "__main__":
                 
                 if basemodel == "mindeye":
                     if mode != "nsd_vision":
-                        init_img = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/subject{}/{}/low_level.png".format(mode, subject, val))
-                        decoded_clip_vision = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds/{}/subject{}/{}/clip_best.pt".format(mode, subject, val), map_location=args.device)
+                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/low_level.png")
+                        decoded_clip_vision = torch.load(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/clip_best.pt", map_location=args.device)
                         decoded_clip_text = None
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper/{mode}/mindeye/subject{subject}/{val}/0.png")
+                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/0.png")
                     else:
                         init_img = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/low_level.png".format(mode, subject, val))
                         decoded_clip_vision = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/clip_best.pt".format(mode, subject, val), map_location=args.device)
@@ -137,15 +135,23 @@ if __name__ == "__main__":
                         basemodel_recon = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mindeye_nsd_vision_40/subject{}/{}/0.png".format(subject, val))
                 elif basemodel == "braindiffuser":
                     if mode != "nsd_vision":
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper/{mode}/braindiffuser/subject{subject}/{val}/low_level.png")
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper/{mode}/braindiffuser/subject{subject}/{val}/0.png")
+                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/braindiffuser/subject{subject}/{val}/low_level.png")
+                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/braindiffuser/subject{subject}/{val}/0.png")
                         decoded_clip_vision = decoded_clip_vision_block[val]
                         decoded_clip_text = decoded_clip_text_block[val]
                     else:
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/results/vdvae/subj0{subject}/30000_trials/{val}.png")
+                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/results/vdvae/subj0{subject}/40/{val}.png")
                         basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/brain_diffuser_nsd_vision_40/subj0{subject}/{val}.png")
                         decoded_clip_vision = decoded_clip_vision_block[val]
                         decoded_clip_text = decoded_clip_text_block[val]
+                elif basemodel == "tagaki":
+                    if mode != "nsd_vision":
+                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/low_level.png")
+                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/0.png")
+                        decoded_clip_vision = None
+                        decoded_clip_text = torch.load(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/clip_text.pt", map_location=args.device)
+                    else:
+                        raise ValueError("Configuration not supported for shared1000")
                 else:
                     raise ValueError("Invalid basemodel")
                 # Perform search
