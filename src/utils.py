@@ -149,7 +149,7 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
 #stimtype: all, simple, complex
 #mode: vision, imagery
 #epoch is for attention data, epoch 0 is the first beta associated with a trial (presumably the cue period), 1 is the second (barrage period), 2 returns both epochs
-def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False, epoch=0):
+def load_nsd_mental_imagery(subject, mode, stimtype="all", average=False, nest=False, epoch=0, data_root="data/"):
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
     imagery_data_path = "/export/raid1/home/tsaharoy/NSD_Imagery/everything_NSD_imagery"
     ex_file = open(img_stim_file, 'rb')
@@ -181,7 +181,8 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     
     x = torch.load("data/preprocessed_data/subject{}/nsd_imagery.pt".format(subject)).requires_grad_(False).to("cpu")
     cond_im_idx = {n: [image_map[c] for c in cues[idx]] for n,idx in cond_idx.items()}
-    y = torch.load("data/preprocessed_data/{}_18.pt".format(vector)).requires_grad_(False).to("cpu")
+    # Stimuli file is of shape (18,3,425,425), these can be converted back into PIL images using transforms.ToPILImage()
+    y = torch.load(f"{data_root}/nsddata_stimuli/stimuli/imagery_stimuli_18.pt").requires_grad_(False).to("cpu")
     # Prune down to specific experimental mode/stimuli type
     x = x[cond_idx[mode+stimtype]]
     conditionals = cond_im_idx[mode+stimtype]
@@ -257,21 +258,35 @@ def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False
     # For vision and imagery, we can average across trials
     
     # trial_count = int(x.shape[0]/sample_count)
-    # Average across trials
+    # Average or nest the betas across trials
     if average or nest:
         x, y, sample_count = condition_average(x, y, conditionals, nest=nest)
     else:
         x = x.reshape((x.shape[0], 1, x.shape[1]))
-        
-    # elif nest:
-    #     x_new = torch.zeros((sample_count, trial_count, x.shape[1]))
-    #     for i in range(sample_count):
-    #         x_new[i] = x[i*trial_count: i*trial_count + trial_count]
-    #         print([i*trial_count, i*trial_count + trial_count])
-    #     x = x_new
-    
-    print(x.shape)
+        y = y[conditionals]
+
+    print(x.shape, y.shape)
     return x, y
+
+def condition_average(x, y, cond, nest=False):
+    idx, idx_count = np.unique(cond, return_counts=True)
+    idx_list = [np.array(cond)==i for i in np.sort(idx)]
+    if nest:
+        avg_x = torch.zeros((len(idx), idx_count.max(), x.shape[1]), dtype=torch.float32)
+    else:
+        avg_x = torch.zeros((len(idx), 1, x.shape[1]), dtype=torch.float32)
+    arranged_y = torch.zeros((len(idx)), y.shape[1], y.shape[2], y.shape[3])
+    for i, m in enumerate(idx_list):
+        if nest:
+            if np.sum(m) == idx_count.max():
+                avg_x[i] = x[m]
+            else:
+                avg_x[i,:np.sum(m)] = x[m]
+        else:
+            avg_x[i] = torch.mean(x[m], axis=0)
+        arranged_y[i] = y[m[0]]
+
+    return avg_x, y, len(idx_count)
 
 # useTitle = 3 means title uses the captions list for a row wise title
 # This function is used to assemble the iteration diagrams and other collages of images
@@ -676,26 +691,6 @@ def remove_symlink(symlink):
     else:
         os.unlink(symlink) 
         
-def condition_average(x, y, cond, nest=False):
-    idx, idx_count = np.unique(cond, return_counts=True)
-    idx_list = [np.array(cond)==i for i in np.sort(idx)]
-    if nest:
-        avg_x = torch.zeros((len(idx), idx_count.max(), x.shape[1]), dtype=torch.float32)
-    else:
-        avg_x = torch.zeros((len(idx), 1, x.shape[1]), dtype=torch.float32)
-    for i, m in enumerate(idx_list):
-        if nest:
-            avg_x[i] = x[m]
-        else:
-            avg_x[i] = torch.mean(x[m], axis=0)
-    if isinstance(y, list):
-        nested_y = []
-        for i, m in enumerate(idx_list):
-            indexed_y = [y[j] for j in range(len(y)) if m[j]]
-            nested_y.append(indexed_y)
-        y = nested_y
-        
-    return avg_x, y, len(idx_count)
 
 # Preprocess beta, remove empty trials
 def prepare_betas(beta):

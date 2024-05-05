@@ -9,6 +9,7 @@ from torchvision import transforms
 import math
 import time
 import argparse
+import torch.nn as nn
     
 if __name__ == "__main__":
     
@@ -68,6 +69,9 @@ if __name__ == "__main__":
     parser.add_argument("--device",
                         type=str,
                         default="cuda:0")
+    parser.add_argument('--hidden', 
+                        help="boolean flag, if passed, will use the hidden layer of clip instead of the last layer for retrieval loss.",
+                        action='store_true')
     
 
     # Parse and print the results
@@ -78,9 +82,13 @@ if __name__ == "__main__":
         idx_list = args.idx
     subject_list = [int(sub) for sub in args.subjects.strip().split(",")]
     print(idx_list)
-    ae = False
     mode = args.mode
     basemodel = args.basemodel
+    
+    if args.hidden:
+        clip_filename = "contrastive_clip_hidden.pt"
+    else:
+        clip_filename = "contrastive_clip.pt"
     
     for subject in subject_list:
         with torch.no_grad():
@@ -91,88 +99,62 @@ if __name__ == "__main__":
                 _, _, x_test, _, _, target_images, trials = load_nsd(vector="images", subject=subject, loader=False, average=True, nest=False, include_heldout=True)
 
             else:
-                x_test, target_images = load_nsd_mental_imagery(vector = "images", subject=subject, mode=mode, stimtype="all", average=True, nest=False)
-            SCS = StochasticSearch(modelParams=["gnet"],
-                                    subject=subject,
+                x_test, target_images = load_nsd_mental_imagery(subject=subject, mode=mode, stimtype="all", average=True, nest=False)
+            SCS = StochasticSearch(subject=subject,
                                     device=args.device,
                                     log=args.log,
-                                    ae=ae,
                                     n_iter=args.iterations,
                                     n_samples=args.num_samples,
                                     n_branches=args.branches,
-                                    basemodel=basemodel)
+                                    basemodel=basemodel,
+                                    hidden=args.hidden)
 
             os.makedirs(subject_path + "iteration_figures/", exist_ok=True)
-            if basemodel == "braindiffuser":
-                if mode != "nsd_vision":
-                    decoded_clip_vision_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features_mi/subj0{subject}/nsd_clipvision_predtest_nsdgeneral_{mode}.npy"))
-                    decoded_clip_text_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features_mi/subj0{subject}/nsd_cliptext_predtest_nsdgeneral_{mode}.npy"))
-                else:
-                    decoded_clip_vision_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_clipvision_predtest_nsdgeneral_40.npy"))
-                    decoded_clip_text_block = torch.from_numpy(np.load(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/data/predicted_features/subj0{subject}/nsd_cliptext_predtest_nsdgeneral_40.npy"))
-                    
             for i, val in enumerate(tqdm(idx_list, desc="Reconstructing samples")):
                 sample_path = "{}{}/".format(subject_path, val)
                 best_dist_path = "{}best_distribution/".format(sample_path)
                 os.makedirs(best_dist_path, exist_ok=True)
                 os.makedirs(best_dist_path + "images/", exist_ok=True)
-                os.makedirs(best_dist_path + "beta_primes/", exist_ok=True)
+                os.makedirs(best_dist_path + "batch_clips/", exist_ok=True)
                 # Generate target reconstructions
                 # Generate and save output best initial guess reconstructions in a distribution format
                 
-                beta = x_test[val]
-                
                 if basemodel == "mindeye":
                     if mode != "nsd_vision":
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/low_level.png")
-                        decoded_clip_vision = torch.load(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/clip_best.pt", map_location=args.device)
-                        decoded_clip_text = None
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/0.png")
+                        init_img = Image.open(f"/export/raid1/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/low_level.png")
+                        decoded_clip_vision = torch.load(f"/export/raid1/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/clip_best.pt", map_location=args.device)
+                        basemodel_recon = Image.open(f"/export/raid1/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/0.png")
+                        decoded_clip_retrieval = torch.load(f"/export/raid1/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/mindeye/subject{subject}/{val}/{clip_filename}", map_location=args.device)
                     else:
-                        init_img = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/low_level.png".format(mode, subject, val))
-                        decoded_clip_vision = torch.load("/home/naxos2-raid25/kneel027/home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/clip_best.pt".format(mode, subject, val), map_location=args.device)
-                        decoded_clip_text = None
-                        basemodel_recon = Image.open("/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mindeye_nsd_vision_40/subject{}/{}/0.png".format(subject, val))
-                elif basemodel == "braindiffuser":
-                    if mode != "nsd_vision":
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/braindiffuser/subject{subject}/{val}/low_level.png")
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/braindiffuser/subject{subject}/{val}/0.png")
-                        decoded_clip_vision = decoded_clip_vision_block[val]
-                        decoded_clip_text = decoded_clip_text_block[val]
-                    else:
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/brain-diffuser_mi/results/vdvae/subj0{subject}/40/{val}.png")
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/brain_diffuser_nsd_vision_40/subj0{subject}/{val}.png")
-                        decoded_clip_vision = decoded_clip_vision_block[val]
-                        decoded_clip_text = decoded_clip_text_block[val]
-                elif basemodel == "tagaki":
-                    if mode != "nsd_vision":
-                        init_img = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/low_level.png")
-                        basemodel_recon = Image.open(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/0.png")
-                        decoded_clip_vision = None
-                        decoded_clip_text = torch.load(f"/home/naxos2-raid25/kneel027/home/kneel027/Second-Sight/output/mental_imagery_paper_b3/{mode}/tagaki/subject{subject}/{val}/clip_text.pt", map_location=args.device)
-                    else:
-                        raise ValueError("Configuration not supported for shared1000")
+                        init_img = Image.open("/export/raid1//home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/low_level.png".format(mode, subject, val))
+                        decoded_clip_vision = torch.load("/export/raid1/home/kneel027/fMRI-reconstruction-NSD/seeds_40_sessions/{}/subject{}/{}/clip_best.pt".format(mode, subject, val), map_location=args.device)
+                        basemodel_recon = Image.open("/export/raid1/home/kneel027/Second-Sight/output/mindeye_nsd_vision_40/subject{}/{}/0.png".format(subject, val))
+                        decoded_clip_retrieval = torch.load(f"/export/raid1/home/kneel027/Second-Sight/output/mindeye_nsd_vision_40/subject{subject}/{val}/{clip_filename}", map_location=args.device)
                 else:
                     raise ValueError("Invalid basemodel")
+                if not args.hidden:
+                    decoded_clip_retrieval = nn.functional.normalize(decoded_clip_retrieval,dim=-1).reshape(1, len(decoded_clip_retrieval.squeeze()))
+                else:
+                    decoded_clip_retrieval = decoded_clip_retrieval.reshape(len(decoded_clip_retrieval),-1)
+                    decoded_clip_retrieval = nn.functional.normalize(decoded_clip_retrieval,dim=-1)
                 # Perform search
-                scs_reconstruction, best_distribution_params, image_list, score_list, var_list, basemodel_recon_bc = SCS.search(sample_path=sample_path, beta=beta, c_i=decoded_clip_vision, c_t=decoded_clip_text, init_img=init_img, basemodel_recon=basemodel_recon)
+                scs_reconstruction, best_distribution_params, image_list, score_list, var_list, basemodel_recon_bc = SCS.search(sample_path=sample_path, clip_target=decoded_clip_retrieval, c_i=decoded_clip_vision, init_img=init_img, basemodel_recon=basemodel_recon)
                 
                 # Save final distribution parameters for search
                 f = open("{}strength.txt".format(best_dist_path), "w")
                 f.write("{}\n".format(best_distribution_params["strength"]))
                 f.close()
                 torch.save(decoded_clip_vision, "{}clip_vision.pt".format(sample_path))
-                if decoded_clip_text is not None:
-                    torch.save(decoded_clip_text, "{}clip_text.pt".format(sample_path))
                 if best_distribution_params["z_img"] is not None:
                     best_distribution_params["z_img"].save("{}z_img.png".format(best_dist_path))
                 np.save("{}score_list.npy".format(sample_path), np.array(score_list))
                 np.save("{}var_list.npy".format(sample_path), np.array(var_list))
-                for j, (im, beta_prime) in enumerate(zip(best_distribution_params["images"], best_distribution_params["beta_primes"])):
+                for j, (im, batch_clip) in enumerate(zip(best_distribution_params["images"], best_distribution_params["batch_clips"])):
                     im.save("{}{}.png".format(best_dist_path + "images/", j))
-                    torch.save(beta_prime, "{}{}.pt".format(best_dist_path + "beta_primes/", j))
-                    
-                ground_truth = Image.fromarray(target_images[val].numpy().reshape((425, 425, 3)).astype(np.uint8)).resize((768, 768), resample=Image.Resampling.LANCZOS)
+                    im.save("{}{}.png".format(sample_path, j))
+                    torch.save(batch_clip, "{}{}.pt".format(best_dist_path + "batch_clips/", j))
+                
+                ground_truth = transforms.ToPILImage()(target_images[val].reshape((3, 425, 425))).resize((768, 768), resample=Image.Resampling.LANCZOS)
                 # THIS NEEDS TO BE FIXED TO WORK WITH BOTH METHODS
                 images = [ground_truth, scs_reconstruction, init_img, basemodel_recon]
                 rows = int(math.ceil(len(image_list)/2 + len(images)/2))
@@ -180,7 +162,7 @@ if __name__ == "__main__":
                 captions = ["ground_truth", "search_reconstruction", "low_level", f"Base Model: {basemodel_recon_bc}"]
                 for j in range(len(image_list)):
                     images.append(image_list[j])
-                    captions.append("BC: {:.3f}, Var: {:.5f}".format(float(score_list[j]), var_list[j]))
+                    captions.append("CS: {:.3f}, Var: {:.5f}".format(float(score_list[j]), var_list[j]))
                 print(len(captions), len(images), rows, columns, captions)
                 figure = tileImages("index: {}".format(val), images, captions, rows, columns)
                 
@@ -189,15 +171,17 @@ if __name__ == "__main__":
                 figure.save("{}iteration_figures/{}.png".format(subject_path, val))
                 count = 0
                 for j in range(len(images)):
-                    if("BC" in captions[j]):
+                    if("CS" in captions[j]):
                         images[j].save("{}/iter_{}.png".format(sample_path, count))
                         count +=1
                     elif("Base Model:" in captions[j]):
                         images[j].save("{}/{}.png".format(sample_path, "basemodel_recon"))
                     else:
                         images[j].save("{}/{}.png".format(sample_path, captions[j]))
-                        
-                extra_beta_primes = SCS.EncModels[0].predict([ground_truth])
-                torch.save(extra_beta_primes[0], "{}/ground_truth_beta_prime.pt".format(sample_path))
+                try:
+                    extra_clip_embeddings = SCS.clip_extractor.embed_image(target_images[val].reshape((1, 3, 425, 425)).to(SCS.device))
+                    torch.save(extra_clip_embeddings.reshape(len(extra_clip_embeddings), -1), "{}/ground_truth_clip.pt".format(sample_path))
+                except:
+                    print("failed to save ground truth image clip")
     # Allow time for process to exit fully and clear GPU memory before another process starts
     time.sleep(10)

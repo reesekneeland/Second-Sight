@@ -401,7 +401,7 @@ class Stochastic_Search_Statistics():
         else:
             directory_path = f"output/mental_imagery_paper_b3/{mode}/{method}/subject{self.subject}/"
             dataframe_path = f"output/mental_imagery_paper_b3/{mode}/{method}/"
-            beta_samples, _ = load_nsd_mental_imagery(vector = "images", subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
+            beta_samples, _ = load_nsd_mental_imagery(subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
         os.makedirs(dataframe_path, exist_ok=True)
         os.makedirs(f"{dataframe_path}features/", exist_ok=True)
         
@@ -620,7 +620,7 @@ class Stochastic_Search_Statistics():
             _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=False, nest=True)
             averaged_beta_samples = torch.mean(beta_samples, axis=1)
         else:
-            beta_samples, _ = load_nsd_mental_imagery(vector = "c", subject=self.subject, mode=mode, stimtype="all", average=False, nest=True)
+            beta_samples, _ = load_nsd_mental_imagery(subject=self.subject, mode=mode, stimtype="all", average=False, nest=True)
             averaged_beta_samples = torch.mean(beta_samples, axis=1)
         
         
@@ -889,11 +889,11 @@ def main():
     #         for method in tqdm(["mindeye", "mindeye2", "tagaki", "braindiffuser", "boi-v2.1", "boi-v2.3"], desc="Methods"):
     #             SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
     
-    for subject in tqdm([1], desc="Subjects"):
+    for subject in tqdm([1,2,5,7], desc="Subjects"):
         SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:3")
         for mode in tqdm(["vision", "imagery"], desc="Modes"):
-            for trials in tqdm([375, 750, 1500, 2250, 3750, 7500, 15000, 27750, 30000], desc="Trials"):
-                SSS.create_dataframe_mi(mode=mode, method=f"braindiffuser_{trials}", make_beta_primes=True)
+            # for trials in tqdm([375, 750, 1500, 2250, 3750, 7500, 15000, 27750, 30000], desc="Trials"):
+            SSS.create_dataframe_mi(mode=mode, method=f"coi-v1.1", make_beta_primes=True)
 
 
 if __name__ == "__main__":

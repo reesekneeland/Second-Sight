@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 from torchmetrics import PearsonCorrCoef
 import numpy as np
 from PIL import Image
@@ -9,10 +10,10 @@ import wandb
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import yaml
-from clip_encoder import CLIPEncoder
+from clipper import Clipper
 from gnet8_encoder import GNet8_Encoder
-from autoencoder import AutoEncoder
 from torchvision.transforms.functional import pil_to_tensor
+from torchvision import transforms
 
 
 class StochasticSearch():
@@ -20,21 +21,19 @@ class StochasticSearch():
                 modelParams=["gnet"],
                 device="cuda:0",
                 subject=1,
-                log=False, # flag to save all the intermediate images, beta_primes, clip vectors, and strength values. Used for ablation studies.
-                ae = True,
+                log=False, # flag to save all the intermediate images, batch_clips, clip vectors, and strength values. Used for ablation studies.
                 n_iter=10,
                 n_samples=100,
                 n_branches=4,
                 disable_SD=False,
-                basemodel="mindeye"):
+                basemodel="mindeye",
+                hidden=True):
         with torch.no_grad():
             self.subject = subject
             subject_sizes = [0, 15724, 14278, 0, 0, 13039, 0, 12682]
             self.x_size = subject_sizes[self.subject]
             self.modelParams = modelParams
-            self.EncModels = []
             self.log = log
-            self.ae = ae
             self.device = device
             self.n_iter = n_iter
             self.n_samples = n_samples
@@ -49,84 +48,8 @@ class StochasticSearch():
                     from reconstructor_sd import Reconstructor
                 self.R = Reconstructor(device=self.device)     
             
-            
-            # Configure AutoEncoders
-            if(self.ae):
-                if len(modelParams)>1:
-                    # Hybrid encoder
-                    self.AEModel = AutoEncoder(config="hybrid",
-                                                        inference=True,
-                                                        subject=self.subject,
-                                                        device=self.device)
-                else:
-                    self.AEModel = AutoEncoder(config=modelParams[0],
-                                                        inference=True,
-                                                        subject=self.subject,
-                                                        device=self.device)
-            for param in modelParams:
-                if param == "gnet":
-                    self.EncModels.append(GNet8_Encoder(device=self.device,
-                                                    subject=self.subject))
-                elif param == "clip":
-                    self.EncModels.append(CLIPEncoder(inference=True,
-                                                    subject=self.subject,
-                                                    device=self.device))
-
-    # Hybrid encoder implementation, predict beta primes using the ensemble of encoding models in the SCS config
-    # def predict(self, x, mask=None):
-        
-    #     if(isinstance(x, list)):
-    #         img_tensor = torch.zeros((len(x), 425, 425, 3))
-    #         for i, sample in enumerate(x):
-    #             image = sample.resize((425, 425))
-    #             img_tensor[i] = torch.from_numpy(np.array(image)).reshape((425, 425, 3))
-    #         x = img_tensor
-    #     elif(isinstance(x, torch.Tensor)):
-    #         assert 425 in x.shape or 541875 in x.shape,"Tensor of wrong size"
-    #         x = x.reshape((x.shape[0], 425, 425, 3))
-    #     else:
-    #         raise TypeError
-
-    #     combined_preds = self.EncModels[0].predict(x, mask).cpu()
-        
-    #     return combined_preds
-
-    def benchmark_config(self, average=True):
-        with torch.no_grad():
-            # y_test = Brain data
-            # x_test = clip data
-            _, _, y_test, _, _, x_test, _ = load_nsd(vector="images", 
-                                                    loader=False,
-                                                    average=average,
-                                                    subject=self.subject)
-
-            criterion = torch.nn.MSELoss()
-            PeC = PearsonCorrCoef(num_outputs=y_test.shape[0]).to(self.device)
-            
-            x_test = x_test.to(self.device)
-            y_test = y_test.to(self.device)
-            
-            pred_y = self.predict(x_test)
-            
-            loss = criterion(pred_y, y_test)
                 
-            pearson = torch.mean(PeC(pred_y.moveaxis(0,1), y_test.moveaxis(0,1)))
-            
-            pred_y = pred_y.cpu().detach()
-            y_test = y_test.cpu().detach()
-            PeC = PearsonCorrCoef()
-            r = []
-            for voxel in range(pred_y.shape[1]):
-                # Correlation across voxels for a sample (Taking a column)
-                r.append(PeC(pred_y[:,voxel], y_test[:,voxel]))
-            r = np.array(r)
-            
-            print("Model: Hybrid Encoder, Subject: {}, Averaged: {}".format(self.subject, average))
-            print("Vector Correlation: ", float(pearson))
-            print("Mean Pearson: ", np.mean(r))
-            print("Loss: ", float(loss))
-            plt.hist(r, bins=50, log=True)
-            plt.savefig("data/charts/subject{}_hybrid_encoder_pearson_correlation.png".format(self.subject))
+            self.clip_extractor = Clipper("ViT-L/14", hidden_state=hidden, norm_embs=True, device=self.device)
 
     def generateNSamples(self, image, c_i, c_t, n, strength=1.0):
         images = []
@@ -137,31 +60,41 @@ class StochasticSearch():
                                     strength=strength)
             images.append(im)
         return images
+    
+    def batchwise_cosine_similarity(self, Z,B):
+        B = B.T
+        Z_norm = torch.linalg.norm(Z, dim=1, keepdim=True)  # Size (n, 1).
+        B_norm = torch.linalg.norm(B, dim=0, keepdim=True)  # Size (1, b).
+        cosine_similarity = ((Z @ B) / (Z_norm @ B_norm)).T
+        return cosine_similarity
 
 
-    def score_samples(self, beta, images, save_path):
-        beta_primes = self.EncModels[0].predict(images)
+    def score_samples(self, clip_target, images, save_path):
+        image_tensor = torch.zeros((len(images), 3, 512, 512))
+        for i in range(len(images)):
+            image_tensor[i] = transforms.ToTensor()(images[i])
+        candidate_embeddings = self.clip_extractor.embed_image(image_tensor.to(self.device)).float() # CLIP-Image
+        candidate_embeddings = candidate_embeddings.reshape(len(candidate_embeddings),-1)
+        candidate_embeddings = nn.functional.normalize(candidate_embeddings,dim=-1)
+        
         if(self.log):
-            os.makedirs(save_path + "beta_primes/", exist_ok=True)
+            os.makedirs(save_path + "batch_clips/", exist_ok=True)
             os.makedirs(save_path + "images/", exist_ok=True)
             for i, im in enumerate(images):
                 im.save(save_path + "images/{}.png".format(i))
-            for i in range(beta_primes.shape[0]):
-                torch.save(beta_primes[i], "{}/beta_primes/{}.pt".format(save_path, i))
-        scores = []
-        PeC = PearsonCorrCoef(num_outputs=beta_primes.shape[0]).to(self.device) 
-        xDup = beta.repeat(beta_primes.shape[0], 1).moveaxis(0, 1).to(self.device)
-        scores = PeC(xDup, beta_primes.moveaxis(0, 1).to(self.device))
-        return scores, beta_primes
+                torch.save(candidate_embeddings[i], "{}/batch_clips/{}.pt".format(save_path, i))
+        scores = self.batchwise_cosine_similarity(clip_target, candidate_embeddings).view(-1)
+        # print("SCORES", scores.shape, scores)
+        return scores, candidate_embeddings
     
     
 
     # Main search method
-    # beta is a 3*x_size tensor of brain data to use as guidance targets
+    # clip_target is decoded disjoint clip vector optimized for retrieval to use as guidance targets
     # init_img is a pil image to serve as a low level strcutral guesscur_iter
-    def search(self, sample_path, beta, c_i, c_t=None, init_img=None, basemodel_recon=None):
+    def search(self, sample_path, clip_target, c_i, c_t=None, init_img=None, basemodel_recon=None):
         with torch.no_grad():
-            basemodel_recon_score, basemodel_recon_beta_primes = self.score_samples(beta, [basemodel_recon], save_path=f"{sample_path}basemodel_recon/")
+            basemodel_recon_score, basemodel_recon_batch_clips = self.score_samples(clip_target, [basemodel_recon], save_path=f"{sample_path}basemodel_recon/")
             print(f"Basemodel recon_score: {basemodel_recon_score}")
             # Initialize search variables
             best_image, best_distribution_score = init_img, -1
@@ -184,7 +117,7 @@ class StochasticSearch():
                     remove_symlink(os.path.abspath(best_batch_path))
                 os.symlink(os.path.abspath(iter_path), os.path.abspath(best_batch_path), target_is_directory=True)
             # Score iteration 0
-            iteration_scores, iteration_beta_primes = self.score_samples(beta, iteration_samples, save_path=iter_path)
+            iteration_scores, iteration_batch_clips = self.score_samples(clip_target, iteration_samples, save_path=iter_path)
             
             #Update best image and iteration images from iteration 0
             if float(torch.mean(iteration_scores)) > best_distribution_score:
@@ -192,12 +125,12 @@ class StochasticSearch():
                 best_image = iteration_samples[int(torch.argmax(iteration_scores))]
             iter_scores.append(float(best_distribution_score))
             iter_images.append(best_image)
-            bp_var = bootstrap_variance(iteration_beta_primes)
+            bp_var = bootstrap_variance(iteration_batch_clips)
             var_scores.append(bp_var)
-            tqdm.write("SEARCH VARIANCE BP: {:.10f}, BRAIN CORRELATION: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
+            tqdm.write("SEARCH VARIANCE BP: {:.10f}, RETRIEVAL SIM: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
             best_distribution_params = {
                                         "images":iteration_samples,
-                                        "beta_primes": iteration_beta_primes,
+                                        "batch_clips": iteration_batch_clips,
                                         "z_img": init_img,
                                         "strength": 0.92}
             pbar.update(1)
@@ -236,7 +169,7 @@ class StochasticSearch():
                                                             n=n_i,  
                                                             strength=strength)
                     #Score batch samples
-                    batch_scores, batch_beta_primes = self.score_samples(beta, batch_samples, batch_path)
+                    batch_scores, batch_batch_clips = self.score_samples(clip_target, batch_samples, batch_path)
                     
                     # Keep track of best batch for logging
                     
@@ -251,7 +184,7 @@ class StochasticSearch():
                     # Keep track of all batches in iteration for updating seeds
                     iteration_samples += batch_samples
                     iteration_scores.append(batch_scores)
-                    bp_var = bootstrap_variance(batch_beta_primes)
+                    bp_var = bootstrap_variance(batch_batch_clips)
                     iteration_vars.append(bp_var)
                     #Update best image and iteration images
                     if torch.mean(batch_scores) > best_distribution_score:
@@ -259,7 +192,7 @@ class StochasticSearch():
                         best_image = batch_samples[int(torch.argmax(batch_scores))]
                         best_distribution_params = {
                                         "images":batch_samples,
-                                        "beta_primes": batch_beta_primes,
+                                        "batch_clips": batch_batch_clips,
                                         "z_img": z_seeds[b],
                                         "strength": strength}
                 
@@ -271,7 +204,7 @@ class StochasticSearch():
                 
                 
                 var_scores.append(iteration_var)
-                tqdm.write("SEARCH VARIANCE BP: {:.10f}, BRAIN CORRELATION: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
+                tqdm.write("SEARCH VARIANCE BP: {:.10f}, RETRIEVAL SIM: {:.10f}".format(bp_var, float(torch.mean(iteration_scores))))
                 pbar.update(1)
             pbar.close()
         return best_image, best_distribution_params, iter_images, iter_scores, var_scores, basemodel_recon_score
