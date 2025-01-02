@@ -300,7 +300,7 @@ class Stochastic_Search_Statistics():
         return indicies
     
     #TODO: Add check to see if files exist
-    def create_beta_primes_mi(self, experiment_folder):
+    def create_beta_primes_mi(self, experiment_folder, reps=10):
         
         GNet = GNet8_Encoder(device=self.device, subject=self.subject)
         # List of image numbers created. 
@@ -311,7 +311,7 @@ class Stochastic_Search_Statistics():
             sample_path = f"{experiment_folder}{i}/"
             images = []
             names = []
-            for j in range(10):
+            for j in range(reps):
                 image = Image.open(f"{sample_path}{j}.png")
                 images.append(image)
                 names.append(j)
@@ -338,20 +338,27 @@ class Stochastic_Search_Statistics():
             sample_path = f"{experiment_folder}{i}/"
             images = []
             names = []
-
-            ground_truth_image = Image.open(f"{sample_path}Ground Truth.png")
+            try:
+                ground_truth_image = Image.open(f"{sample_path}Ground Truth.png")
+            except:
+                ground_truth_image = Image.open(f"{sample_path}ground_truth.png")
             images.append(ground_truth_image)
             names.append("ground_truth")
 
             ground_truth_image = Image.open(f"{sample_path}search_reconstruction.png")
             images.append(ground_truth_image)
             names.append("search_reconstruction")
-            
-            low_level_image = Image.open(f"{sample_path}MindEye.png")
-            images.append(low_level_image)
-            names.append("mindeye")
 
-            low_level_image = Image.open(f"{sample_path}MindEye blurry.png")
+            try:
+                basemodel_image = Image.open(f"{sample_path}basemodel_recon.png")
+            except:
+                basemodel_image = Image.open(f'{sample_path}MindEye.png')
+            images.append(basemodel_image)
+            names.append("mindeye")
+            try:
+                low_level_image = Image.open(f"{sample_path}low_level.png")
+            except:
+                low_level_image = Image.open(f"{sample_path}MindEye blurry.png")
             images.append(low_level_image)
             names.append("mindeye_blurry")
             
@@ -392,26 +399,34 @@ class Stochastic_Search_Statistics():
     #           - low_level.png
     #           - ground_truth.png
     
-    def create_dataframe_mi(self, method, mode, make_beta_primes=False):
+    def create_dataframe_mi(self, method, mode, make_beta_primes=False, monte_carlo_dropout=False, passes=None, dropout_rate=None, reps=10):
         # Path to the folder
         if mode == "nsd_vision":
-            directory_path = f"output/{method}_{mode}/subject{self.subject}/"
-            dataframe_path = f"output/dataframes/{method}_{mode}/subject{self.subject}/"
-            _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=True, nest=False)
+            directory_path = f"output/{method}/subject{self.subject}/"
+            dataframe_path = f"output/dataframes/{method}/subject{self.subject}/"
+            _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=True, nest=False, include_heldout=True)
+            idx = self.image_indices(directory_path)
         else:
             directory_path = f"output/mental_imagery_paper_b3/{mode}/{method}/subject{self.subject}/"
             dataframe_path = f"output/mental_imagery_paper_b3/{mode}/{method}/"
-            beta_samples, _ = load_nsd_mental_imagery(vector = "images", subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
+            beta_samples, _ = load_nsd_mental_imagery(subject=self.subject, mode=mode, stimtype="all", average=True, nest=False)
+            idx = range(18)
         os.makedirs(dataframe_path, exist_ok=True)
         os.makedirs(f"{dataframe_path}features/", exist_ok=True)
+        # Check if the file exists
+        dataframe_file_path = f"{dataframe_path}subject{self.subject}_statistics_{len(idx)}.csv"
+        # if os.path.exists(dataframe_file_path):
+        #     print(f"The file {dataframe_file_path} exists.")
+        #     return
+        #     # raise Exception("File already exists.")
+        # else:
+        #     print(f"The file {dataframe_file_path} does not exist, making it...")
         
         # Create betas if needed
         if make_beta_primes:
-            self.create_beta_primes_mi(directory_path)
+            self.create_beta_primes_mi(directory_path, reps)
         
-        # List of image numbers created. 
-        # idx = self.image_indices(directory_path)
-        idx = range(18)
+        
         print("IDX: ", len(idx), idx)
         # Create an Empty DataFrame
         # Object With column names only
@@ -420,7 +435,8 @@ class Stochastic_Search_Statistics():
             #   11 --> low_level
             #   12 --> final reconstruction
             #   13 --> best_selected_image
-        df = pd.DataFrame(columns = ['ID', 'Subject', 'Method', 'Mode', 'Sample Count', 'Batch Number', 'Sample Indicator', 'Strength', 'Brain Correlation V1', 'Brain Correlation V2', 
+        df = pd.DataFrame(columns = ['ID', 'Subject', 'Method', 'Mode', 'Sample Count', 'Batch Number', 'Sample Indicator', 'Strength',
+                                     'MCD Var', 'Dropout Rate', 'MCD Passes', 'Brain Correlation V1', 'Brain Correlation V2', 
                                      'Brain Correlation V3', 'Brain Correlation V4', 'Brain Correlation Early Visual', 'Brain Correlation Higher Visual',
                                      'Brain Correlation NSD General', 'SSIM', 'Pixel Correlation', 'CLIP Cosine', 'CLIP Two-way', 'AlexNet 1', 'AlexNet 2', 
                                      'AlexNet 2', 'AlexNet 4', 'AlexNet 5', 'AlexNet 6', 'AlexNet 7', 'Inception V3', 'EffNet-B', 'SwAV', 'CLIP Two-way 1000', 'AlexNet 1 1000','AlexNet 2 1000', 
@@ -437,7 +453,7 @@ class Stochastic_Search_Statistics():
             sample_path = f"{directory_path}{i}/"
             # Ground Truth Image
             ground_truth_image = Image.open(f'{sample_path}ground_truth.png').convert("RGB")
-            if i < 12:
+            if i < 12 or mode == "nsd_vision":
                 ground_truth = ground_truth_image
                 pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
                 ssim_gt = self.calculate_ssim(ground_truth, ground_truth)
@@ -462,7 +478,7 @@ class Stochastic_Search_Statistics():
                 # Low Level Image
                 low_level = Image.open(f'{sample_path}low_level.png')
                 clip_cosine_sim_low = self.calculate_clip_cosine_sim(ground_truth, low_level)
-                if i < 12:
+                if i < 12 or mode == "nsd_vision":
                     pix_corr_low = self.calculate_pixel_correlation(ground_truth, low_level)
                     ssim_low = self.calculate_ssim(ground_truth, low_level)
                 else:
@@ -473,16 +489,17 @@ class Stochastic_Search_Statistics():
                 brain_correlations = self.calculate_brain_correlations(beta_samples[i], beta_prime)
                 folder_images.append(low_level)
                 
-                df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : method, 'Mode' : mode, 'Sample Indicator' : 11, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
+                df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : method, 'Mode' : mode, 'Dropout Rate' : dropout_rate, 'MCD Passes' : passes, 
+                            'Sample Indicator' : 11, 'Strength' : np.nan, 'Brain Correlation V1' : brain_correlations["V1"],
                             'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
                             'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
                             'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
                             'SSIM' : ssim_low, 'Pixel Correlation' : pix_corr_low, 'CLIP Cosine' : clip_cosine_sim_low}
                 df_row_num += 1
-            for j in range(10):
+            for j in range(reps):
                 rep = Image.open(f'{sample_path}{j}.png')       
                 # Make dataframe row for rep of reconstruction
-                if i < 12:
+                if i < 12 or mode == "nsd_vision":
                     pix_corr_rep = self.calculate_pixel_correlation(ground_truth, rep)
                     ssim_rep = self.calculate_ssim(ground_truth, rep)
                 else:
@@ -493,8 +510,14 @@ class Stochastic_Search_Statistics():
                 beta_prime = torch.load(f"{sample_path}{j}_beta_prime.pt")
                 brain_correlations = self.calculate_brain_correlations(beta_samples[i], beta_prime)
                 folder_images.append(rep)
+                if monte_carlo_dropout:
+                    mcd_clip_block = torch.load(f"{sample_path}contrastive_clip_hidden_block_{j}.pt", map_location="cpu")
+                    mcd_clip_variance = float(torch.mean(torch.var(mcd_clip_block, axis=0)))
+                else:
+                    mcd_clip_variance = None
                 
-                df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : method, 'Mode' : mode, 'Sample Count': j, 'Sample Indicator' : 12, 'Strength' : None, 'Brain Correlation V1' : brain_correlations["V1"],
+                df.loc[df_row_num] = {'ID' : i, 'Subject' : self.subject, 'Method' : method, 'Mode' : mode, 'Sample Count': j, 'Sample Indicator' : 12, 
+                            'MCD Var' : mcd_clip_variance, 'Dropout Rate' : dropout_rate, 'MCD Passes' : passes, 'Strength' : None, 'Brain Correlation V1' : brain_correlations["V1"],
                             'Brain Correlation V2' : brain_correlations["V2"], 'Brain Correlation V3' : brain_correlations["V3"], 
                             'Brain Correlation V4' : brain_correlations["V4"], 'Brain Correlation Early Visual' : brain_correlations["early_vis"],
                             'Brain Correlation Higher Visual' : brain_correlations["higher_vis"], 'Brain Correlation NSD General' : brain_correlations["nsd_general"],
@@ -513,34 +536,29 @@ class Stochastic_Search_Statistics():
             folder_images = []
         
         # Computing CNN metrics for whole dataframe
-        df_ground_truth     = df.loc[(df['Sample Indicator'] == 10) & (df['ID'] < 12)]
-        df_low_level        = df.loc[(df['Sample Indicator'] == 11) & (df['ID'] < 12)]
-        df_final_samples    = df.loc[(df['Sample Indicator'] == 12) & (df['ID'] < 12)]
-        df_final_samples_0  = df_final_samples.loc[(df_final_samples['Sample Count'] == 0) & (df['ID'] < 12)]
-        df_final_samples_1  = df_final_samples.loc[(df_final_samples['Sample Count'] == 1) & (df['ID'] < 12)]
-        df_final_samples_2  = df_final_samples.loc[(df_final_samples['Sample Count'] == 2) & (df['ID'] < 12)]
-        df_final_samples_3  = df_final_samples.loc[(df_final_samples['Sample Count'] == 3) & (df['ID'] < 12)]
-        df_final_samples_4  = df_final_samples.loc[(df_final_samples['Sample Count'] == 4) & (df['ID'] < 12)]
-        df_final_samples_5  = df_final_samples.loc[(df_final_samples['Sample Count'] == 5) & (df['ID'] < 12)]
-        df_final_samples_6  = df_final_samples.loc[(df_final_samples['Sample Count'] == 6) & (df['ID'] < 12)]
-        df_final_samples_7  = df_final_samples.loc[(df_final_samples['Sample Count'] == 7) & (df['ID'] < 12)]
-        df_final_samples_8  = df_final_samples.loc[(df_final_samples['Sample Count'] == 8) & (df['ID'] < 12)]
-        df_final_samples_9  = df_final_samples.loc[(df_final_samples['Sample Count'] == 9) & (df['ID'] < 12)]
+        if mode == "nsd_vision":
+            df_ground_truth     = df.loc[(df['Sample Indicator'] == 10)]
+            df_low_level        = df.loc[(df['Sample Indicator'] == 11)]
+            df_final_samples    = df.loc[(df['Sample Indicator'] == 12)]
+        else:
+            df_ground_truth     = df.loc[(df['Sample Indicator'] == 10) & (df['ID'] < 12)]
+            df_low_level        = df.loc[(df['Sample Indicator'] == 11) & (df['ID'] < 12)]
+            df_final_samples    = df.loc[(df['Sample Indicator'] == 12) & (df['ID'] < 12)]
+        df_final_samples_reps = []
+        for i in range(reps):
+            if mode == "nsd_vision":
+                df_final_samples_reps.append(df.loc[(df['Sample Indicator'] == 12) & (df['Sample Count'] == i)])
+            else:
+                df_final_samples_reps.append(df.loc[(df['Sample Indicator'] == 12) & (df['Sample Count'] == i) & (df['ID'] < 12)])
+        
         
 
         # Compute CNN Metrics and Two-Way comparisons WITHIN dataframe
         cnn_metrics_low_level = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_low_level, f"{dataframe_path}features/"))
-        cnn_metrics_0 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_0, f"{dataframe_path}features/"))
-        cnn_metrics_1 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_1, f"{dataframe_path}features/"))
-        cnn_metrics_2 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_2, f"{dataframe_path}features/"))
-        cnn_metrics_3 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_3, f"{dataframe_path}features/"))
-        cnn_metrics_4 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_4, f"{dataframe_path}features/"))
-        cnn_metrics_5 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_5, f"{dataframe_path}features/"))
-        cnn_metrics_6 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_6, f"{dataframe_path}features/"))
-        cnn_metrics_7 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_7, f"{dataframe_path}features/"))
-        cnn_metrics_8 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_8, f"{dataframe_path}features/"))
-        cnn_metrics_9 = compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_9, f"{dataframe_path}features/"))
-        sample_rep_metrics = [cnn_metrics_0, cnn_metrics_1, cnn_metrics_2, cnn_metrics_3, cnn_metrics_4, cnn_metrics_5, cnn_metrics_6, cnn_metrics_7, cnn_metrics_8, cnn_metrics_9]
+        sample_rep_metrics = []
+        for i in range(reps):
+            sample_rep_metrics.append(compute_cnn_metrics(create_cnn_numpy_array(df_ground_truth, f"{dataframe_path}features/"), create_cnn_numpy_array(df_final_samples_reps[i], f"{dataframe_path}features/")))
+        
         net_list = [
             'Inception V3',
             'CLIP Two-way',
@@ -555,7 +573,7 @@ class Stochastic_Search_Statistics():
             'SwAV']
         for index, row in df.iterrows():
             sample_id = row['ID']
-            if sample_id < 12:
+            if sample_id < 12 or mode == "nsd_vision":
                 if row['Sample Indicator'] == 11:
                     for net_name in net_list:
                         df.at[index, net_name] = cnn_metrics_low_level[net_name][sample_id]
@@ -610,14 +628,14 @@ class Stochastic_Search_Statistics():
             self.create_beta_primes_ss(directory_path)
         
         # List of image numbers created. 
-        idx = [i for i in range(982)]
+        idx = [i for i in range(1000)]
         # idx = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
         # idx = self.image_indices(directory_path)
         # idx = self.paper_image_indices
         print("IDX: ", len(idx), idx)
         # Autoencoded avearged brain samples 
         if mode == "nsd_vision":
-            _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=False, nest=True)
+            _, _, beta_samples, _, _, _, _ = load_nsd(vector="images", subject=self.subject, loader=False, average=False, nest=True, include_heldout=True)
             averaged_beta_samples = torch.mean(beta_samples, axis=1)
         else:
             beta_samples, _ = load_nsd_mental_imagery(vector = "c", subject=self.subject, mode=mode, stimtype="all", average=False, nest=True)
@@ -674,12 +692,15 @@ class Stochastic_Search_Statistics():
         for i in tqdm(idx, desc="creating dataframe rows"):
             sample_path = f"{directory_path}{i}/"
             var_list = np.load(sample_path + "var_list.npy")
-            print(f"{i}: Variance List: {var_list}")
+            # print(f"{i}: Variance List: {var_list}")
             ae_beta = self.AEModel.predict(prepare_betas(beta_samples[i])).detach().cpu()
             target_brain_variance = self.calculate_brain_variance(ae_beta)
-            print(f"{i}: Target Brain Variance: {target_brain_variance}")
+            # print(f"{i}: Target Brain Variance: {target_brain_variance}")
             # Ground Truth Image
-            ground_truth = Image.open(f'{sample_path}Ground Truth.png')
+            try:
+                ground_truth = Image.open(f"{sample_path}Ground Truth.png")
+            except:
+                ground_truth = Image.open(f"{sample_path}ground_truth.png")
             clip_cosine_sim_gt = self.calculate_clip_cosine_sim(ground_truth, ground_truth)
             pix_corr_gt = self.calculate_pixel_correlation(ground_truth, ground_truth)
             ssim_gt = self.calculate_ssim(ground_truth, ground_truth)
@@ -703,7 +724,10 @@ class Stochastic_Search_Statistics():
             df_row_num += 1
 
             # Low Level Image
-            low_level = Image.open(f'{sample_path}MindEye blurry.png')
+            try:
+                low_level = Image.open(f"{sample_path}low_level.png")
+            except:
+                low_level = Image.open(f"{sample_path}MindEye blurry.png")
             clip_cosine_sim_low = self.calculate_clip_cosine_sim(ground_truth, low_level)
             pix_corr_low = self.calculate_pixel_correlation(ground_truth, low_level)
             ssim_low = self.calculate_ssim(ground_truth, low_level)
@@ -726,7 +750,10 @@ class Stochastic_Search_Statistics():
             df_row_num += 1
 
             # MindEye Reconstruction Image
-            mindeye = Image.open(f'{sample_path}MindEye.png')
+            try:
+                mindeye = Image.open(f"{sample_path}basemodel_recon.png")
+            except:
+                mindeye = Image.open(f'{sample_path}MindEye.png')
             clip_cosine_sim_me = self.calculate_clip_cosine_sim(ground_truth, mindeye)
             pix_corr_me = self.calculate_pixel_correlation(ground_truth, mindeye)
             ssim_me = self.calculate_ssim(ground_truth, mindeye)
@@ -879,22 +906,55 @@ class Stochastic_Search_Statistics():
                                            
         print(df.shape)
         print(df)
-        df.to_csv(f"{dataframe_path}statistics_df_{experiment_name}_{len(idx)}_v2.csv")
+        df.to_csv(f"{dataframe_path}statistics_df_{experiment_name}_{len(idx)}.csv")
     
     
 def main():
-    # for subject in tqdm([1,2,5,7], desc="Subjects"):
-    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
-    #     for mode in tqdm(["vision", "imagery"], desc="Modes"):
-    #         for method in tqdm(["mindeye", "mindeye2", "tagaki", "braindiffuser", "boi-v2.1", "boi-v2.3"], desc="Methods"):
-    #             SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
     
     for subject in tqdm([1], desc="Subjects"):
-        SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:3")
-        for mode in tqdm(["vision", "imagery"], desc="Modes"):
-            for trials in tqdm([375, 750, 1500, 2250, 3750, 7500, 15000, 27750, 30000], desc="Trials"):
-                SSS.create_dataframe_mi(mode=mode, method=f"braindiffuser_{trials}", make_beta_primes=True)
+        SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+        for method in ["subj01_40sess_hypatia_mirage_no_retrieval"]: #
+            for mode in tqdm(["imagery", "vision"], desc="Modes"):
+                SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
+                    
+    # for subject in tqdm([7], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:3")
+    #     for method in [f"subj0{subject}_40sess_hypatia_mirage"]: #
+    #         for mode in tqdm(["vision", "imagery"], desc="Modes"):
+    #             if mode == "vision":
+    #                 trial_rep_list = range(1,9)
+    #             else:
+    #                 trial_rep_list = [15]#range(1,17)
+    #             for trial_reps in tqdm(trial_rep_list, desc="Trial reps"):
+    #                 try:
+    #                     SSS.create_dataframe_mi(mode=mode, method=f"{method}_{trial_reps}_trial_reps", make_beta_primes=True)
+    #                 except Exception as e:
+    #                     print(e)
+    #                     pass
+    # for subject in tqdm([1, 2, 5, 7], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for method in tqdm(["brain-optimized-inference-v2.3"], desc="Methods"):
+    #         SSS.create_dataframe_SS(experiment_name=method, make_beta_primes=True) 
+    # for subject in tqdm([1], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for mode in tqdm(["vision", "imagery"], desc="Modes"):
+    #         for passes in tqdm([25, 10, 5, 1], desc="Passes"):
+    #             for dr in tqdm([0.8, 0.6, 0.4, 0.15], desc="dropout rates"):
+    #                 SSS.create_dataframe_mi(mode=mode, method=f"mindeye_mcd_{passes}passes_{dr}dr", make_beta_primes=True, monte_carlo_dropout=True, passes=passes, dropout_rate=dr)
+                    
+    # for subject in tqdm([1], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for mode in tqdm(["vision", "imagery"], desc="Modes"):
+    #         for dr in tqdm([0.9, 0.8, 0.6], desc="dropout rates"):
+    #             SSS.create_dataframe_mi(mode=mode, method=f"mindeye_subj01_hypatia_{dr}_dropout_mlp", make_beta_primes=True, monte_carlo_dropout=False)
 
+    # for subject in tqdm([1], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for passes in tqdm([25], desc="Passes"):
+    #         # for dr in tqdm([0.4, 0.15], desc="dropout rates"):
+    #         # SSS.create_dataframe_mi(mode="nsd_vision", method=f"mindeye_mcd_{passes}passes_{dr}dr_projector", make_beta_primes=False, monte_carlo_dropout=True, passes=passes, dropout_rate=dr, reps=1)
+    #         SSS.create_dataframe_mi(mode="nsd_vision", method=f"mindeye_mcd_{passes}passes_0.4dr_projector", make_beta_primes=False, monte_carlo_dropout=True, passes=passes, dropout_rate=0.4, reps=1)
+    #         SSS.create_dataframe_mi(mode="nsd_vision", method=f"mindeye_mcd_{passes}passes_0.15dr_projector", make_beta_primes=True, monte_carlo_dropout=True, passes=passes, dropout_rate=0.15, reps=1)
 
 if __name__ == "__main__":
     main()

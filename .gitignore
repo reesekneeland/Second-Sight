@@ -20,3 +20,5 @@ versatile_diffusion/
 /data
 stable-diffusion
 *.zip
+combined_masks
+experiments/nsd_imagery_12_24_strength/stimuli_v2

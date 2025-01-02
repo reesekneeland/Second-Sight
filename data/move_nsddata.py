@@ -1,5 +1,5 @@
 import os
-
+# os.chdir("..")
 # Move Experiment Infos
 # os.makedirs("data/nsddata/experiments/nsd/", exist_ok=True)
 # os.system('rsync --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/experiments/nsd/nsd_stim_info_merged.csv data/nsddata/experiments/nsd/nsd_stim_info_merged.csv')
@@ -31,10 +31,11 @@ import os
 #             print('subj{:02d} sess{:02d} failed'.format(sub,sess))
         
 # # Move ROIs
-# for sub in [1,2,3,4,5,6,7,8]:
-#     os.makedirs('data/nsddata/ppdata/subj{:02d}/func1pt8mm/roi/'.format(sub), exist_ok=True)
-#     os.system('rsync --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/ppdata/subj{:02d}/func1pt8mm/roi/* data/nsddata/ppdata/subj{:02d}/func1pt8mm/roi/'.format(sub,sub))
-
+for sub in [1,2,3,4,5,6,7,8]:
+    os.makedirs('nsddata/freesurfer/subj{:02d}/label/'.format(sub), exist_ok=True)
+    os.system('rsync --info=progress2 /export/raid1/home/surly/kendrick-data/nsd/nsddata/freesurfer/subj{:02d}/label/* nsddata/freesurfer/subj{:02d}/label/'.format(sub,sub))
+    os.makedirs('nsddata/ppdata/subj{:02d}/anat/roi/other/'.format(sub), exist_ok=True)
+    os.system('rsync --info=progress2 /export/raid1/home/surly/kendrick-data/nsd/nsddata/ppdata/subj{:02d}/anat/roi/other/* nsddata/ppdata/subj{:02d}/anat/roi/other/'.format(sub,sub))
 # # Move Imagery Betas
 # for sub in [1,2,3,4,5,6,7,8]:
 #     os.makedirs("data/nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdimagerybetas_fithrf/".format(sub), exist_ok=True)
@@ -88,18 +89,18 @@ import os
 # os.system(f'zip -r ../Jesse-CB-Imagery.zip Jesse-CB-Imagery/')
 
 # Move NSD Synthetic betas:
-os.makedirs("NSD-Synthetic/nsddata_stimuli/stimuli/nsdsynthetic/", exist_ok=True)
-os.makedirs("nsddata/experiments/nsdsynthetic/", exist_ok=True)
-os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_stimuli/stimuli/nsdsynthetic/ nsddata_stimuli/stimuli/nsdsynthetic/')
-os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/experiments/nsdsynthetic/nsdsynthetic_expdesign.mat nsddata/experiments/nsdsynthetic/nsdsynthetic_expdesign.mat')
-for sub in [1,2,3,4,5,6,7,8]:
-        os.makedirs("nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf/".format(sub), exist_ok=True)
-        os.makedirs("nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/".format(sub), exist_ok=True)
-        os.makedirs("nsddata/stimuli/nsdsynthetic/".format(sub), exist_ok=True)
-        #copy b2 betas
-        os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf/ nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/'.format(sub,sub))
-        #copy b3 betas
-        os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/ nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/'.format(sub,sub))
-        # copy stimuli
-        os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/stimuli/nsdsynthetic/ nsddata/stimuli/nsdsynthetic/')
+# os.makedirs("NSD-Synthetic/nsddata_stimuli/stimuli/nsdsynthetic/", exist_ok=True)
+# os.makedirs("nsddata/experiments/nsdsynthetic/", exist_ok=True)
+# os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_stimuli/stimuli/nsdsynthetic/ nsddata_stimuli/stimuli/nsdsynthetic/')
+# os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/experiments/nsdsynthetic/nsdsynthetic_expdesign.mat nsddata/experiments/nsdsynthetic/nsdsynthetic_expdesign.mat')
+# for sub in [1,2,3,4,5,6,7,8]:
+#         os.makedirs("nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf/".format(sub), exist_ok=True)
+#         os.makedirs("nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/".format(sub), exist_ok=True)
+#         os.makedirs("nsddata/stimuli/nsdsynthetic/".format(sub), exist_ok=True)
+#         #copy b2 betas
+#         os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf/ nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/'.format(sub,sub))
+#         #copy b3 betas
+#         os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/ nsddata_betas/ppdata/subj{:02d}/func1pt8mm/nsdsyntheticbetas_fithrf_GLMdenoise_RR/'.format(sub,sub))
+#         # copy stimuli
+#         os.system('rsync -r --info=progress2 /export/raid1/home/surly/raid4/kendrick-data/nsd/nsddata/stimuli/nsdsynthetic/ nsddata/stimuli/nsdsynthetic/')
 # os.system(f'zip -r ../NSD-Synthetic.zip NSD-Synthetic/')
