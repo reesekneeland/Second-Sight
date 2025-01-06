@@ -1,4 +1,4 @@
-# Second Sight: Using brain-optimized encoding models to align image distributions with human brain activity
+# Brain-optimized inference improves reconstructions of fMRI brain activity
 
 <div align=center>
 <img src="./data/charts/Pipeline_Diagram.png"/>
