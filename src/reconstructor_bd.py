@@ -64,10 +64,13 @@ class Reconstructor(object):
         return text_encoding
     
     def encode_image(self, image):
-        BICUBIC = PIL.Image.Resampling.BICUBIC
-        cx = image.resize([512, 512], resample=BICUBIC)
-        cx = tvtrans.ToTensor()(cx)[None].cuda(0).half()
-        image_encoding = self.net.clip_encode_vision(cx, which='image')
+        if isinstance(image, Image.Image):
+            BICUBIC = PIL.Image.Resampling.BICUBIC
+            cx = image.resize([512, 512], resample=BICUBIC)
+            cx = tvtrans.ToTensor()(cx)[None].cuda(0).half()
+        else:
+            cx = image
+        image_encoding = self.net.clip_encode_vision(cx)
         return image_encoding
 
     def reconstruct(self, 

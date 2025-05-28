@@ -156,22 +156,38 @@ def create_whole_region_normalized(subject = 1, include_heldout=False):
     # if(os.path.exists("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))):
     #     os.remove("data/preprocessed_data/subject{}/nsd_general_unnormalized.pt".format(subject))
 
-def create_whole_region_imagery_unnormalized(subject = 1, mask=True, GLMdenoise=True):
-    
-    nsd_general = nib.load("data/nsddata/ppdata/subj0{}/func1pt8mm/roi/nsdgeneral.nii.gz".format(subject)).get_fdata()
-    nsd_general = np.nan_to_num(nsd_general)
-    nsd_general = np.where(nsd_general==1.0, True, False)
+def create_whole_region_imagery_unnormalized(subject = 1, mask=True, GLMdenoise=True, fsaverage=False):
+    if fsaverage:
+        space = "fsaverage"
+    else:
+        space = "func1pt8mm"
+    if mask:
+        nsd_general = nib.load("data/nsddata/ppdata/subj0{}/{}/roi/nsdgeneral.nii.gz".format(subject, space)).get_fdata()
+        nsd_general = np.nan_to_num(nsd_general)
+        nsd_general = np.where(nsd_general==1.0, True, False)
         
-    layer_size = np.sum(nsd_general == True)
+        layer_size = np.sum(nsd_general == True)
+        nsd_general_mask = np.nan_to_num(nsd_general)
+        nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
     os.makedirs("data/preprocessed_data/subject{}/".format(subject), exist_ok=True)
 
     
-    whole_region = np.zeros((720, layer_size))
 
-    nsd_general_mask = np.nan_to_num(nsd_general)
-    nsd_mask = np.array(nsd_general_mask.flatten(), dtype=bool)
+    
     file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized".format(subject)
-    if GLMdenoise:
+    if fsaverage:
+        file += "_fsaverage"
+        lh_beta_file = "data/nsddata_betas/ppdata/subj0{}/fsaverage/nsdimagerybetas_fithrf_GLMdenoise_RR/lh.betas_nsdimagery.mgh".format(subject)
+        rh_beta_file = "data/nsddata_betas/ppdata/subj0{}/fsaverage/nsdimagerybetas_fithrf_GLMdenoise_RR/rh.betas_nsdimagery.mgh".format(subject)
+        lh_betas = nib.load(lh_beta_file)
+        rh_betas = nib.load(rh_beta_file)
+        print(lh_betas.shape, rh_betas.shape)
+        # Combine the left and right hemisphere betas
+        full_betas = lh_betas.get_fdata() + rh_betas.get_fdata()  # Sum the left and right hemisphere betas
+        combined_img = nib.Nifti1Image(full_betas, lh_betas.affine, lh_betas.header)
+        beta_file = "data/nsddata_betas/ppdata/subj0{}/fsaverage/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.nii.gz".format(subject)
+        nib.save(combined_img, beta_file)
+    elif GLMdenoise:
         beta_file = "data/nsddata_betas/ppdata/subj0{}/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.nii.gz".format(subject)
     else:
         file += "_b2"
@@ -183,13 +199,14 @@ def create_whole_region_imagery_unnormalized(subject = 1, mask=True, GLMdenoise=
     if mask:
         whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1))[:,nsd_general.flatten()].astype(np.float32))
     else:
-        file += "_unmasked"
+        file += "_whole_brain"
         whole_region = torch.from_numpy(imagery_betas.reshape((len(imagery_betas), -1)).astype(np.float32))
     
     torch.save(whole_region, file + ".pt")
+    torch.save(whole_region, f"/home/naxos2-raid25/kneel027/home/kneel027/data/umn-imagery/preprocessed_data/subject{subject}/nsd_imagery_whole_brain_fsaverage_unnormalized.pt")
     return whole_region
 
-def create_whole_region_imagery_normalized(subject = 1, mask=True, GLMdenoise=True):
+def create_whole_region_imagery_normalized(subject = 1, mask=True, GLMdenoise=True, fsaverage=False):
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
     ex_file = open(img_stim_file, 'rb')
     imagery_dict = pickle.load(ex_file)
@@ -212,14 +229,18 @@ def create_whole_region_imagery_normalized(subject = 1, mask=True, GLMdenoise=Tr
     }
     unnormalized_file = "data/preprocessed_data/subject{}/nsd_imagery_unnormalized".format(subject)
     output_file = "data/preprocessed_data/subject{}/nsd_imagery".format(subject)
+    if fsaverage:
+        unnormalized_file += "_fsaverage"
+        output_file += "_fsaverage"
     if not GLMdenoise:
         unnormalized_file += "_b2"
         output_file += "_b2"
     if not mask:
-        unnormalized_file += "_unmasked"
-        output_file += "_unmasked"
+        unnormalized_file += "_whole_brain"
+        output_file += "_whole_brain"
     whole_region = torch.load(unnormalized_file + ".pt")
-    whole_region = whole_region / 300.
+    if not fsaverage:
+        whole_region = whole_region / 300.
     whole_region_norm = torch.zeros_like(whole_region)
             
     # Normalize the data using Z scoring method for each voxel
@@ -228,9 +249,11 @@ def create_whole_region_imagery_normalized(subject = 1, mask=True, GLMdenoise=Tr
 
     # Save the tensor of normalized data
     torch.save(whole_region_norm, output_file + ".pt")
+    torch.save(whole_region_norm, f"/home/naxos2-raid25/kneel027/home/kneel027/data/umn-imagery/preprocessed_data/subject{subject}/nsd_imagery_whole_brain_fsaverage.pt")
+
     # Delete NSD unnormalized file after the normalized data is created. 
-    if(os.path.exists(unnormalized_file + ".pt")):
-        os.remove(unnormalized_file + ".pt")
+    # if(os.path.exists(unnormalized_file + ".pt")):
+    #     os.remove(unnormalized_file + ".pt")
    
     
     

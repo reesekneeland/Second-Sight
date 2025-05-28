@@ -911,9 +911,15 @@ class Stochastic_Search_Statistics():
     
 def main():
     
-    for subject in tqdm([1], desc="Subjects"):
+    # for subject in tqdm([1], desc="Subjects"):
+    #     SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
+    #     for method in ["subj01_40sess_hypatia_mirage_no_retrieval"]: #
+    #         for mode in tqdm(["imagery", "vision"], desc="Modes"):
+    #             SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
+
+    for subject in tqdm([1,2,5,7], desc="Subjects"):
         SSS = Stochastic_Search_Statistics(subject = subject, device="cuda:1")
-        for method in ["subj01_40sess_hypatia_mirage_no_retrieval"]: #
+        for method in ["brainram", "neuropictor"]: #
             for mode in tqdm(["imagery", "vision"], desc="Modes"):
                 SSS.create_dataframe_mi(mode=mode, method=method, make_beta_primes=True)
                     

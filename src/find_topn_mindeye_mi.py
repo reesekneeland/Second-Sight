@@ -172,67 +172,73 @@ class Clipper(torch.nn.Module):
         return self.embed_text(txt)
 device="cuda"
 clip_extractor = Clipper("ViT-L/14", device="cuda", hidden_state=True, norm_embs=True)
-subject_betas = []
-for s, subject in enumerate([1,2,5,7]):
-    _, _, x_test, _, _, _, _ = load_nsd(vector="images", subject=subject, loader=False, average=True, nest=False, include_heldout=True)
-    subject_betas.append(x_test.to("cpu"))
 root = "output/boi_paper"
 cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
 
 model = "mindeye1"
-folder = "brain-optimized-inference-v2.1"
+for mode in ["vision", "imagery"]:
+    folder = f"{mode}/boi-v2.1"
+    subject_betas = []
+    for s, subject in enumerate([1,2,5,7]):
+        x_test, _ = load_nsd_mental_imagery(vector = "images", subject=subject, mode=mode, stimtype="all", average=True, nest=False)
+        subject_betas.append(x_test.to("cpu"))
 
-for n in range(1, 64):
-    PeC = PearsonCorrCoef(num_outputs=n)
-    for mode in ["clip", "brain_corr"]:
-        new_model_name = f"{model}_top{n}_{mode}"
-        # using the rep dimension for subjects
-        all_recons = torch.zeros((1000, 4, 3, 512, 512))
-        for s, subject in enumerate([1,2,5,7]):
-            print(f"Model: {model}, Folder: {folder}, N: {n}, Mode: {mode}, Subject: {subject}")
-            x_test = subject_betas[s]
-            for sample in tqdm(range(1000)):
-                source_dir = f"{root}/{folder}/subject{subject}/{sample}/"
-                dest_dir = f"{root}/{new_model_name}/subject{subject}/{sample}/"
-                os.makedirs(dest_dir, exist_ok=True)
-                try:
-                    shutil.copy(f"{source_dir}/clip_best.pt", f"{dest_dir}/clip.pt")
-                except:
-                    shutil.copy(f"{source_dir}/clip_vision.pt", f"{dest_dir}/clip.pt")
-                try:
-                    shutil.copy(f"{source_dir}/basemodel_recon.png", f"{dest_dir}/basemodel_recon.png")
-                except:
-                    shutil.copy(f"{source_dir}/MindEye.png", f"{dest_dir}/basemodel_recon.png")
-                shutil.copy(f"{source_dir}/low_level.png", f"{dest_dir}/low_level.png")
-                if mode == "clip":
+    for n in range(1, 64):
+        PeC = PearsonCorrCoef(num_outputs=n)
+        for metric in ["clip", "brain_corr"]:
+            new_model_name = f"{model}_top{n}_{metric}"
+            # using the rep dimension for subjects
+            for s, subject in enumerate([1,2,5,7]):
+                all_recons = torch.zeros((18, 1, 3, 224, 224))
+                print(f"Model: {model}, Folder: {folder}, N: {n}, Metric: {metric}, Mode: {mode}, Subject: {subject}")
+                x_test = subject_betas[s]
+                for sample in tqdm(range(18)):
+                    source_dir = f"{root}/raw/{folder}/subject{subject}/{sample}/"
+                    dest_dir = f"{root}/raw/{new_model_name}/subject{subject}/{sample}/"
+                    os.makedirs(dest_dir, exist_ok=True)
                     try:
-                        target_clip = torch.load(f"{root}/{folder}/subject{subject}/{sample}/clip_best.pt", map_location="cpu").reshape((1,197376))
+                        shutil.copy(f"{source_dir}/clip_best.pt", f"{dest_dir}/clip.pt")
                     except:
-                        target_clip = torch.load(f"{root}/{folder}/subject{subject}/{sample}/clip_vision.pt", map_location="cpu").reshape((1,197376))
-                    clip_path = f"{source_dir}/iter_0/clip/"
-                    # Make the CLIP embeddings
-                    os.makedirs(clip_path, exist_ok=True)
-                    iter0_images = torch.zeros((64, 3, 512, 512))
-                    for i in range(64):
-                        image_path = f"{source_dir}/iter_0/images/{i}.png"
-                        image = Image.open(image_path).convert("RGB")
-                        iter0_images[i] = transforms.ToTensor()(image)
-                    iter0_clip = clip_extractor.embed_image(iter0_images.to(device)).reshape((64, target_clip.shape[-2] * target_clip.shape[-1])).to("cpu")
-                    torch.save(iter0_clip, f"{source_dir}/iter_0/iter0_clip.pt")
-                    # Calculate cosine similarity
-                    similarities = cos(target_clip, iter0_clip)
-                else:
-                    beta = x_test[sample]
-                    beta_prime_path = f"{source_dir}/iter_0/beta_primes"
-                    beta_primes = torch.zeros((n, beta.shape[-1]))
-                    for i in range(n):
-                        beta_primes[i] = torch.load(f"{beta_prime_path}/{i}.pt", map_location="cpu")
-                    similarities = PeC(beta.repeat(n, 1).moveaxis(0, 1), beta_primes.moveaxis(0, 1))
+                        shutil.copy(f"{source_dir}/clip_vision.pt", f"{dest_dir}/clip.pt")
+                    try:
+                        shutil.copy(f"{source_dir}/basemodel_recon.png", f"{dest_dir}/basemodel_recon.png")
+                    except:
+                        shutil.copy(f"{source_dir}/MindEye.png", f"{dest_dir}/basemodel_recon.png")
+                    shutil.copy(f"{source_dir}/low_level.png", f"{dest_dir}/low_level.png")
+                    if metric == "clip":
+                        try:
+                            target_clip = torch.load(f"{source_dir}/clip_best.pt", map_location="cpu").reshape((1,197376))
+                        except:
+                            target_clip = torch.load(f"{source_dir}/clip_vision.pt", map_location="cpu").reshape((1,197376))
+                        clip_path = f"{source_dir}/iter_0/clip/"
+                        # Make the CLIP embeddings
+                        os.makedirs(clip_path, exist_ok=True)
+                        iter0_clip_path = f"{source_dir}/iter_0/iter0_clip.pt"
+                        if not os.path.exists(iter0_clip_path):
+                            iter0_images = torch.zeros((64, 3, 224, 224))
+                            for i in range(64):
+                                image_path = f"{source_dir}/iter_0/images/{i}.png"
+                                image = Image.open(image_path).convert("RGB").resize((224,224))
+                                iter0_images[i] = transforms.ToTensor()(image)
+                            iter0_clip = clip_extractor.embed_image(iter0_images.to(device)).reshape((64, target_clip.shape[-2] * target_clip.shape[-1])).to("cpu")
+                            torch.save(iter0_clip, iter0_clip_path)
+                        else:
+                            iter0_clip = torch.load(iter0_clip_path, map_location="cpu")
+                        # Calculate cosine similarity
+                        similarities = cos(target_clip, iter0_clip[:n])
+                        # print("similarity length", len(similarities), target_clip.shape, iter0_clip.shape)
+                    else:
+                        beta = x_test[sample]
+                        beta_prime_path = f"{source_dir}/iter_0/beta_primes"
+                        beta_primes = torch.zeros((n, beta.shape[-1]))
+                        for i in range(n):
+                            beta_primes[i] = torch.load(f"{beta_prime_path}/{i}.pt", map_location="cpu")
+                        similarities = PeC(beta.repeat(n, 1).moveaxis(0, 1), beta_primes.moveaxis(0, 1))
+                        
+                    # Copy the best image
+                    best_image_idx = torch.argmax(similarities).item()
+                    best_image_path = f"{source_dir}/iter_0/images/{best_image_idx}.png"
+                    shutil.copy(best_image_path, f"{dest_dir}/0.png")
+                    all_recons[sample] = transforms.ToTensor()(Image.open(best_image_path).resize((224,224)).convert("RGB")).unsqueeze(0)
                     
-                # Copy the best image
-                best_image_idx = torch.argmax(similarities).item()
-                best_image_path = f"{source_dir}/iter_0/images/{best_image_idx}.png"
-                shutil.copy(best_image_path, f"{dest_dir}/0.png")
-                all_recons[sample, s] = transforms.ToTensor()(Image.open(best_image_path).resize((512,512)).convert("RGB")).unsqueeze(0)
-                
-        torch.save(all_recons, f"{root}/{new_model_name}_all_recons.pt")
+                torch.save(all_recons, f"{root}/evals/{new_model_name}_subj0{subject}_all_recons_{mode}.pt")

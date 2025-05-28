@@ -149,7 +149,7 @@ def load_nsd(vector, subject, loader=True, ae=False, encoderModel=None, average=
 #stimtype: all, simple, complex
 #mode: vision, imagery
 #epoch is for attention data, epoch 0 is the first beta associated with a trial (presumably the cue period), 1 is the second (barrage period), 2 returns both epochs
-def load_nsd_mental_imagery(vector, subject, mode, stimtype="all", average=False, nest=False, epoch=0):
+def load_nsd_mental_imagery(vector='images', subject=1, mode="imagery", stimtype="all", average=False, nest=False, epoch=0):
     img_stim_file = "data/nsddata_stimuli/stimuli/nsd/nsdimagery_stimuli.pkl3"
     imagery_data_path = "/export/raid1/home/tsaharoy/NSD_Imagery/everything_NSD_imagery"
     ex_file = open(img_stim_file, 'rb')
